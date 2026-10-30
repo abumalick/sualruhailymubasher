@@ -79,7 +79,7 @@ export function buildHome(state: StateDTO, ticks: Ticks, now: Date): HomeModel {
     }
     if (awaiting !== null) items.push({ kind: 'awaiting-recording', courseId: c.id, lessonNumber: awaiting });
 
-    if (c.next && !isLive && awaiting === null) {
+    if (c.next && !isLive) {
       items.push({ kind: 'prepare', courseId: c.id, next: c.next, done: ticks.read.has(`${c.id}:${c.next.number}`) });
     }
     perCourse.push({ course: c, items });
@@ -92,7 +92,7 @@ export function buildHome(state: StateDTO, ticks: Ticks, now: Date): HomeModel {
 
   if (live.isLive) {
     const course = state.courses.find((c) => c.id === live.courseId);
-    const lessonNumber = course ? (course.latest[0]?.number ?? 0) + 1 : null;
+    const lessonNumber = course ? (course.next?.number ?? (course.latest[0]?.number ?? 0) + 1) : null;
     const hero: Item = { kind: 'live', courseId: live.courseId, lessonNumber };
     const steps = course
       ? {

@@ -1,5 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CourseDTO, StateDTO } from '@albadr/shared';
 
 const store = new Map<string, string>();
@@ -69,6 +68,15 @@ describe('buildHome', () => {
     expect(h.steps?.lesson).toBe('current');
   });
 
+  it('live hero reads the prepare tick of next.number', () => {
+    const base = FIXTURE_STATE.courses[0];
+    const state = { ...live('tafsir-saadi'), courses: [{ ...base, next: { ...base.next!, number: 450 } }] };
+    const ticks: Ticks = { read: new Set(['tafsir-saadi:450']), reviewed: new Set() };
+    const h = buildHome(state, ticks, MON_0940);
+    expect(h.hero).toMatchObject({ kind: 'live', lessonNumber: 450 });
+    expect(h.steps?.prepare).toBe('done');
+  });
+
   it('live without a course: hero live with null course, all items as cards', () => {
     const h = buildHome(live(null), none, MON_0940);
     expect(h.hero).toEqual({ kind: 'live', courseId: null, lessonNumber: null });
@@ -131,6 +139,20 @@ describe('buildHome', () => {
     );
     const early = buildHome(state, none, new Date('2026-11-03T02:54:00Z'));
     expect([early.hero, ...early.cards]).not.toContainEqual(expect.objectContaining({ kind: 'awaiting-recording' }));
+  });
+
+  it('prepare stays available while a recording is awaited', () => {
+    const h = buildHome(FIXTURE_STATE, none, MON_2110);
+    const all = [h.hero, ...h.cards];
+    expect(all).toContainEqual({ kind: 'awaiting-recording', courseId: 'kitab-tawhid', lessonNumber: 3 });
+    expect(all).toContainEqual(expect.objectContaining({ kind: 'prepare', courseId: 'kitab-tawhid' }));
+  });
+
+  it('a review disappears once the next lesson has started', () => {
+    const before = buildHome(tafsirOnly(), none, new Date('2026-11-03T02:24:00Z'));
+    expect([before.hero, ...before.cards]).toContainEqual(expect.objectContaining({ kind: 'review' }));
+    const after = buildHome(tafsirOnly(), none, new Date('2026-11-03T02:26:00Z'));
+    expect([after.hero, ...after.cards]).not.toContainEqual(expect.objectContaining({ kind: 'review' }));
   });
 
   it('a cancelled lesson today is not awaited', () => {
