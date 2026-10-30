@@ -17,6 +17,7 @@ export interface HomeModel {
 }
 
 const AWAITING_DELAY_MS = 30 * 60_000;
+const LESSON_MS = 150 * 60_000;
 
 const nextStart = (c: CourseDTO) => (c.next ? lessonInstant(c.next.date, c.next.time).getTime() : Infinity);
 
@@ -56,30 +57,31 @@ export function buildHome(state: StateDTO, ticks: Ticks, now: Date): HomeModel {
     const items: Item[] = [];
     const session = todaySession(c, today, weekday);
 
+    const start = session ? lessonInstant(today, session.time).getTime() : null;
+    const recordedToday = latest?.hijriDate === hijri;
     if (session) {
-      const start = lessonInstant(today, session.time).getTime();
-      const recordedToday = latest?.hijriDate === hijri;
       todayList.push({
         courseId: c.id,
         time: session.time,
-        status: isLive ? 'live' : recordedToday || nowMs >= start ? 'done' : 'upcoming',
+        status: isLive ? 'live' : recordedToday || nowMs >= start! + LESSON_MS ? 'done' : 'upcoming',
       });
     }
 
-    if (latest?.recordingUrl && nowMs < nextStart(c)) {
+    const broadcastCounted = !!latest && !!c.next && c.next.number > latest.number + 1;
+
+    if (latest?.recordingUrl && nowMs < nextStart(c) && !broadcastCounted) {
       items.push({ kind: 'review', courseId: c.id, lesson: latest, done: ticks.reviewed.has(`${c.id}:${latest.number}`) });
     }
 
     let awaiting: number | null = null;
-    if (!isLive) {
-      if (latest?.hijriDate === hijri && !latest.recordingUrl) awaiting = latest.number;
-      else if (session && latest && latest.hijriDate !== hijri && nowMs >= lessonInstant(today, session.time).getTime() + AWAITING_DELAY_MS) {
-        awaiting = latest.number + 1;
-      }
+    if (!isLive && latest) {
+      const inWindow = start !== null && nowMs >= start + AWAITING_DELAY_MS && nowMs < start + LESSON_MS;
+      if (recordedToday && !latest.recordingUrl) awaiting = latest.number;
+      else if (!recordedToday && (broadcastCounted || inWindow)) awaiting = latest.number + 1;
     }
     if (awaiting !== null) items.push({ kind: 'awaiting-recording', courseId: c.id, lessonNumber: awaiting });
 
-    if (c.next && !isLive) {
+    if (c.next && !isLive && nowMs < nextStart(c)) {
       items.push({ kind: 'prepare', courseId: c.id, next: c.next, done: ticks.read.has(`${c.id}:${c.next.number}`) });
     }
     perCourse.push({ course: c, items });
@@ -126,7 +128,7 @@ export function buildHome(state: StateDTO, ticks: Ticks, now: Date): HomeModel {
   if (hero.kind === 'prepare') {
     steps = { prepare: readTick(hero.next.number) ?? 'current', lesson: 'todo', review: 'todo' };
   } else if (hero.kind === 'review') {
-    steps = { prepare: 'done', lesson: 'done', review: 'current' };
+    steps = { prepare: readTick(hero.lesson.number) ?? 'todo', lesson: 'done', review: 'current' };
   } else {
     const n = (hero as Extract<Item, { kind: 'awaiting-recording' }>).lessonNumber;
     steps = { prepare: readTick(n) ?? 'todo', lesson: 'done', review: 'todo' };

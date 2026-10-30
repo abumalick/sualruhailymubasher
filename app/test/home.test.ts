@@ -28,6 +28,8 @@ const live = (courseId: string | null): StateDTO => ({
 });
 
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
+const tawhid = FIXTURE_STATE.courses[1];
+const EVENING = withCourse('kitab-tawhid', { next: { ...tawhid.next!, date: '2026-11-03', number: 4 } });
 const MON_0940 = new Date('2026-11-02T06:40:00Z');
 const MON_1531 = new Date('2026-11-02T12:31:00Z');
 
@@ -44,7 +46,7 @@ describe('time helpers', () => {
 
 describe('buildHome', () => {
   it('Mon 21:10 -> prepare tafsir hero, review 443 card', () => {
-    const h = buildHome(FIXTURE_STATE, none, MON_2110);
+    const h = buildHome(EVENING, none, MON_2110);
     expect(h.hero).toMatchObject({ kind: 'prepare', courseId: 'tafsir-saadi', done: false });
     expect(h.cards).toContainEqual(expect.objectContaining({ kind: 'review', courseId: 'tafsir-saadi' }));
     expect(h.cards).toContainEqual({ kind: 'awaiting-recording', courseId: 'kitab-tawhid', lessonNumber: 3 });
@@ -56,7 +58,9 @@ describe('buildHome', () => {
     expect(h.hero).toMatchObject({ kind: 'review', courseId: 'tafsir-saadi' });
     expect((h.hero as { lesson: { number: number } }).lesson.number).toBe(443);
     expect(h.cards).toContainEqual(expect.objectContaining({ kind: 'prepare', next: expect.objectContaining({ number: 444 }) }));
-    expect(h.steps).toEqual({ prepare: 'done', lesson: 'done', review: 'current' });
+    expect(h.steps).toEqual({ prepare: 'todo', lesson: 'done', review: 'current' });
+    const read = buildHome(FIXTURE_STATE, { read: new Set(['tafsir-saadi:443']), reviewed: new Set() }, MON_0940);
+    expect(read.steps).toEqual({ prepare: 'done', lesson: 'done', review: 'current' });
   });
 
   it('live with a course: hero live, ticks ignored, course items become cards', () => {
@@ -90,7 +94,7 @@ describe('buildHome', () => {
     const h = buildHome(FIXTURE_STATE, ticks, MON_0940);
     expect(h.hero).toMatchObject({ kind: 'review', courseId: 'kitab-tawhid' });
     expect(h.cards).toContainEqual(expect.objectContaining({ kind: 'review', courseId: 'tafsir-saadi', done: true }));
-    expect(h.steps).toEqual({ prepare: 'done', lesson: 'done', review: 'current' });
+    expect(h.steps).toEqual({ prepare: 'todo', lesson: 'done', review: 'current' });
   });
 
   it('all reviews done at 09:40 -> prepare of the soonest course', () => {
@@ -142,7 +146,7 @@ describe('buildHome', () => {
   });
 
   it('prepare stays available while a recording is awaited', () => {
-    const h = buildHome(FIXTURE_STATE, none, MON_2110);
+    const h = buildHome(EVENING, none, MON_2110);
     const all = [h.hero, ...h.cards];
     expect(all).toContainEqual({ kind: 'awaiting-recording', courseId: 'kitab-tawhid', lessonNumber: 3 });
     expect(all).toContainEqual(expect.objectContaining({ kind: 'prepare', courseId: 'kitab-tawhid' }));
@@ -159,8 +163,61 @@ describe('buildHome', () => {
     const state = withCourse('kitab-tawhid', {
       exceptions: [{ id: 1, courseId: null, kind: 'cancel', dateFrom: '2026-11-02', dateTo: null, time: null, note: '' }],
     });
-    const h = buildHome(state, none, MON_2110);
+    const h = buildHome(state, none, new Date('2026-11-02T15:51:00Z'));
     expect([h.hero, ...h.cards]).not.toContainEqual(expect.objectContaining({ kind: 'awaiting-recording' }));
+  });
+
+  it('no prepare for a lesson already underway; awaiting covers the course (live-like Sun 06:40)', () => {
+    const state = withCourse('tafsir-saadi', {
+      time: '05:34',
+      latest: [{ ...FIXTURE_STATE.courses[0].latest[0], number: 452, hijriDate: '18-05-1448' }],
+      next: { ...FIXTURE_STATE.courses[0].next!, date: '2026-11-01', time: '05:34', number: 453 },
+    });
+    const h = buildHome({ ...state, courses: [state.courses[0]] }, none, new Date('2026-11-01T03:40:00Z'));
+    const all = [h.hero, ...h.cards];
+    expect(all).toContainEqual({ kind: 'awaiting-recording', courseId: 'tafsir-saadi', lessonNumber: 453 });
+    expect(all).not.toContainEqual(expect.objectContaining({ kind: 'prepare' }));
+    expect(all).not.toContainEqual(expect.objectContaining({ kind: 'review' }));
+  });
+
+  describe('a held day without a detected broadcast (Friday)', () => {
+    const friday = (nextNumber: number) => {
+      const s = withCourse('tafsir-saadi', {
+        time: '05:34',
+        latest: [{ ...FIXTURE_STATE.courses[0].latest[0], number: 452, hijriDate: '18-05-1448' }],
+        next: { ...FIXTURE_STATE.courses[0].next!, date: '2026-11-01', time: '05:34', number: nextNumber },
+      });
+      return { ...s, courses: [s.courses[0]] };
+    };
+    const FRI = ['2026-10-30T07:00:00Z', '2026-10-30T13:00:00Z', '2026-10-30T18:00:00Z'].map((t) => new Date(t));
+
+    it('next = latest + 1 -> no awaiting card all day, review and prepare stay', () => {
+      for (const now of FRI) {
+        const all = (({ hero, cards }) => [hero, ...cards])(buildHome(friday(453), none, now));
+        expect(all).not.toContainEqual(expect.objectContaining({ kind: 'awaiting-recording' }));
+        expect(all).toContainEqual(expect.objectContaining({ kind: 'review', lesson: expect.objectContaining({ number: 452 }) }));
+        expect(all).toContainEqual(expect.objectContaining({ kind: 'prepare', next: expect.objectContaining({ number: 453 }) }));
+      }
+    });
+
+    it('next = latest + 2 (broadcast counted) -> awaiting latest + 1, previous review gone', () => {
+      for (const now of FRI) {
+        const all = (({ hero, cards }) => [hero, ...cards])(buildHome(friday(454), none, now));
+        expect(all).toContainEqual({ kind: 'awaiting-recording', courseId: 'tafsir-saadi', lessonNumber: 453 });
+        expect(all).not.toContainEqual(expect.objectContaining({ kind: 'review' }));
+      }
+    });
+  });
+
+  it('today status: upcoming until start + 150 min unless recorded today, live while live', () => {
+    const at = (iso: string, state = tafsirOnly()) => buildHome(state, none, new Date(iso)).today[0].status;
+    const unrecorded = withCourse('tafsir-saadi', { latest: FIXTURE_STATE.courses[0].latest.slice(1) });
+    const one = { ...unrecorded, courses: [unrecorded.courses[0]] };
+    expect(at('2026-11-02T02:35:00Z', one)).toBe('upcoming');
+    expect(at('2026-11-02T04:54:00Z', one)).toBe('upcoming');
+    expect(at('2026-11-02T04:56:00Z', one)).toBe('done');
+    expect(at('2026-11-02T02:35:00Z')).toBe('done');
+    expect(at('2026-11-02T02:35:00Z', { ...one, live: { ...one.live, isLive: true, courseId: 'tafsir-saadi' } })).toBe('live');
   });
 
   it('today list reports status per held course', () => {
