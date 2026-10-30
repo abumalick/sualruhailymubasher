@@ -95,7 +95,7 @@ function Body(p: HomeProps & { state: StateDTO; model: HomeModel }) {
         <Section title="حضّر الدرس القادم">
           {prepares.map((i) => {
             const c = course(i.courseId);
-            const href = bookHref(c, i.next.pdfIndex, i.next.startPage) ?? `#/course/${c.id}`;
+            const href = bookHref(c, i.next.pdfIndex, i.next.startPage, true) ?? `#/course/${c.id}`;
             return (
               <div class="lesson">
                 <a class="mini dashed" href={href} aria-label="اقرأ في الكتاب">
@@ -159,7 +159,7 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
   const { item } = p;
   if (item.kind === 'live') {
     const c = item.courseId ? p.state.courses.find((x) => x.id === item.courseId) : undefined;
-    const book = c?.next ? bookHref(c, c.next.pdfIndex, c.next.startPage) : null;
+    const book = c?.next ? bookHref(c, c.next.pdfIndex, c.next.startPage, true) : null;
     return (
       <div class="hero">
         <Disc icon="play" label="استمع إلى البث" onClick={p.onLive} />
@@ -190,7 +190,7 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
   const slot = slotName(c.slot);
 
   if (item.kind === 'prepare') {
-    const book = bookHref(c, item.next.pdfIndex, item.next.startPage);
+    const book = bookHref(c, item.next.pdfIndex, item.next.startPage, true);
     return (
       <div class="hero">
         <Disc icon="i-book" label="اقرأ في الكتاب" onClick={book ? () => (location.hash = book) : undefined} />

@@ -4,6 +4,7 @@ import { startLive } from './audio/live';
 import { player } from './audio/player';
 import { useRoute } from './router';
 import { boot, nowOverride, toggleTick, useAppData } from './store';
+import { Book } from './ui/Book';
 import { Course } from './ui/Course';
 import { Courses } from './ui/Courses';
 import { Home } from './ui/Home';
@@ -42,6 +43,21 @@ export function App() {
   } else if (route.name === 'course') {
     const course = state?.courses.find((c) => c.id === route.id);
     if (course) page = <Course key={course.id} course={course} ticks={ticks} onTick={onTick} onPlay={onPlay} />;
+  }
+
+  if (route.name === 'book') {
+    const course = state?.courses.find((c) => c.id === route.id);
+    return (
+      <div class="shell">
+        <Defs />
+        {course ? (
+          <Book key={`${course.id}/${route.pdfIndex}`} course={course} pdfIndex={route.pdfIndex} page={route.page} marker={route.marker} ticks={ticks} onTick={onTick} />
+        ) : (
+          <p class="quiet">{error ? 'تعذّر التحديث' : '…'}</p>
+        )}
+        <MiniPlayer />
+      </div>
+    );
   }
 
   return (

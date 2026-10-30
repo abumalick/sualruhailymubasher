@@ -36,7 +36,7 @@ export function passageLine(next: NextPassageDTO): string {
   return next.estEndPage === null ? start : `${start} · إلى نحو ص ${ar(next.estEndPage)}`;
 }
 
-export function bookHref(course: CourseDTO, pdfIndex: number | null, page: number | null): string | null {
+export function bookHref(course: CourseDTO, pdfIndex: number | null, page: number | null, marker = false): string | null {
   if (course.pdfUrls.length === 0 || page === null) return null;
-  return `#/book/${course.id}/${pdfIndex ?? 0}/${page}`;
+  return `#/book/${course.id}/${pdfIndex ?? 0}/${page}${marker ? '?marker=1' : ''}`;
 }

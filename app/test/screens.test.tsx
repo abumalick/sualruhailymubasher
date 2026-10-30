@@ -52,7 +52,7 @@ describe('Home hero', () => {
     expect(screen.getByText('حضّر لدرس الفجر غدًا')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'شرح تفسير السعدي' })).toBeTruthy();
     expect(screen.getByText('يتابع من حيث توقف الدرس ٤٤٣ · إلى نحو ص ٣١٤')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'اقرأ في الكتاب · ص ٣١٢' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/312');
+    expect(screen.getByRole('link', { name: 'اقرأ في الكتاب · ص ٣١٢' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/312?marker=1');
     expect(screen.getByRole('button', { name: 'قرأتُه' }).getAttribute('aria-pressed')).toBe('false');
   });
 
@@ -135,7 +135,7 @@ describe('Course page', () => {
       'false',
       'false',
     ]);
-    expect(screen.getByRole('link', { name: 'الكتاب · ص ٣١٢' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/312');
+    expect(screen.getByRole('link', { name: 'الكتاب · ص ٣١٢' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/312?marker=1');
     await act(async () => observer!.cb([{ isIntersecting: true }]));
     expect(api.fetchLessons).toHaveBeenCalledWith('tafsir-saadi', 441);
     await waitFor(() => expect(titles()).toEqual(['الدرس ٤٤٣', 'الدرس ٤٤٢', 'الدرس ٤٤١', 'الدرس ٤٤٠', 'الدرس ٤٣٩']));

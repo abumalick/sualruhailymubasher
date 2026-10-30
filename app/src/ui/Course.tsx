@@ -56,7 +56,7 @@ export function Course({ course, ticks, onTick, onPlay }: Props) {
   const next = course.next;
   const page = next?.startPage ?? latest?.endPage ?? latest?.startPage ?? null;
   const pdfIndex = next?.startPage != null ? next.pdfIndex : (latest?.endPdfIndex ?? latest?.pdfIndex ?? null);
-  const book = bookHref(course, pdfIndex, page);
+  const book = bookHref(course, pdfIndex, page, next?.startPage != null);
 
   return (
     <>
