@@ -26,6 +26,11 @@ describe('fetchState', () => {
     expect((f.mock.calls[0][1] as RequestInit).signal).toBeInstanceOf(AbortSignal);
   });
 
+  it('ignores a cached state of another shape', async () => {
+    store.set('state', JSON.stringify({ generatedAt: 'x', courses: {} }));
+    expect(await loadCachedState()).toBeNull();
+  });
+
   it('falls back to the cache when the request rejects', async () => {
     store.set('state', JSON.stringify(FIXTURE_STATE));
     const r = await fetchState((async () => { throw new TypeError('offline'); }) as typeof fetch);

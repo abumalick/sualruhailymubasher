@@ -3,7 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { startLive } from './audio/live';
 import { player } from './audio/player';
 import { useRoute } from './router';
-import { boot, nowOverride, toggleTick, useAppData } from './store';
+import { boot, nowOverride, refresh, toggleTick, useAppData } from './store';
 import { Book } from './ui/Book';
 import { Course } from './ui/Course';
 import { Courses } from './ui/Courses';
@@ -39,7 +39,7 @@ export function App() {
 
   let page = null;
   if (route.name === 'home') {
-    page = <Home state={state} ticks={ticks} now={now} error={error} onTick={onTick} onPlay={onPlay} onLive={onLive} />;
+    page = <Home state={state} ticks={ticks} now={now} error={error} onTick={onTick} onPlay={onPlay} onLive={onLive} onRetry={() => void refresh()} />;
   } else if (route.name === 'courses') {
     page = <Courses state={state} />;
   } else if (route.name === 'course') {

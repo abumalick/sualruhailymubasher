@@ -110,6 +110,13 @@ describe('Home hero', () => {
     expect(onTick).toHaveBeenCalledWith('read', 'kitab-tawhid', 3);
   });
 
+  it('first launch offline without cache offers a retry', () => {
+    const onRetry = vi.fn();
+    render(<Home state={null} ticks={none()} now={MON_0940} error onTick={noop} onPlay={noop} onLive={noop} onRetry={onRetry} />);
+    fireEvent.click(screen.getByRole('button', { name: 'إعادة المحاولة' }));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
   it('shows the Medina hijri date in the header', () => {
     home(FIXTURE_STATE, MON_0940);
     expect(document.querySelector('.head .date')?.textContent).toBe('الاثنين٢٢ جمادى الأولى');

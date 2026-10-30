@@ -34,11 +34,13 @@ export function hijriToday(now: Date): string {
   return `${get('day')}-${get('month')}-${get('year')}`;
 }
 
-export function hijriLabel(now: Date): string {
-  return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', {
+export function hijriLabel(now: Date): { weekday: string; day: string } {
+  const parts = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', {
     timeZone: 'UTC',
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-  }).format(shifted(now));
+  }).formatToParts(shifted(now));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  return { weekday: get('weekday'), day: `${get('day')} ${get('month')}` };
 }

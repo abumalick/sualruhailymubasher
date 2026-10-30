@@ -14,13 +14,14 @@ export interface HomeProps {
   onTick: (kind: TickKind, courseId: string, n: number) => void;
   onPlay: (lesson: LessonDTO, course: CourseDTO) => void;
   onLive: () => void;
+  onRetry?: () => void;
 }
 
 type Of<K extends Item['kind']> = Extract<Item, { kind: K }>;
 
 export function Home(p: HomeProps) {
   const model = p.state ? buildHome(p.state, p.ticks, p.now) : null;
-  const [weekday, day] = hijriLabel(p.now).split('، ');
+  const { weekday, day } = hijriLabel(p.now);
   return (
     <>
       <div class="head">
@@ -35,6 +36,11 @@ export function Home(p: HomeProps) {
         </div>
       </div>
       {p.error && <p class="err">تعذّر التحديث</p>}
+      {p.error && !p.state && p.onRetry && (
+        <button class="chip retry" onClick={p.onRetry}>
+          إعادة المحاولة
+        </button>
+      )}
       {p.state && model && <Body {...p} state={p.state} model={model} />}
     </>
   );

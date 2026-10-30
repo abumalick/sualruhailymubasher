@@ -40,7 +40,7 @@ describe('time helpers', () => {
     expect(medinaDate(new Date('2026-11-02T21:30:00Z'))).toBe('2026-11-03');
     expect(hijriToday(MON_0940)).toBe('22-05-1448');
     expect(lessonInstant('2026-11-03', '05:25').toISOString()).toBe('2026-11-03T02:25:00.000Z');
-    expect(hijriLabel(MON_0940)).toMatch(/الاثنين/);
+    expect(hijriLabel(MON_0940)).toEqual({ weekday: 'الاثنين', day: '٢٢ جمادى الأولى' });
   });
 });
 

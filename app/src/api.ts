@@ -8,7 +8,8 @@ export async function loadCachedState(): Promise<StateDTO | null> {
   const { value } = await Preferences.get({ key: STATE_KEY });
   if (!value) return null;
   try {
-    return JSON.parse(value) as StateDTO;
+    const state = JSON.parse(value) as StateDTO;
+    return state?.live && Array.isArray(state.courses) && Array.isArray(state.links) ? state : null;
   } catch {
     return null;
   }
