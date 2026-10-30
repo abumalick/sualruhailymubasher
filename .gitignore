@@ -1,3 +1,5 @@
 .tmp/
 .superpowers/
 node_modules/
+.dev.vars
+.wrangler/
