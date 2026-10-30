@@ -13,6 +13,7 @@ const lesson = (number: number, o: Partial<LessonDTO> = {}): LessonDTO => ({
   startPage: null,
   endPoint: null,
   endPage: null,
+  endPdfIndex: null,
   recordingUrl: null,
   detailPath: '',
   ...o,
@@ -52,6 +53,11 @@ describe('nextPassage', () => {
       estEndPage: 18,
       estimated: false,
     });
+  });
+
+  it('takes the volume of the transcribed end', () => {
+    const latest = [lesson(3, { startPage: 300, endPage: 2, endPoint: 'باب', pdfIndex: 0, endPdfIndex: 1 })];
+    expect(nextPassage(course, latest, next)).toMatchObject({ pdfIndex: 1, startPage: 2, estimated: false });
   });
 
   it('leaves pages null when nothing is known', () => {

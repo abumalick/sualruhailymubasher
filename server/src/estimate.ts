@@ -27,6 +27,7 @@ export function nextPassage(
   if (last?.endPoint && last.endPage !== null) {
     return {
       ...base,
+      pdfIndex: last.endPdfIndex ?? last.pdfIndex,
       startPoint: last.endPoint,
       startPage: last.endPage,
       estEndPage: last.endPage + pace(latest),

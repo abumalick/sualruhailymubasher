@@ -70,6 +70,7 @@ describe('lessons', () => {
       startPage: null,
       endPoint: null,
       endPage: null,
+      endPdfIndex: null,
     });
     expect((await lessonsBefore(db, 'l-list', 4, 2)).map((l) => l.number)).toEqual([3, 2]);
     expect((await lessonsBefore(db, 'l-list', null, 2)).map((l) => l.number)).toEqual([5, 4]);
@@ -84,6 +85,15 @@ describe('lessons', () => {
     expect(l).toMatchObject({ recordingUrl: 'https://x/a.mp3', endPoint: 'e', endPage: 7, pdfIndex: 2, startPoint: 'point 1' });
     expect(await patchLesson(db, 'l-patch', 99, { endPage: 1 })).toBe(false);
     expect(await patchLesson(db, 'l-patch', 99, {})).toBe(false);
+  });
+
+  it('insertLessonIfNew starts a lesson where the previous one ended', async () => {
+    await insertLessonIfNew(db, 'l-chain', lesson(1));
+    await patchLesson(db, 'l-chain', 1, { pdfIndex: 0, endPage: 40, endPdfIndex: 1 });
+    await insertLessonIfNew(db, 'l-chain', lesson(2));
+    expect((await latestLessons(db, 'l-chain', 1))[0]).toMatchObject({ number: 2, startPage: 40, pdfIndex: 1 });
+    await insertLessonIfNew(db, 'l-chain', lesson(3));
+    expect((await latestLessons(db, 'l-chain', 1))[0]).toMatchObject({ number: 3, startPage: null, pdfIndex: null });
   });
 
   it('pendingTranscriptions: recording set, no end_page, oldest first', async () => {

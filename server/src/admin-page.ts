@@ -252,11 +252,12 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
       ['pdfIndex', 'رقم ملف PDF', 'number', l.pdfIndex],
       ['startPage', 'صفحة البداية', 'number', l.startPage],
       ['endPoint', 'نقطة النهاية', 'text', l.endPoint],
-      ['endPage', 'صفحة النهاية', 'number', l.endPage]
+      ['endPage', 'صفحة النهاية', 'number', l.endPage],
+      ['endPdfIndex', 'رقم ملف PDF للنهاية (إن اختلف)', 'number', l.endPdfIndex]
     ];
     var inputs = fields.map(function (f) {
       var inp = el('input', { type: f[2], value: f[3] === null || f[3] === undefined ? '' : String(f[3]) });
-      if (f[2] === 'number') inp.min = f[0] === 'pdfIndex' ? 0 : 1;
+      if (f[2] === 'number') inp.min = /pdfIndex/i.test(f[0]) ? 0 : 1;
       return inp;
     });
     var msg = el('div', { className: 'msg' });
@@ -266,7 +267,8 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
       fields.forEach(function (f, i) {
         var raw = inputs[i].value.trim();
         var orig = f[3] === null || f[3] === undefined ? '' : String(f[3]);
-        if (raw === orig || raw === '') return;
+        if (raw === orig) return;
+        if (raw === '') { if (f[0] !== 'startPoint') patch[f[0]] = null; return; }
         patch[f[0]] = f[2] === 'number' ? Number(raw) : raw;
       });
       if (!Object.keys(patch).length) { msg.textContent = 'لا توجد تغييرات'; msg.className = 'msg'; return; }

@@ -109,11 +109,36 @@ describe('lessons', () => {
     expect(row).toEqual({ end_point: 'نهاية', end_page: 12 });
   });
 
+  it('PATCH null clears a field', async () => {
+    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(5));
+    await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { endPoint: 'نهاية', endPage: 12, endPdfIndex: 1 });
+    expect((await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { endPoint: null, endPage: null, endPdfIndex: null })).status).toBe(204);
+    const row = await env.DB.prepare('SELECT end_point, end_page, end_pdf_index FROM lessons WHERE number = 5').first();
+    expect(row).toEqual({ end_point: null, end_page: null, end_pdf_index: null });
+  });
+
+  it('PATCH endPage fills the next lesson start when unknown', async () => {
+    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(5));
+    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(6));
+    await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { pdfIndex: 1, endPage: 12 });
+    const start = () => env.DB.prepare('SELECT start_page, pdf_index FROM lessons WHERE number = 6').first();
+    expect(await start()).toEqual({ start_page: 12, pdf_index: 1 });
+    await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { endPage: 14, endPdfIndex: 2 });
+    expect(await start()).toEqual({ start_page: 12, pdf_index: 1 });
+  });
+
+  it('PATCH endPdfIndex is used for the next lesson volume', async () => {
+    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(5));
+    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(6));
+    await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { pdfIndex: 0, endPage: 2, endPdfIndex: 1 });
+    expect(await env.DB.prepare('SELECT start_page, pdf_index FROM lessons WHERE number = 6').first()).toEqual({ start_page: 2, pdf_index: 1 });
+  });
+
   it('404 for a missing lesson', async () => {
     expect((await call('PATCH', '/api/admin/lessons/tafsir-saadi/99', { endPage: 3 })).status).toBe(404);
   });
 
-  it.each([{ endPage: 'x' }, { endPage: 0 }, { pdfIndex: -1 }, { startPoint: 3 }, { other: 1 }, { endPage: 1.5 }])(
+  it.each([{ endPage: 'x' }, { endPage: 0 }, { pdfIndex: -1 }, { startPoint: 3 }, { other: 1 }, { endPage: 1.5 }, { startPoint: null }, { endPdfIndex: -1 }])(
     'rejects invalid patch %#',
     async (body) => {
       await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(5));

@@ -34,7 +34,7 @@ const isDate = (v: unknown) => isString(v) && /^\d{4}-\d{2}-\d{2}$/.test(v) && !
 const isTime = (v: unknown) => isString(v) && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
 const KINDS = ['cancel', 'pause', 'extra', 'move'];
-const LESSON_KEYS = ['startPoint', 'pdfIndex', 'startPage', 'endPoint', 'endPage'];
+const LESSON_KEYS = ['startPoint', 'pdfIndex', 'startPage', 'endPoint', 'endPage', 'endPdfIndex'];
 
 function parseCourse(b: unknown): CourseInput | null {
   if (!isObject(b)) return null;
@@ -57,10 +57,9 @@ function parseLessonPatch(b: unknown): LessonPatch | null {
   if (!isObject(b) || Object.keys(b).some((k) => !LESSON_KEYS.includes(k))) return null;
   const ok =
     (b.startPoint === undefined || isString(b.startPoint)) &&
-    (b.endPoint === undefined || isString(b.endPoint)) &&
-    (b.pdfIndex === undefined || isInt(b.pdfIndex, 0)) &&
-    (b.startPage === undefined || isInt(b.startPage, 1)) &&
-    (b.endPage === undefined || isInt(b.endPage, 1));
+    (b.endPoint === undefined || b.endPoint === null || isString(b.endPoint)) &&
+    [b.pdfIndex, b.endPdfIndex].every((v) => v === undefined || v === null || isInt(v, 0)) &&
+    [b.startPage, b.endPage].every((v) => v === undefined || v === null || isInt(v, 1));
   return ok ? (b as LessonPatch) : null;
 }
 

@@ -50,6 +50,7 @@ const toLesson = (r: Row): LessonDTO => ({
   startPage: r.start_page as number | null,
   endPoint: r.end_point as string | null,
   endPage: r.end_page as number | null,
+  endPdfIndex: r.end_pdf_index as number | null,
   recordingUrl: r.recording_url as string | null,
   detailPath: r.detail_path as string,
 });
@@ -110,7 +111,7 @@ export const latestLessons = (db: D1Database, courseId: string, limit: number) =
 export async function insertLessonIfNew(
   db: D1Database,
   courseId: string,
-  l: Omit<LessonDTO, 'pdfIndex' | 'startPage' | 'endPoint' | 'endPage'>,
+  l: Omit<LessonDTO, 'pdfIndex' | 'startPage' | 'endPoint' | 'endPage' | 'endPdfIndex'>,
 ): Promise<boolean> {
   const res = await db
     .prepare(
@@ -119,7 +120,23 @@ export async function insertLessonIfNew(
     )
     .bind(courseId, l.number, l.hijriDate, l.startPoint, l.recordingUrl, l.detailPath, new Date().toISOString())
     .run();
-  return res.meta.changes > 0;
+  if (res.meta.changes === 0) return false;
+  await fillStartFromPrevious(db, courseId, l.number);
+  return true;
+}
+
+async function fillStartFromPrevious(db: D1Database, courseId: string, number: number): Promise<void> {
+  await db
+    .prepare(
+      `WITH p AS (SELECT end_page, coalesce(end_pdf_index, pdf_index) AS idx FROM lessons
+                 WHERE course_id = ?1 AND number = ?2 - 1 AND end_page IS NOT NULL)
+       UPDATE lessons SET
+         start_page = coalesce(start_page, (SELECT end_page FROM p)),
+         pdf_index = coalesce(pdf_index, (SELECT idx FROM p))
+       WHERE course_id = ?1 AND number = ?2 AND EXISTS (SELECT 1 FROM p)`,
+    )
+    .bind(courseId, number)
+    .run();
 }
 
 export async function setRecordingUrl(db: D1Database, courseId: string, number: number, url: string): Promise<void> {
@@ -135,6 +152,7 @@ const PATCH_COLUMNS: Record<keyof LessonPatch, string> = {
   startPage: 'start_page',
   endPoint: 'end_point',
   endPage: 'end_page',
+  endPdfIndex: 'end_pdf_index',
 };
 
 export async function patchLesson(db: D1Database, courseId: string, number: number, p: LessonPatch): Promise<boolean> {
@@ -151,7 +169,9 @@ export async function patchLesson(db: D1Database, courseId: string, number: numb
     .prepare(`UPDATE lessons SET ${set} WHERE course_id = ? AND number = ?`)
     .bind(...entries.map((k) => p[k]), courseId, number)
     .run();
-  return res.meta.changes > 0;
+  if (res.meta.changes === 0) return false;
+  if (p.endPage !== undefined || p.endPdfIndex !== undefined) await fillStartFromPrevious(db, courseId, number + 1);
+  return true;
 }
 
 export async function listExceptions(db: D1Database, fromDate: string): Promise<ExceptionDTO[]> {
