@@ -36,10 +36,17 @@ describe('parseSeriesPage', () => {
     expect(entries.every((e) => Number.isInteger(e.number))).toBe(true);
   });
 
-  it('normalizes Arabic-Indic digits', () => {
-    const html = link('/detail/abc', '٠٠٣ من قوله: كذا ١١-٠٥-١٤٤٨');
+  it('normalizes Arabic-Indic digits in the number and date only', () => {
+    const html = link('/detail/abc', '٠٠٣ من الآية ٢٧ إلى ٣٠ ١١-٠٥-١٤٤٨');
     expect(parseSeriesPage(html)).toEqual([
-      { number: 3, startPoint: 'من قوله: كذا', hijriDate: '11-05-1448', detailPath: '/detail/abc' },
+      { number: 3, startPoint: 'من الآية ٢٧ إلى ٣٠', hijriDate: '11-05-1448', detailPath: '/detail/abc' },
+    ]);
+  });
+
+  it('decodes &nbsp; and numeric entities', () => {
+    const html = link('/detail/n', '006&nbsp;قوله&#58; &#x627;لله&#39;s 02-01-1448');
+    expect(parseSeriesPage(html)).toEqual([
+      { number: 6, startPoint: "قوله: الله's", hijriDate: '02-01-1448', detailPath: '/detail/n' },
     ]);
   });
 

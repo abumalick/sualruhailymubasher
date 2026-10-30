@@ -7,7 +7,7 @@ export interface SeriesEntry {
 
 const ARABIC_INDIC_ZERO = 0x0660;
 const ENTRY_RE = /<a\s+href="(\/detail\/[^"]+)"[^>]*>([^<]*)<\/a>/g;
-const TITLE_RE = /^\s*(\d{1,4})\s+(.+?)\s+(\d{2}-\d{2}-\d{4})\s*$/;
+const TITLE_RE = /^\s*([\d٠-٩]{1,4})\s+(.+?)\s+([\d٠-٩]{2}-[\d٠-٩]{2}-[\d٠-٩]{4})\s*$/;
 const MP3_RE = /https?:\/\/(?:www\.)?al-badr\.net\/download\/[^"' ]+\.mp3/;
 
 const toLatinDigits = (s: string) =>
@@ -15,8 +15,10 @@ const toLatinDigits = (s: string) =>
 
 const decodeEntities = (s: string) =>
   s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&nbsp;/g, ' ')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&');
@@ -27,10 +29,10 @@ export function parseSeriesPage(html: string): SeriesEntry[] {
   for (const m of html.matchAll(ENTRY_RE)) {
     const detailPath = m[1]!;
     if (seen.has(detailPath)) continue;
-    const t = TITLE_RE.exec(toLatinDigits(decodeEntities(m[2]!)));
+    const t = TITLE_RE.exec(decodeEntities(m[2]!));
     if (!t) continue;
     seen.add(detailPath);
-    entries.push({ number: Number(t[1]), startPoint: t[2]!, hijriDate: t[3]!, detailPath });
+    entries.push({ number: Number(toLatinDigits(t[1]!)), startPoint: t[2]!, hijriDate: toLatinDigits(t[3]!), detailPath });
   }
   return entries;
 }
