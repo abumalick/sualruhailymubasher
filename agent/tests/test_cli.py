@@ -43,3 +43,11 @@ def test_no_pending_exits_zero(monkeypatch, tmp_path):
     env(monkeypatch, tmp_path)
     transport = httpx.MockTransport(lambda r: httpx.Response(200, json=[]))
     assert cli.main([], transport=transport) == 0
+
+
+def test_index_book_command(tmp_path, monkeypatch, caplog):
+    caplog.set_level("INFO")
+    monkeypatch.delenv("API_BASE", raising=False)
+    monkeypatch.setattr("albadr_agent.cli.book_pages", lambda url, cache_dir: ["a", "b"])
+    assert cli.main(["index-book", "https://x.test/b.pdf", "--cache-dir", str(tmp_path)]) == 0
+    assert "indexed 2 page(s)" in caplog.text
