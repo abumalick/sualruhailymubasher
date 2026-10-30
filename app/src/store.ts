@@ -60,3 +60,10 @@ export function useAppData(): AppData {
   }, []);
   return snapshot;
 }
+
+export const currentState = (): StateDTO | null => data.state;
+
+export function watchState(cb: (state: StateDTO | null) => void): void {
+  cb(data.state);
+  listeners.add((d) => cb(d.state));
+}

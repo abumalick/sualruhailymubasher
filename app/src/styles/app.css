@@ -112,3 +112,9 @@ button:disabled { cursor: default; }
 .pager { display: flex; align-items: center; gap: 10px; }
 .pager .chip { font-size: 16px; padding: 2px 12px; }
 .pager .chip:disabled { opacity: .35; }
+
+.notifs { display: flex; flex-direction: column; gap: 8px; }
+.tog { width: 38px; height: 22px; border-radius: 99px; background: var(--line); position: relative; flex: none; border: 0; padding: 0; }
+.tog::after { content: ""; position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); }
+.tog.on { background: var(--btn); }
+.tog.on::after { right: auto; left: 3px; background: var(--btn-fg); }

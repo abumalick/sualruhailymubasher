@@ -10,6 +10,7 @@ import { Courses } from './ui/Courses';
 import { Home } from './ui/Home';
 import { LiveSheet } from './ui/LiveSheet';
 import { MiniPlayer } from './ui/MiniPlayer';
+import { Notifications } from './ui/Notifications';
 import { ar, arText } from './ui/format';
 import { NavBar } from './ui/NavBar';
 import { Defs } from './ui/Star';
@@ -43,6 +44,8 @@ export function App() {
   } else if (route.name === 'course') {
     const course = state?.courses.find((c) => c.id === route.id);
     if (course) page = <Course key={course.id} course={course} ticks={ticks} onTick={onTick} onPlay={onPlay} />;
+  } else if (route.name === 'notifications') {
+    page = <Notifications state={state} />;
   }
 
   if (route.name === 'book') {

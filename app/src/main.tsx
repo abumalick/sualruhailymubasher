@@ -9,5 +9,7 @@ import '@fontsource/ibm-plex-sans-arabic/600.css';
 import './styles/tokens.css';
 import './styles/app.css';
 import { App } from './App';
+import { initPush } from './push';
 
 render(<App />, document.getElementById('app')!);
+void initPush();
