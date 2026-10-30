@@ -1,0 +1,121 @@
+import { MediaSession } from '@capgo/capacitor-media-session';
+import { ARTWORK } from './artwork';
+
+export interface PlayerSrc {
+  url: string;
+  title: string;
+  subtitle: string;
+  kind: 'live' | 'recording';
+}
+export interface PlayerState {
+  src: PlayerSrc | null;
+  playing: boolean;
+  position: number;
+  duration: number;
+  error: string | null;
+}
+
+const ARTIST = 'الشيخ عبد الرزاق البدر';
+const listeners = new Set<(s: PlayerState) => void>();
+let audio: HTMLAudioElement | null = null;
+let state: PlayerState = { src: null, playing: false, position: 0, duration: 0, error: null };
+
+function set(patch: Partial<PlayerState>) {
+  state = { ...state, ...patch };
+  listeners.forEach((l) => l(state));
+}
+
+const quiet = (p: Promise<unknown>) => void p.catch(() => {});
+
+function syncPosition() {
+  if (!audio) return;
+  const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+  set({ position: audio.currentTime, duration });
+  if (state.src?.kind === 'recording' && duration > 0) {
+    quiet(MediaSession.setPositionState({ duration, position: audio.currentTime, playbackRate: 1 }));
+  }
+}
+
+function setPlaying(playing: boolean) {
+  set({ playing });
+  quiet(MediaSession.setPlaybackState({ playbackState: playing ? 'playing' : 'paused' }));
+}
+
+function element(): HTMLAudioElement {
+  if (audio) return audio;
+  const a = new Audio();
+  a.preload = 'auto';
+  a.addEventListener('play', () => setPlaying(true));
+  a.addEventListener('pause', () => setPlaying(false));
+  a.addEventListener('ended', () => setPlaying(false));
+  a.addEventListener('timeupdate', syncPosition);
+  a.addEventListener('durationchange', syncPosition);
+  a.addEventListener('error', () => {
+    set({ playing: false, error: 'تعذّر تشغيل الصوت' });
+    quiet(MediaSession.setPlaybackState({ playbackState: 'paused' }));
+  });
+  audio = a;
+  registerHandlers();
+  return a;
+}
+
+function registerHandlers() {
+  quiet(MediaSession.setActionHandler({ action: 'play' }, () => void player.resume()));
+  quiet(MediaSession.setActionHandler({ action: 'pause' }, () => player.pause()));
+  quiet(
+    MediaSession.setActionHandler({ action: 'seekto' }, (d) => {
+      if (state.src?.kind === 'recording' && d.seekTime != null) player.seek(d.seekTime);
+    }),
+  );
+}
+
+export const player = {
+  async play(src: PlayerSrc): Promise<void> {
+    const a = element();
+    if (!a.paused) a.pause();
+    a.src = src.url;
+    set({ src, playing: false, position: 0, duration: 0, error: null });
+    quiet(
+      MediaSession.setMetadata({
+        title: src.title,
+        artist: ARTIST,
+        album: src.subtitle,
+        artwork: [{ src: ARTWORK, sizes: '512x512', type: 'image/png' }],
+      }),
+    );
+    try {
+      await a.play();
+    } catch {
+      set({ playing: false, error: 'تعذّر تشغيل الصوت' });
+    }
+  },
+
+  pause(): void {
+    audio?.pause();
+  },
+
+  async resume(): Promise<void> {
+    if (!audio || !state.src) return;
+    set({ error: null });
+    try {
+      await audio.play();
+    } catch {
+      set({ playing: false, error: 'تعذّر تشغيل الصوت' });
+    }
+  },
+
+  seek(sec: number): void {
+    if (!audio || state.src?.kind !== 'recording') throw new Error('seek is only available for recordings');
+    audio.currentTime = Math.max(0, sec);
+    syncPosition();
+  },
+
+  onChange(cb: (s: PlayerState) => void): () => void {
+    listeners.add(cb);
+    return () => void listeners.delete(cb);
+  },
+
+  get state(): PlayerState {
+    return state;
+  },
+};

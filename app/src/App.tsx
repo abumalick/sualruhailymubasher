@@ -1,23 +1,43 @@
 import type { CourseDTO, LessonDTO } from '@albadr/shared';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import { player } from './audio/player';
 import { useRoute } from './router';
 import { boot, nowOverride, toggleTick, useAppData } from './store';
 import { Course } from './ui/Course';
 import { Courses } from './ui/Courses';
 import { Home } from './ui/Home';
+import { LiveSheet } from './ui/LiveSheet';
+import { MiniPlayer } from './ui/MiniPlayer';
+import { ar, arText } from './ui/format';
 import { NavBar } from './ui/NavBar';
 import { Defs } from './ui/Star';
 
-const onPlay = (_lesson: LessonDTO, _course: CourseDTO) => {};
-const onLive = () => {};
+const onPlay = (lesson: LessonDTO, course: CourseDTO) => {
+  if (!lesson.recordingUrl) return;
+  void player.play({
+    url: lesson.recordingUrl,
+    title: `${course.title} · الدرس ${ar(lesson.number)}`,
+    subtitle: arText(lesson.startPoint),
+    kind: 'recording',
+  });
+};
 
 export function App() {
   document.documentElement.dir = 'rtl';
   document.documentElement.lang = 'ar';
   const route = useRoute();
   const { state, ticks, error } = useAppData();
+  const [sheet, setSheet] = useState(false);
   useEffect(() => void boot(), []);
   const now = nowOverride() ?? new Date();
+  const onLive = () => {
+    const live = state?.live;
+    if (!live) return;
+    if (live.mode === 'direct' && live.streamUrl) {
+      const course = state.courses.find((c) => c.id === live.courseId);
+      void player.play({ url: live.streamUrl, title: course?.title ?? 'البث المباشر', subtitle: '', kind: 'live' });
+    } else setSheet(true);
+  };
   const onTick = (kind: 'read' | 'reviewed', courseId: string, n: number) => void toggleTick(kind, courseId, n);
 
   let page = null;
@@ -37,7 +57,9 @@ export function App() {
         {route.name !== 'home' && error && !state && <p class="err">تعذّر التحديث</p>}
         {page}
       </div>
+      <MiniPlayer />
       <NavBar route={route} />
+      {sheet && state && <LiveSheet live={state.live} onClose={() => setSheet(false)} />}
     </div>
   );
 }
