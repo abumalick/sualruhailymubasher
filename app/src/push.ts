@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { FirebaseMessaging, Importance } from '@capacitor-firebase/messaging';
 import type { PushData, StateDTO } from '@albadr/shared';
-import { diffTopics, launchTopics, routeForPush, type StoredTopics } from './logic/topics';
+import { diffTopics, launchTopics, routeForPush, topicsFor, type StoredTopics } from './logic/topics';
 import { navigate } from './router';
 import { currentState, watchState } from './store';
 import { loadCachedState } from './api';
@@ -30,7 +30,18 @@ async function loadStored(): Promise<StoredTopics | null> {
   return { topics, courses: (await readList(COURSES_KEY)) ?? [] };
 }
 
-export const loadTopics = async (): Promise<string[]> => (await loadStored())?.topics ?? [];
+export async function loadTopics(state: StateDTO | null): Promise<string[]> {
+  const stored = await loadStored();
+  if (stored) return stored.topics;
+  return state ? topicsFor(state.courses.map((c) => c.id)) : [];
+}
+
+let queue: Promise<unknown> = Promise.resolve();
+const serial = <T>(task: () => Promise<T>): Promise<T> => {
+  const run = queue.then(task);
+  queue = run.catch(() => {});
+  return run;
+};
 
 async function apply(current: string[], wanted: string[]): Promise<{ topics: string[]; failed: boolean }> {
   const { sub, unsub } = diffTopics(current, wanted);
@@ -65,30 +76,44 @@ async function save(topics: string[], courses?: string[]) {
   if (courses) await Preferences.set({ key: COURSES_KEY, value: JSON.stringify(courses) });
 }
 
-export async function setTopic(topic: string, on: boolean): Promise<string[]> {
-  const stored = await loadStored();
-  const current = stored?.topics ?? [];
-  const wanted = on ? [...current, topic] : current.filter((t) => t !== topic);
-  const { topics } = await apply(current, wanted);
-  await save(topics);
-  return topics;
+export const setTopic = (topic: string, on: boolean): Promise<string[]> =>
+  serial(async () => {
+    const stored = await loadStored();
+    const toggle = (list: string[]) => (on ? [...new Set([...list, topic])] : list.filter((t) => t !== topic));
+    if (stored) {
+      const { topics } = await apply(stored.topics, toggle(stored.topics));
+      await save(topics);
+      return topics;
+    }
+    const state = currentState() ?? (await loadCachedState());
+    if (!state) return [];
+    const ids = state.courses.map((c) => c.id);
+    const defaults = topicsFor(ids);
+    const { topics, failed } = await apply([], toggle(defaults));
+    if (failed) return defaults;
+    await save(topics, ids);
+    return topics;
+  });
+
+async function prepareNotifications() {
+  try {
+    const { receive } = await FirebaseMessaging.checkPermissions();
+    if (receive.startsWith('prompt')) await FirebaseMessaging.requestPermissions();
+  } catch {}
+  try {
+    await FirebaseMessaging.createChannel({ id: 'lessons', name: 'الدروس', importance: Importance.High });
+  } catch {}
 }
 
-export async function syncTopics(state: StateDTO): Promise<void> {
-  const stored = await loadStored();
-  const ids = state.courses.map((c) => c.id);
-  if (!stored && native()) {
-    try {
-      await FirebaseMessaging.requestPermissions();
-    } catch {}
-    try {
-      await FirebaseMessaging.createChannel({ id: 'lessons', name: 'الدروس', importance: Importance.High });
-    } catch {}
-  }
-  const { topics, failed } = await apply(stored?.topics ?? [], launchTopics(stored, ids));
-  if (failed && !stored) return;
-  await save(topics, failed ? undefined : ids);
-}
+export const syncTopics = (state: StateDTO): Promise<void> =>
+  serial(async () => {
+    if (native()) await prepareNotifications();
+    const stored = await loadStored();
+    const ids = state.courses.map((c) => c.id);
+    const { topics, failed } = await apply(stored?.topics ?? [], launchTopics(stored, ids));
+    if (failed && !stored) return;
+    await save(topics, failed ? undefined : ids);
+  });
 
 export async function pushPermission(): Promise<string> {
   if (!native()) return 'granted';

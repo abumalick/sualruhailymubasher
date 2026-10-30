@@ -32,13 +32,22 @@ export async function boot(): Promise<void> {
   if (!fixture) await refresh();
 }
 
-export async function refresh(): Promise<void> {
-  try {
-    const { state, fresh } = await fetchState();
-    update({ state, error: !fresh });
-  } catch {
-    update({ error: true });
-  }
+let inflight: Promise<void> | null = null;
+
+export const touch = () => update({});
+
+export function refresh(): Promise<void> {
+  inflight ??= (async () => {
+    try {
+      const { state, fresh } = await fetchState();
+      update({ state, error: !fresh });
+    } catch {
+      update({ error: true });
+    } finally {
+      inflight = null;
+    }
+  })();
+  return inflight;
 }
 
 export async function toggleTick(kind: TickKind, courseId: string, n: number): Promise<void> {

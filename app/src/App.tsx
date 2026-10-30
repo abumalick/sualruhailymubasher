@@ -7,6 +7,7 @@ import { boot, nowOverride, toggleTick, useAppData } from './store';
 import { Book } from './ui/Book';
 import { Course } from './ui/Course';
 import { Courses } from './ui/Courses';
+import { Links } from './ui/Links';
 import { Home } from './ui/Home';
 import { LiveSheet } from './ui/LiveSheet';
 import { MiniPlayer } from './ui/MiniPlayer';
@@ -46,6 +47,8 @@ export function App() {
     if (course) page = <Course key={course.id} course={course} ticks={ticks} onTick={onTick} onPlay={onPlay} />;
   } else if (route.name === 'notifications') {
     page = <Notifications state={state} />;
+  } else if (route.name === 'links') {
+    page = <Links state={state} />;
   }
 
   if (route.name === 'book') {

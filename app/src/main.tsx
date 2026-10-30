@@ -10,6 +10,10 @@ import './styles/tokens.css';
 import './styles/app.css';
 import { App } from './App';
 import { initPush } from './push';
+import { initChrome } from './chrome';
+import { startRefreshLoop } from './refresh';
 
 render(<App />, document.getElementById('app')!);
 void initPush();
+void startRefreshLoop();
+initChrome();

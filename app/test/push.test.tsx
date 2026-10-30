@@ -36,6 +36,7 @@ afterEach(cleanup);
 
 describe('syncTopics', () => {
   it('first launch asks permission, creates the channel, subscribes to everything and persists', async () => {
+    fm.checkPermissions.mockResolvedValueOnce({ receive: 'prompt' });
     await syncTopics(FIXTURE_STATE);
     expect(fm.requestPermissions).toHaveBeenCalledOnce();
     expect(fm.createChannel).toHaveBeenCalledWith({ id: 'lessons', name: 'الدروس', importance: 4 });
@@ -49,6 +50,12 @@ describe('syncTopics', () => {
     await syncTopics(FIXTURE_STATE);
     expect(fm.requestPermissions).not.toHaveBeenCalled();
     expect(subscribed().sort()).toEqual([`c-${ids[1]}-live`, `c-${ids[1]}-prep`, `c-${ids[1]}-rec`]);
+  });
+
+  it('recreates the channel on every launch', async () => {
+    await syncTopics(FIXTURE_STATE);
+    await syncTopics(FIXTURE_STATE);
+    expect(fm.createChannel).toHaveBeenCalledTimes(2);
   });
 
   it('a failed first launch persists nothing so it retries whole', async () => {
@@ -66,7 +73,34 @@ describe('syncTopics', () => {
   });
 });
 
+describe('setTopic before the first sync', () => {
+  it('keeps the other defaults and the opt-out when the first sync runs later', async () => {
+    store.set('state', JSON.stringify(FIXTURE_STATE));
+    await setTopic(`c-${ids[0]}-rec`, false);
+    expect(JSON.parse(store.get('topics')!)).not.toContain(`c-${ids[0]}-rec`);
+    expect(JSON.parse(store.get('topics')!)).toHaveLength(ids.length * 3);
+    expect(JSON.parse(store.get('topic-courses')!)).toEqual(ids);
+    vi.clearAllMocks();
+    await syncTopics(FIXTURE_STATE);
+    expect(fm.subscribeToTopic).not.toHaveBeenCalled();
+  });
+
+  it('serializes concurrent writes so none is lost', async () => {
+    await syncTopics(FIXTURE_STATE);
+    await Promise.all([setTopic(`c-${ids[0]}-rec`, false), setTopic(`c-${ids[1]}-rec`, false)]);
+    const saved = JSON.parse(store.get('topics')!);
+    expect(saved).not.toContain(`c-${ids[0]}-rec`);
+    expect(saved).not.toContain(`c-${ids[1]}-rec`);
+  });
+});
+
 describe('Notifications screen', () => {
+  it('shows every default switch on before the first sync', async () => {
+    render(<Notifications state={FIXTURE_STATE} />);
+    await waitFor(() => screen.getAllByRole('switch'));
+    screen.getAllByRole('switch').forEach((sw) => expect(sw.getAttribute('aria-checked')).toBe('true'));
+  });
+
   it('shows per-course toggles and unsubscribes when switched off', async () => {
     await syncTopics(FIXTURE_STATE);
     vi.clearAllMocks();

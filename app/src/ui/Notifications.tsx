@@ -23,8 +23,11 @@ function Toggle({ label, hint, on, onToggle }: { label: string; hint?: string; o
 export function Notifications({ state }: { state: StateDTO | null }) {
   const [topics, setTopics] = useState<string[] | null>(null);
   const [permission, setPermission] = useState('granted');
+  const courseIds = state?.courses.map((c) => c.id).join(',');
   useEffect(() => {
-    void loadTopics().then(setTopics);
+    void loadTopics(state).then(setTopics);
+  }, [courseIds]);
+  useEffect(() => {
     void pushPermission().then(setPermission);
   }, []);
 
