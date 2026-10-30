@@ -43,6 +43,11 @@ describe('parseSeriesPage', () => {
     ]);
   });
 
+  it('decodes entities in one pass and keeps an out-of-range one', () => {
+    const html = link('/detail/e', '007 &#38;lt; &#99999999; &amp;quot; 03-01-1448');
+    expect(parseSeriesPage(html).map((e) => e.startPoint)).toEqual(['&lt; &#99999999; &quot;']);
+  });
+
   it('decodes &nbsp; and numeric entities', () => {
     const html = link('/detail/n', '006&nbsp;قوله&#58; &#x627;لله&#39;s 02-01-1448');
     expect(parseSeriesPage(html)).toEqual([

@@ -13,15 +13,14 @@ const MP3_RE = /https?:\/\/(?:www\.)?al-badr\.net\/download\/[^"' ]+\.mp3/;
 const toLatinDigits = (s: string) =>
   s.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - ARABIC_INDIC_ZERO));
 
+const NAMED: Record<string, string> = { nbsp: ' ', quot: '"', lt: '<', gt: '>', amp: '&' };
+
 const decodeEntities = (s: string) =>
-  s
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
+  s.replace(/&(?:#(\d+)|#x([0-9a-f]+)|(nbsp|quot|lt|gt|amp));/gi, (whole, dec, hex, name) => {
+    if (name) return NAMED[name.toLowerCase()] ?? whole;
+    const code = dec ? Number(dec) : parseInt(hex, 16);
+    return code <= 0x10ffff ? String.fromCodePoint(code) : whole;
+  });
 
 export function parseSeriesPage(html: string): SeriesEntry[] {
   const seen = new Set<string>();
