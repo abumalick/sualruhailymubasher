@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">دروس الشيخ عبد الرزاق البدر</string>
+    <string name="title_activity_main">دروس الشيخ عبد الرزاق البدر</string>
+    <string name="package_name">net.h2.albadrlessons</string>
+    <string name="custom_url_scheme">net.h2.albadrlessons</string>
+</resources>

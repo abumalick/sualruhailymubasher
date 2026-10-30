@@ -1,6 +1,7 @@
 packages:
   - shared
   - server
+  - app
 allowBuilds:
   esbuild: true
   workerd: true
