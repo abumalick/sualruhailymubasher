@@ -30,7 +30,11 @@ async function tokenMatches(given: string, expected: string): Promise<boolean> {
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isInt = (v: unknown, min: number): v is number => Number.isInteger(v) && (v as number) >= min;
 const isString = (v: unknown): v is string => typeof v === 'string';
-const isDate = (v: unknown) => isString(v) && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
+const isDate = (v: unknown) => {
+  if (!isString(v) || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+};
 const isTime = (v: unknown) => isString(v) && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
 const KINDS = ['cancel', 'pause', 'extra', 'move'];
@@ -120,6 +124,9 @@ adminRoutes.get('/api/admin/exceptions', async (c) => c.json(await listException
 adminRoutes.post('/api/admin/exceptions', async (c) => {
   const input = parseException(await readJson(c));
   if (!input) return bad(c);
+  if (input.courseId !== null && !(await listCourses(c.env.DB)).some((course) => course.id === input.courseId)) {
+    return bad(c);
+  }
   return c.json({ id: await addException(c.env.DB, input) });
 });
 

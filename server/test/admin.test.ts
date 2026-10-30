@@ -172,6 +172,9 @@ describe('exceptions', () => {
     { courseId: null, kind: 'cancel', dateFrom: '01-01-2999' },
     { courseId: 5, kind: 'cancel', dateFrom: '2999-01-01' },
     { courseId: null, kind: 'move', dateFrom: '2999-01-01', time: '25:00' },
+    { courseId: null, kind: 'cancel', dateFrom: '2026-02-31' },
+    { courseId: null, kind: 'pause', dateFrom: '2026-02-01', dateTo: '2026-13-01' },
+    { courseId: 'no-such-course', kind: 'cancel', dateFrom: '2999-01-01' },
   ])('rejects invalid exception %#', async (body) => {
     expect((await call('POST', '/api/admin/exceptions', body)).status).toBe(400);
   });
