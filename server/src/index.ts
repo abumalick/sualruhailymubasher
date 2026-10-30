@@ -3,6 +3,7 @@ import { createFcm, type Fcm } from './fcm';
 import { runLivePoll, type LiveDeps } from './jobs/live';
 import { runRecordingIngest } from './jobs/recordings';
 import { runReminders } from './jobs/reminders';
+import { adminRoutes } from './routes/admin';
 import { publicRoutes } from './routes/public';
 
 export interface Env {
@@ -15,6 +16,7 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.get('/api/health', (c) => c.json({ ok: true }));
 app.route('/', publicRoutes);
+app.route('/', adminRoutes);
 
 export interface Jobs {
   live: (deps: LiveDeps) => Promise<void>;
@@ -44,7 +46,7 @@ export async function dispatchScheduled(jobs: Jobs, deps: LiveDeps, at: Date): P
 
 let fcmMemo: { secret: string; fcm: Fcm } | null = null;
 
-function getFcm(secret: string): Fcm {
+export function getFcm(secret: string): Fcm {
   if (fcmMemo?.secret !== secret) fcmMemo = { secret, fcm: createFcm(secret, fetch) };
   return fcmMemo.fcm;
 }

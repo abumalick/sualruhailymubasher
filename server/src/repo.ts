@@ -73,8 +73,8 @@ export async function listCourses(db: D1Database, opts: { activeOnly?: boolean }
 export async function upsertCourse(db: D1Database, id: string, input: CourseInput): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO courses (id, title, slot, weekdays, time, series_id, pdf_urls, active)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+      `INSERT INTO courses (id, title, slot, weekdays, time, series_id, pdf_urls, active, sort)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, (SELECT coalesce(max(sort), -1) + 1 FROM courses))
        ON CONFLICT(id) DO UPDATE SET title = ?2, slot = ?3, weekdays = ?4, time = ?5,
          series_id = ?6, pdf_urls = ?7, active = ?8`,
     )
