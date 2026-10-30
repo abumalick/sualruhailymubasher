@@ -1,11 +1,13 @@
 import hashlib
 import json
+import logging
 import re
 import subprocess
 from pathlib import Path
 
 import httpx
 
+log = logging.getLogger("albadr_agent")
 DEFAULT_CACHE = Path.home() / ".cache" / "albadr-agent" / "books"
 MIN_ARABIC_LETTERS = 20
 ARABIC_LETTER = re.compile(r"[\u0621-\u064A]")
@@ -13,7 +15,10 @@ ARABIC_LETTER = re.compile(r"[\u0621-\u064A]")
 
 def _page_count(pdf: Path) -> int:
     info = subprocess.run(["pdfinfo", str(pdf)], capture_output=True, text=True, check=True).stdout
-    return int(re.search(r"^Pages:\s+(\d+)", info, re.M).group(1))
+    match = re.search(r"^Pages:\s+(\d+)", info, re.M)
+    if not match:
+        raise ValueError(f"pdfinfo reported no page count for {pdf}")
+    return int(match.group(1))
 
 
 def _page_text(pdf: Path, page: int) -> str:
@@ -33,10 +38,16 @@ def _ocr_page(pdf: Path, page: int) -> str:
     ).stdout.decode()
 
 
+def _write_atomic(path: Path, data: bytes) -> None:
+    temp = path.with_name(path.name + ".part")
+    temp.write_bytes(data)
+    temp.replace(path)
+
+
 def _download(url: str, pdf: Path, fetch) -> None:
     response = fetch(url, follow_redirects=True, timeout=300)
     response.raise_for_status()
-    pdf.write_bytes(response.content)
+    _write_atomic(pdf, response.content)
 
 
 def book_pages(pdf_url: str, cache_dir: Path = DEFAULT_CACHE, fetch=httpx.get) -> list[str]:
@@ -45,14 +56,25 @@ def book_pages(pdf_url: str, cache_dir: Path = DEFAULT_CACHE, fetch=httpx.get) -
     key = hashlib.sha1(pdf_url.encode()).hexdigest()
     index, pdf = cache_dir / f"{key}.json", cache_dir / f"{key}.pdf"
     if index.exists():
-        return json.loads(index.read_text())
-    if not pdf.exists():
+        try:
+            return json.loads(index.read_text())
+        except ValueError:
+            log.warning("corrupt book index %s, rebuilding", index)
+    try:
+        count = _page_count(pdf) if pdf.exists() else None
+    except (subprocess.CalledProcessError, ValueError):
+        log.warning("corrupt cached PDF %s, downloading again", pdf)
+        count = None
+    if count is None:
         _download(pdf_url, pdf, fetch)
+        count = _page_count(pdf)
     pages = []
-    for n in range(1, _page_count(pdf) + 1):
+    for n in range(1, count + 1):
         text = _page_text(pdf, n)
         if len(ARABIC_LETTER.findall(text)) < MIN_ARABIC_LETTERS:
             text = _ocr_page(pdf, n)
         pages.append(text)
-    index.write_text(json.dumps(pages, ensure_ascii=False))
+        if n % 50 == 0:
+            log.info("indexed %d/%d pages of %s", n, count, pdf_url)
+    _write_atomic(index, json.dumps(pages, ensure_ascii=False).encode())
     return pages
