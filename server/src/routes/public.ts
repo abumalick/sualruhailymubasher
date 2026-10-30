@@ -11,7 +11,7 @@ import {
   listCourses,
   listExceptions,
 } from '../repo';
-import { nextLessonDate } from '../schedule';
+import { lessonTime, nextLessonDate } from '../schedule';
 import { medinaDate } from '../time';
 
 const EMBED_URL = 'https://albadrnet.mixlr.com/embed';
@@ -52,15 +52,16 @@ publicRoutes.get('/api/state', async (c) => {
     courses.map(async (course) => {
       const latest = await latestLessons(db, course.id, 5);
       const mine = exceptions.filter((e) => e.courseId === null || e.courseId === course.id);
+      const next = nextLessonDate(course, mine, now);
       return {
         id: course.id,
         title: course.title,
         slot: course.slot,
         weekdays: course.weekdays,
-        time: course.time,
+        time: next?.time ?? lessonTime(course, medinaDate(now)),
         pdfUrls: course.pdfUrls,
         latest,
-        next: nextPassage(course, latest, nextLessonDate(course, mine, now)),
+        next: nextPassage(course, latest, next),
         exceptions: mine,
       };
     }),

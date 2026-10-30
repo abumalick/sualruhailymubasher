@@ -36,11 +36,13 @@ describe('courses', () => {
     expect(t?.pdfUrls).toHaveLength(3);
     expect(t?.seriesId).toBe(481);
     expect(t?.active).toBe(true);
+    expect(t?.offsetMin).toBe(30);
+    expect(all.find((c) => c.id === 'tafsir-saadi')?.offsetMin).toBe(25);
     expect(all.map((c) => c.sort)).toEqual([...all.map((c) => c.sort)].sort((a, b) => a - b));
   });
 
   it('upserts and filters by activeOnly', async () => {
-    const input = { title: 'T', slot: 'fajr' as const, weekdays: [1], time: '05:00', seriesId: 9, pdfUrls: [], active: false };
+    const input = { title: 'T', slot: 'fajr' as const, weekdays: [1], offsetMin: 10, seriesId: 9, pdfUrls: [], active: false };
     await upsertCourse(db, 'c-up', input);
     expect((await listCourses(db)).find((c) => c.id === 'c-up')?.active).toBe(false);
     expect((await listCourses(db, { activeOnly: true })).some((c) => c.id === 'c-up')).toBe(false);
@@ -85,7 +87,7 @@ describe('lessons', () => {
   });
 
   it('pendingTranscriptions: recording set, no end_page, oldest first', async () => {
-    const course = { title: 'P', slot: 'fajr' as const, weekdays: [1], time: '05:00', seriesId: 1, pdfUrls: ['u1'], active: true };
+    const course = { title: 'P', slot: 'fajr' as const, weekdays: [1], offsetMin: 10, seriesId: 1, pdfUrls: ['u1'], active: true };
     await upsertCourse(db, 'l-pend', course);
     for (const n of [3, 1, 2, 4]) await insertLessonIfNew(db, 'l-pend', lesson(n));
     await setRecordingUrl(db, 'l-pend', 3, 'r3');

@@ -44,7 +44,8 @@ function parseCourse(b: unknown): CourseInput | null {
     (b.slot === 'fajr' || b.slot === 'maghrib') &&
     Array.isArray(b.weekdays) &&
     b.weekdays.every((d) => isInt(d, 0) && d <= 6) &&
-    isTime(b.time) &&
+    isInt(b.offsetMin, 0) &&
+    b.offsetMin <= 120 &&
     isInt(b.seriesId, 0) &&
     Array.isArray(b.pdfUrls) &&
     b.pdfUrls.every(isString) &&

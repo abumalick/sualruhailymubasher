@@ -15,7 +15,7 @@ export interface NextPassageDTO {
 }
 export interface ExceptionDTO { id: number; courseId: string | null; kind: ExceptionKind; dateFrom: string; dateTo: string | null; time: string | null; note: string; }
 export interface CourseDTO {
-  id: string; title: string; slot: Slot; weekdays: number[]; time: string;
+  id: string; title: string; slot: Slot; weekdays: number[]; time: string;  // lesson time on the next lesson date (prayer time + offset)
   pdfUrls: string[]; latest: LessonDTO[];               // newest first, max 5
   next: NextPassageDTO | null; exceptions: ExceptionDTO[];  // upcoming only
 }
@@ -23,7 +23,7 @@ export interface LiveDTO { isLive: boolean; mode: 'embed' | 'direct'; embedUrl: 
 export interface StateDTO { generatedAt: string; live: LiveDTO; courses: CourseDTO[]; links: { title: string; url: string }[]; }
 
 // admin writes
-export interface CourseInput { title: string; slot: Slot; weekdays: number[]; time: string; seriesId: number; pdfUrls: string[]; active: boolean; }
+export interface CourseInput { title: string; slot: Slot; weekdays: number[]; offsetMin: number; seriesId: number; pdfUrls: string[]; active: boolean; }  // offsetMin: minutes after Fajr / sunset, 0..120
 export interface LessonPatch { startPoint?: string; pdfIndex?: number; startPage?: number; endPoint?: string; endPage?: number; }
 export interface ExceptionInput { courseId: string | null; kind: ExceptionKind; dateFrom: string; dateTo?: string | null; time?: string | null; note?: string; }
 export interface PendingTranscription { courseId: string; number: number; recordingUrl: string; startPoint: string; pdfUrls: string[]; }

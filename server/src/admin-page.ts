@@ -171,7 +171,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     slot.appendChild(el('option', { value: 'fajr', text: 'الفجر' }));
     slot.appendChild(el('option', { value: 'maghrib', text: 'المغرب' }));
     slot.value = c.slot;
-    var time = el('input', { type: 'time', value: c.time });
+    var offset = el('input', { type: 'number', min: 0, max: 120, value: String(c.offsetMin) });
     var series = el('input', { type: 'number', min: 0, value: String(c.seriesId) });
     var pdfs = el('textarea', { value: c.pdfUrls.join('\n') });
     var active = el('input', { type: 'checkbox', checked: c.active });
@@ -186,7 +186,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
         title: title.value.trim(),
         slot: slot.value,
         weekdays: boxes.map(function (b, i) { return b.cb.checked ? i : -1; }).filter(function (i) { return i >= 0; }),
-        time: time.value,
+        offsetMin: Number(offset.value),
         seriesId: Number(series.value),
         pdfUrls: pdfs.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
         active: active.checked
@@ -198,7 +198,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     return el('div', { className: 'card' }, [
       el('h3', { text: c.id }),
       field('العنوان', title),
-      el('div', { className: 'grid' }, [field('الفترة', slot), field('الوقت', time)]),
+      el('div', { className: 'grid' }, [field('الفترة', slot), field('دقائق بعد الأذان/الغروب', offset)]),
       el('label', { text: 'أيام الدرس' }),
       el('div', { className: 'days' }, boxes.map(function (b) { return b.node; })),
       field('رقم السلسلة في al-badr.net', series),

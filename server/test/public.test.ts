@@ -35,6 +35,8 @@ describe('GET /api/state', () => {
     );
     expect(saadi.latest.map((l: any) => l.number)).toEqual([7, 6, 5, 4, 3]);
     expect(saadi.next.number).toBe(8);
+    expect(saadi.time).toBe(saadi.next.time);
+    expect(saadi.time).toMatch(/^0[45]:\d\d$/);
     expect(body.links).toHaveLength(6);
     expect(body.links[0]).toEqual({ title: 'موقع الشيخ', url: 'https://al-badr.net' });
     expect(body.links[5].url).toBe('https://chat.whatsapp.com/DZCeVH4kiLT8Gul4yMicY0');

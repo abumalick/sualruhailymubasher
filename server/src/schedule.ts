@@ -1,4 +1,5 @@
 import type { ExceptionDTO } from '@albadr/shared';
+import { fajrMinutes, formatMinutes, sunsetMinutes } from './prayer';
 import type { CourseRow } from './repo';
 import { addDays, medinaDate, medinaInstant, weekday } from './time';
 
@@ -9,6 +10,11 @@ const SEARCH_DAYS = 60;
 const applies = (e: ExceptionDTO, courseId: string) => e.courseId === null || e.courseId === courseId;
 const covers = (e: ExceptionDTO, date: string) => e.dateFrom <= date && date <= (e.dateTo ?? e.dateFrom);
 
+export function lessonTime(course: CourseRow, date: string): string {
+  const prayer = course.slot === 'fajr' ? fajrMinutes(date) : sunsetMinutes(date);
+  return formatMinutes(prayer + course.offsetMin);
+}
+
 export function isLessonDay(
   course: CourseRow,
   date: string,
@@ -18,14 +24,14 @@ export function isLessonDay(
   const added = mine.find(
     (e) => (e.kind === 'extra' && covers(e, date)) || (e.kind === 'move' && e.dateTo === date),
   );
-  if (added) return { held: true, time: added.time ?? course.time };
+  if (added) return { held: true, time: added.time ?? lessonTime(course, date) };
 
   const removed = mine.some(
     (e) =>
       ((e.kind === 'cancel' || e.kind === 'pause') && covers(e, date)) ||
       (e.kind === 'move' && e.dateFrom === date),
   );
-  return { held: !removed && course.weekdays.includes(weekday(date)), time: course.time };
+  return { held: !removed && course.weekdays.includes(weekday(date)), time: lessonTime(course, date) };
 }
 
 export function nextLessonDate(
