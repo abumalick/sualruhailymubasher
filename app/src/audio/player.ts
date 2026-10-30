@@ -25,19 +25,25 @@ function set(patch: Partial<PlayerState>) {
   listeners.forEach((l) => l(state));
 }
 
-const quiet = (p: Promise<unknown>) => void p.catch(() => {});
+const quiet = (p: Promise<unknown>) => void p.catch((e) => console.warn('media session', e));
 
-function syncPosition() {
+const POSITION_INTERVAL_MS = 5000;
+let lastPositionSent = 0;
+
+function syncPosition(force = true) {
   if (!audio) return;
   const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
   set({ position: audio.currentTime, duration });
-  if (state.src?.kind === 'recording' && duration > 0) {
+  const now = Date.now();
+  if (state.src?.kind === 'recording' && duration > 0 && (force || now - lastPositionSent >= POSITION_INTERVAL_MS)) {
+    lastPositionSent = now;
     quiet(MediaSession.setPositionState({ duration, position: audio.currentTime, playbackRate: 1 }));
   }
 }
 
 function setPlaying(playing: boolean) {
   set({ playing });
+  syncPosition();
   quiet(MediaSession.setPlaybackState({ playbackState: playing ? 'playing' : 'paused' }));
 }
 
@@ -48,8 +54,9 @@ function element(): HTMLAudioElement {
   a.addEventListener('play', () => setPlaying(true));
   a.addEventListener('pause', () => setPlaying(false));
   a.addEventListener('ended', () => setPlaying(false));
-  a.addEventListener('timeupdate', syncPosition);
-  a.addEventListener('durationchange', syncPosition);
+  a.addEventListener('timeupdate', () => syncPosition(false));
+  a.addEventListener('loadedmetadata', () => syncPosition());
+  a.addEventListener('durationchange', () => syncPosition());
   a.addEventListener('error', () => {
     set({ playing: false, error: 'تعذّر تشغيل الصوت' });
     quiet(MediaSession.setPlaybackState({ playbackState: 'paused' }));
@@ -86,7 +93,7 @@ export const player = {
     try {
       await a.play();
     } catch {
-      set({ playing: false, error: 'تعذّر تشغيل الصوت' });
+      if (state.src === src) set({ playing: false, error: 'تعذّر تشغيل الصوت' });
     }
   },
 
@@ -96,11 +103,12 @@ export const player = {
 
   async resume(): Promise<void> {
     if (!audio || !state.src) return;
+    const src = state.src;
     set({ error: null });
     try {
       await audio.play();
     } catch {
-      set({ playing: false, error: 'تعذّر تشغيل الصوت' });
+      if (state.src === src) set({ playing: false, error: 'تعذّر تشغيل الصوت' });
     }
   },
 

@@ -10,6 +10,7 @@ vi.mock('@capgo/capacitor-media-session', () => ({ MediaSession: session }));
 
 class FakeAudio extends EventTarget {
   static last: FakeAudio;
+  static hangNext: Promise<void> | null = null;
   src = '';
   currentTime = 0;
   duration = NaN;
@@ -20,6 +21,11 @@ class FakeAudio extends EventTarget {
     FakeAudio.last = this;
   }
   play = vi.fn(async () => {
+    if (FakeAudio.hangNext) {
+      const h = FakeAudio.hangNext;
+      FakeAudio.hangNext = null;
+      return h;
+    }
     this.paused = false;
     this.log.push('play');
     this.dispatchEvent(new Event('play'));
@@ -93,5 +99,18 @@ describe('player', () => {
     expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'paused' });
     await player.resume();
     expect(FakeAudio.last.paused).toBe(false);
+  });
+
+  it('ignores the rejection of a play superseded by a newer source', async () => {
+    const player = await load();
+    let reject!: (e: Error) => void;
+    const hang = new Promise<void>((_, rej) => (reject = rej));
+    FakeAudio.hangNext = hang;
+    const first = player.play(rec);
+    await player.play({ ...rec, url: 'https://x/b.mp3' });
+    reject(new DOMException('aborted', 'AbortError'));
+    await first;
+    expect(player.state.error).toBeNull();
+    expect(player.state.src?.url).toBe('https://x/b.mp3');
   });
 });

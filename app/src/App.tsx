@@ -1,5 +1,6 @@
 import type { CourseDTO, LessonDTO } from '@albadr/shared';
 import { useEffect, useState } from 'preact/hooks';
+import { startLive } from './audio/live';
 import { player } from './audio/player';
 import { useRoute } from './router';
 import { boot, nowOverride, toggleTick, useAppData } from './store';
@@ -30,14 +31,7 @@ export function App() {
   const [sheet, setSheet] = useState(false);
   useEffect(() => void boot(), []);
   const now = nowOverride() ?? new Date();
-  const onLive = () => {
-    const live = state?.live;
-    if (!live) return;
-    if (live.mode === 'direct' && live.streamUrl) {
-      const course = state.courses.find((c) => c.id === live.courseId);
-      void player.play({ url: live.streamUrl, title: course?.title ?? 'البث المباشر', subtitle: '', kind: 'live' });
-    } else setSheet(true);
-  };
+  const onLive = () => state && startLive(state, () => setSheet(true));
   const onTick = (kind: 'read' | 'reviewed', courseId: string, n: number) => void toggleTick(kind, courseId, n);
 
   let page = null;
