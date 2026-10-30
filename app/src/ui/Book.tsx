@@ -46,7 +46,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
       try {
         loaded = await task.promise;
       } catch (e) {
-        await dropPdf(url);
+        if (!cancelled) await dropPdf(url);
         throw e;
       }
       if (cancelled) return;
@@ -58,6 +58,8 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
       void task?.destroy();
     };
   }, [url, attempt]);
+
+  useEffect(() => setPage(requested), [requested]);
 
   const pdf = doc.status === 'ready' ? doc.pdf : null;
   const total = pdf?.numPages ?? 0;
@@ -79,7 +81,9 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
       const render = p.render({ canvas: el, viewport });
       task = render;
       await render.promise;
-    })().catch(() => {});
+    })().catch((e) => {
+      if (!cancelled && e?.name !== 'RenderingCancelledException') setDoc({ status: 'error' });
+    });
     return () => {
       cancelled = true;
       task?.cancel();
@@ -97,7 +101,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
   };
 
   const next = course.next;
-  const showTick = marker && next !== null;
+  const showTick = next !== null;
   const range = marker && next?.startPage != null && next.estEndPage != null ? `ص ${ar(next.startPage)} إلى نحو ${ar(next.estEndPage)}` : '';
 
   return (

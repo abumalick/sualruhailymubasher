@@ -52,6 +52,13 @@ export function App() {
         <Defs />
         {course ? (
           <Book key={`${course.id}/${route.pdfIndex}`} course={course} pdfIndex={route.pdfIndex} page={route.page} marker={route.marker} ticks={ticks} onTick={onTick} />
+        ) : state ? (
+          <div class="booker">
+            <p class="quiet">تعذّر تحميل الكتاب</p>
+            <a class="chip" href="#/courses">
+              الدروس
+            </a>
+          </div>
         ) : (
           <p class="quiet">{error ? 'تعذّر التحديث' : '…'}</p>
         )}

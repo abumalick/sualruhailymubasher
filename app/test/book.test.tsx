@@ -14,11 +14,15 @@ vi.mock('@capacitor/core', async (orig) => ({
   CapacitorHttp: http,
 }));
 
+const parse = vi.hoisted(() => ({ reject: false, started: false, pending: null as Promise<unknown> | null }));
 const rendered: number[] = [];
 const pdfDoc = vi.hoisted(() => ({ numPages: 20, destroy: vi.fn(), getPage: vi.fn() }));
 vi.mock('pdfjs-dist', () => ({
   GlobalWorkerOptions: {},
-  getDocument: () => ({ promise: Promise.resolve(pdfDoc), destroy: vi.fn() }),
+  getDocument: () => {
+    parse.started = true;
+    return { promise: parse.reject ? Promise.reject(new Error('bad')) : (parse.pending ?? Promise.resolve(pdfDoc)), destroy: vi.fn() };
+  },
 }));
 vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: 'worker.js' }));
 
@@ -39,6 +43,7 @@ const book = (page: number, marker = false, extra = {}) => (
 beforeEach(() => {
   files.clear();
   rendered.length = 0;
+  Object.assign(parse, { reject: false, started: false, pending: null });
   Object.values(fs).forEach((f) => f.mockReset());
   http.get.mockReset();
   fs.deleteFile.mockResolvedValue(undefined);
@@ -137,6 +142,43 @@ describe('Book', () => {
     render(book(10, true, { onTick }));
     fireEvent.click(await screen.findByRole('button', { name: 'قرأتُه' }));
     expect(onTick).toHaveBeenCalledWith('read', course.id, course.next!.number);
+  });
+
+  it('footer tick shows without the marker too', async () => {
+    render(book(10));
+    await screen.findByRole('button', { name: 'قرأتُه' });
+  });
+
+  it('a new requested page moves the viewer', async () => {
+    const { rerender } = render(book(10));
+    await screen.findByText('ص ١٠ / ٢٠');
+    rerender(book(15));
+    await screen.findByText('ص ١٥ / ٢٠');
+  });
+
+  it('a render failure surfaces the error state', async () => {
+    pdfDoc.getPage.mockRejectedValue(new Error('boom'));
+    render(book(10));
+    await screen.findByText('تعذّر تحميل الكتاب');
+  });
+
+  it('parse failure drops the cached copy and shows the error', async () => {
+    parse.reject = true;
+    render(book(10));
+    await screen.findByText('تعذّر تحميل الكتاب');
+    expect(fs.deleteFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaving during parse keeps the cached copy', async () => {
+    let fail!: (e: Error) => void;
+    parse.pending = new Promise((_, rej) => (fail = rej));
+    const { unmount } = render(book(10));
+    await waitFor(() => expect(parse.started).toBe(true));
+    unmount();
+    await new Promise((r) => setTimeout(r, 20));
+    fail(new Error('destroyed'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fs.deleteFile).not.toHaveBeenCalled();
   });
 
   it('download error shows retry and the original link, and retry recovers', async () => {
