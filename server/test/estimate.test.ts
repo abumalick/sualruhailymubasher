@@ -60,6 +60,19 @@ describe('nextPassage', () => {
     expect(nextPassage(course, latest, next)).toMatchObject({ pdfIndex: 1, startPage: 2, estimated: false });
   });
 
+  it('estimates past lessons held but not yet published', () => {
+    const latest = [lesson(3, { startPage: 14, endPage: 16, endPoint: 'باب', pdfIndex: 2 })];
+    expect(nextPassage(course, latest, next, 5)).toMatchObject({
+      number: 5,
+      startPoint: null,
+      startPage: 18,
+      pdfIndex: 2,
+      estEndPage: 20,
+      estimated: true,
+    });
+    expect(nextPassage(course, [lesson(3, { startPage: 14 })], next, 5)).toMatchObject({ startPage: 18, estEndPage: 20 });
+  });
+
   it('leaves pages null when nothing is known', () => {
     expect(nextPassage(course, [lesson(5)], next)).toMatchObject({
       number: 6,

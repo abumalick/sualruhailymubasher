@@ -1,7 +1,7 @@
 import { courseTopic, toArabicDigits } from '@albadr/shared';
 import { nextPassage } from '../estimate';
 import type { Fcm } from '../fcm';
-import { latestLessons, listCourses, listExceptions, markSent, type CourseRow } from '../repo';
+import { expectedNextNumber, latestLessons, listCourses, listExceptions, markSent, type CourseRow } from '../repo';
 import { nextLessonDate } from '../schedule';
 import { addDays, medinaDate } from '../time';
 
@@ -29,7 +29,7 @@ async function remind(course: CourseRow, { db, fcm, now }: RemindersDeps, except
   if (!(await markSent(db, `prep:${course.id}:${next.date}`))) return;
 
   const latest = await latestLessons(db, course.id, 5);
-  const passage = nextPassage(course, latest, next);
+  const passage = nextPassage(course, latest, next, await expectedNextNumber(db, course.id, next.date));
   if (!passage) return;
   const detail = passage.startPoint
     ? passage.startPoint

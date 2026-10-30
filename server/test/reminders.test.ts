@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runReminders } from '../src/jobs/reminders';
-import { addException, insertLessonIfNew, patchLesson } from '../src/repo';
+import { addException, insertLessonIfNew, patchLesson, recordBroadcast } from '../src/repo';
 import type { Fcm } from '../src/fcm';
 
 function setup() {
@@ -14,6 +14,7 @@ beforeEach(async () => {
   await env.DB.exec('DELETE FROM sent_notifications');
   await env.DB.exec('DELETE FROM lessons');
   await env.DB.exec('DELETE FROM exceptions');
+  await env.DB.exec('DELETE FROM broadcasts');
 });
 
 const lesson = (courseId: string, number: number) =>
@@ -30,6 +31,18 @@ describe('runReminders', () => {
       title: 'حضّر للدرس القادم',
       body: expect.stringContaining('يتابع من حيث توقف الدرس ٤'),
       data: { kind: 'prep', courseId: 'tafsir-saadi', number: '5' },
+    });
+  });
+
+  it('counts a lesson broadcast today but not yet published', async () => {
+    const { sendToTopic, run } = setup();
+    await lesson('tafsir-saadi', 4);
+    await env.DB.exec("UPDATE lessons SET created_at = '2026-10-01T00:00:00.000Z'");
+    await recordBroadcast(env.DB, 'b', 'tafsir-saadi', '2026-11-01T02:40:00.000Z');
+    await run('2026-11-01T18:00:00Z');
+    expect(sendToTopic.mock.calls[0][1]).toMatchObject({
+      body: expect.stringContaining('يتابع من حيث توقف الدرس ٥'),
+      data: { number: '6' },
     });
   });
 

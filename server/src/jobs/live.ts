@@ -2,7 +2,7 @@ import { courseTopic, LIVE_OTHER_TOPIC, toArabicDigits } from '@albadr/shared';
 import type { Fcm } from '../fcm';
 import { courseInWindow } from '../schedule';
 import { parseChannelView } from '../sources/mixlr';
-import { latestLessons, listCourses, listExceptions, markSent, setLive } from '../repo';
+import { expectedNextNumber, listCourses, listExceptions, markSent, recordBroadcast, setLive } from '../repo';
 import { medinaDate } from '../time';
 
 const CHANNEL_VIEW_URL = 'https://apicdn.mixlr.com/v3/channel_view/albadrnet';
@@ -49,12 +49,14 @@ export async function runLivePoll({ db, fetch: f, fcm, now }: LiveDeps): Promise
     startedAt: view.startedAt,
   });
 
-  if (!(await markSent(db, `live:${view.uid}`))) return;
+  await recordBroadcast(db, view.uid, course?.id ?? null, at.toISOString());
+
+  const day = medinaDate(at);
+  if (!(await markSent(db, course ? `live:${course.id}:${day}` : `live:${view.uid}`))) return;
 
   try {
     if (course) {
-      const [latest] = await latestLessons(db, course.id, 1);
-      const number = (latest?.number ?? 0) + 1;
+      const number = await expectedNextNumber(db, course.id, day);
       await fcm.sendToTopic(courseTopic(course.id, 'live'), {
         title: '🔴 بدأ البث المباشر',
         body: `${course.title} · الدرس ${toArabicDigits(number)}`,

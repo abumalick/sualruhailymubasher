@@ -1,6 +1,6 @@
 import { env, exports } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { insertLessonIfNew, setLive, setSetting } from '../src/repo';
+import { insertLessonIfNew, recordBroadcast, setLive, setSetting } from '../src/repo';
 
 const get = (path: string) => exports.default.fetch(`http://example.com${path}`);
 
@@ -15,6 +15,7 @@ const lesson = (number: number) => ({
 beforeEach(async () => {
   await env.DB.prepare('DELETE FROM lessons').run();
   await env.DB.prepare('DELETE FROM exceptions').run();
+  await env.DB.prepare('DELETE FROM broadcasts').run();
   await setSetting(env.DB, 'live_mode', 'embed');
   await setLive(env.DB, { isLive: false, broadcastUid: null, streamUrl: null, courseId: null, startedAt: null });
 });
@@ -40,6 +41,16 @@ describe('GET /api/state', () => {
     expect(body.links).toHaveLength(6);
     expect(body.links[0]).toEqual({ title: 'موقع الشيخ', url: 'https://al-badr.net' });
     expect(body.links[5].url).toBe('https://chat.whatsapp.com/DZCeVH4kiLT8Gul4yMicY0');
+  });
+
+  it('counts lessons broadcast but not yet on al-badr.net in next.number', async () => {
+    const next = async () => ((await (await get('/api/state')).json()) as any).courses[0].next.number;
+    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(7));
+    await env.DB.prepare("UPDATE lessons SET created_at = '2026-01-01T00:00:00.000Z'").run();
+    await recordBroadcast(env.DB, 'b-8', 'tafsir-saadi', '2026-01-04T02:30:00.000Z');
+    expect(await next()).toBe(9);
+    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(8));
+    expect(await next()).toBe(9);
   });
 
   it('hides streamUrl in embed mode even when live', async () => {

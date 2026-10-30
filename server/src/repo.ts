@@ -235,6 +235,37 @@ export async function markSent(db: D1Database, key: string): Promise<boolean> {
   return res.meta.changes > 0;
 }
 
+export async function recordBroadcast(
+  db: D1Database,
+  uid: string,
+  courseId: string | null,
+  startedAt: string,
+): Promise<void> {
+  await db
+    .prepare('INSERT OR IGNORE INTO broadcasts (uid, course_id, started_at) VALUES (?, ?, ?)')
+    .bind(uid, courseId, startedAt)
+    .run();
+}
+
+// Number of the lesson held on Medina date `on`: al-badr.net publishes with a lag, so lesson days
+// broadcast after the latest scraped lesson was stored (and before `on`) are counted too.
+// Days, not uids, so a reconnect that yields a second uid counts once.
+export async function expectedNextNumber(db: D1Database, courseId: string, on: string): Promise<number> {
+  const r = await db
+    .prepare(
+      `WITH last AS (SELECT number, created_at FROM lessons WHERE course_id = ?1 ORDER BY number DESC LIMIT 1)
+       SELECT coalesce((SELECT number FROM last), 0) + 1 + (
+         SELECT count(DISTINCT date(started_at, '+3 hours')) FROM broadcasts
+         WHERE course_id = ?1
+           AND started_at > coalesce((SELECT created_at FROM last), '')
+           AND date(started_at, '+3 hours') < ?2
+       ) AS n`,
+    )
+    .bind(courseId, on)
+    .first<{ n: number }>();
+  return r!.n;
+}
+
 export async function pendingTranscriptions(db: D1Database): Promise<PendingTranscription[]> {
   const { results } = await db
     .prepare(

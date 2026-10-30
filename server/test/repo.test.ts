@@ -13,6 +13,8 @@ import {
   markSent,
   patchLesson,
   pendingTranscriptions,
+  expectedNextNumber,
+  recordBroadcast,
   setLive,
   setRecordingUrl,
   setSetting,
@@ -109,6 +111,32 @@ describe('lessons', () => {
       { courseId: 'l-pend', number: 1, recordingUrl: 'r1', startPoint: 'point 1', pdfUrls: ['u1'] },
       { courseId: 'l-pend', number: 3, recordingUrl: 'r3', startPoint: 'point 3', pdfUrls: ['u1'] },
     ]);
+  });
+});
+
+describe('expectedNextNumber', () => {
+  const backdate = (courseId: string) =>
+    db.prepare("UPDATE lessons SET created_at = '2026-10-01T00:00:00.000Z' WHERE course_id = ?").bind(courseId).run();
+
+  it('counts lesson days broadcast after the latest scraped lesson', async () => {
+    expect(await expectedNextNumber(db, 'n-none', '2026-11-01')).toBe(1);
+    await recordBroadcast(db, 'n0', 'n-none', '2026-10-20T02:30:00.000Z');
+    expect(await expectedNextNumber(db, 'n-none', '2026-11-01')).toBe(2);
+
+    await insertLessonIfNew(db, 'n-c', lesson(7));
+    await backdate('n-c');
+    expect(await expectedNextNumber(db, 'n-c', '2026-11-01')).toBe(8);
+    await recordBroadcast(db, 'b1', 'n-c', '2026-09-30T02:30:00.000Z');
+    await recordBroadcast(db, 'b2', 'n-c', '2026-10-20T02:30:00.000Z');
+    await recordBroadcast(db, 'b2', 'n-c', '2026-10-20T02:30:00.000Z');
+    await recordBroadcast(db, 'b3', 'n-c', '2026-10-20T03:10:00.000Z');
+    await recordBroadcast(db, 'b4', 'other', '2026-10-21T02:30:00.000Z');
+    await recordBroadcast(db, 'b5', null, '2026-10-21T02:30:00.000Z');
+    expect(await expectedNextNumber(db, 'n-c', '2026-11-01')).toBe(9);
+    expect(await expectedNextNumber(db, 'n-c', '2026-10-20')).toBe(8);
+
+    await insertLessonIfNew(db, 'n-c', lesson(8));
+    expect(await expectedNextNumber(db, 'n-c', '2026-11-01')).toBe(9);
   });
 });
 

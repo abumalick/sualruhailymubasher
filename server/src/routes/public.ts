@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import type { Env } from '../index';
 import { nextPassage } from '../estimate';
 import {
+  expectedNextNumber,
   getLive,
   getSetting,
   latestLessons,
@@ -61,7 +62,7 @@ publicRoutes.get('/api/state', async (c) => {
         time: next?.time ?? lessonTime(course, medinaDate(now)),
         pdfUrls: course.pdfUrls,
         latest,
-        next: nextPassage(course, latest, next),
+        next: next && nextPassage(course, latest, next, await expectedNextNumber(db, course.id, next.date)),
         exceptions: mine,
       };
     }),

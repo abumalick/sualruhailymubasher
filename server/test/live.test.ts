@@ -4,7 +4,7 @@ import liveJson from './fixtures/channel-view-live.json';
 import offlineJson from './fixtures/channel-view-offline.json';
 import { runLivePoll } from '../src/jobs/live';
 import { parseChannelView } from '../src/sources/mixlr';
-import { getLive, insertLessonIfNew, setLive } from '../src/repo';
+import { getLive, insertLessonIfNew, recordBroadcast, setLive } from '../src/repo';
 import type { Fcm } from '../src/fcm';
 
 const UID = 'fbaff98792b1bbbcb8e73ad92348916c';
@@ -16,14 +16,17 @@ function setup(fetchImpl: typeof fetch, now = new Date('2026-10-19T15:20:30Z')) 
   return { deps, sendToTopic };
 }
 
-const withStart = (startedAt: string) => ({
+const withStart = (startedAt: string, uid = UID) => ({
   ...liveJson,
-  included: liveJson.included.map((i) => (i.type === 'broadcast' ? { ...i, attributes: { ...i.attributes, started_at: startedAt } } : i)),
+  included: liveJson.included.map((i) =>
+    i.type === 'broadcast' ? { ...i, attributes: { ...i.attributes, started_at: startedAt, uid } } : i,
+  ),
 });
 
 beforeEach(async () => {
   await env.DB.exec('DELETE FROM sent_notifications');
   await env.DB.exec('DELETE FROM lessons');
+  await env.DB.exec('DELETE FROM broadcasts');
 });
 
 describe('parseChannelView', () => {
@@ -67,6 +70,33 @@ describe('runLivePoll', () => {
       body: expect.stringMatching(/ · الدرس ٨$/),
       data: { kind: 'live', courseId: 'kitab-tawhid', number: '8' },
     });
+  });
+
+  it('counts an earlier broadcast not yet published on al-badr.net', async () => {
+    await insertLessonIfNew(env.DB, 'kitab-tawhid', {
+      number: 7, hijriDate: '01-01-1448', startPoint: 'x', recordingUrl: null, detailPath: '/detail/x',
+    });
+    await env.DB.exec("UPDATE lessons SET created_at = '2026-10-01T00:00:00.000Z'");
+    await recordBroadcast(env.DB, 'earlier', 'kitab-tawhid', '2026-10-15T15:20:00.000Z');
+    const { deps, sendToTopic } = setup(respond(liveJson) as typeof fetch);
+    await runLivePoll(deps);
+    expect(sendToTopic.mock.calls[0][1].data.number).toBe('9');
+  });
+
+  it('records every live broadcast with its course', async () => {
+    await runLivePoll(setup(respond(liveJson) as typeof fetch).deps);
+    await runLivePoll(setup(respond(withStart('2026-10-23T09:00:00.000Z', 'other-uid')) as typeof fetch).deps);
+    const { results } = await env.DB.prepare('SELECT uid, course_id FROM broadcasts ORDER BY uid').all();
+    expect(results).toEqual([{ uid: UID, course_id: 'kitab-tawhid' }, { uid: 'other-uid', course_id: null }]);
+  });
+
+  it('pushes once per course and day when the broadcaster reconnects', async () => {
+    const first = setup(respond(liveJson) as typeof fetch);
+    await runLivePoll(first.deps);
+    const second = setup(respond(withStart('2026-10-19T15:40:00.000Z', 'new-uid')) as typeof fetch);
+    await runLivePoll(second.deps);
+    expect(first.sendToTopic).toHaveBeenCalledTimes(1);
+    expect(second.sendToTopic).not.toHaveBeenCalled();
   });
 
   it('numbers the first lesson 1 when the course has none', async () => {
