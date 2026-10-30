@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { ADMIN_HTML } from './admin-page';
 import { createFcm, type Fcm } from './fcm';
 import { runLivePoll, type LiveDeps } from './jobs/live';
 import { runRecordingIngest } from './jobs/recordings';
@@ -15,6 +16,7 @@ export interface Env {
 const app = new Hono<{ Bindings: Env }>();
 
 app.get('/api/health', (c) => c.json({ ok: true }));
+app.get('/admin', (c) => c.html(ADMIN_HTML));
 app.route('/', publicRoutes);
 app.route('/', adminRoutes);
 

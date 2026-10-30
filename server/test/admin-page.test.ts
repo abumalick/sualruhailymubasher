@@ -1,0 +1,27 @@
+import { exports } from 'cloudflare:workers';
+import { describe, expect, it } from 'vitest';
+
+describe('GET /admin', () => {
+  it('serves the Arabic RTL admin page', async () => {
+    const res = await exports.default.fetch('http://example.com/admin');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    const html = await res.text();
+    expect(html).toContain('dir="rtl"');
+    for (const label of ['إلغاء', 'توقف', 'درس إضافي', 'تأجيل']) expect(html).toContain(label);
+    expect(html).toContain('لا تفعّل البث المباشر من الرابط المباشر إلا بعد موافقة أصحاب القناة على Mixlr');
+  });
+
+  it('references no third-party origin', async () => {
+    const html = await (await exports.default.fetch('http://example.com/admin')).text();
+    expect(html).not.toMatch(/https?:\/\//);
+    expect(html).not.toMatch(/\/\/[a-z0-9-]+\.[a-z]/i);
+  });
+
+  it('only calls same-origin API paths', async () => {
+    const html = await (await exports.default.fetch('http://example.com/admin')).text();
+    const paths = [...html.matchAll(/api\('([^']+)'|fetch\('([^']+)'/g)].map((m) => m[1] ?? m[2]);
+    expect(paths.length).toBeGreaterThan(0);
+    for (const p of paths) expect(p).toMatch(/^\/api\//);
+  });
+});
