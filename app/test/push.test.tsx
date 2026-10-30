@@ -44,12 +44,21 @@ describe('syncTopics', () => {
     expect(JSON.parse(store.get('topics')!)).toHaveLength(ids.length * 3 + 1);
   });
 
-  it('later launches do not ask again and only add a new course', async () => {
+  it('later launches do not ask again and add a new course', async () => {
     await syncTopics({ ...FIXTURE_STATE, courses: FIXTURE_STATE.courses.slice(0, 1) });
     vi.clearAllMocks();
     await syncTopics(FIXTURE_STATE);
     expect(fm.requestPermissions).not.toHaveBeenCalled();
-    expect(subscribed().sort()).toEqual([`c-${ids[1]}-live`, `c-${ids[1]}-prep`, `c-${ids[1]}-rec`]);
+    expect(subscribed()).toEqual(expect.arrayContaining([`c-${ids[1]}-live`, `c-${ids[1]}-prep`, `c-${ids[1]}-rec`]));
+    expect(JSON.parse(store.get('topics')!)).toHaveLength(ids.length * 3 + 1);
+  });
+
+  it('resubscribes every stored topic on launch (restored backup, fresh FCM instance)', async () => {
+    store.set('topics', JSON.stringify([`c-${ids[0]}-live`, 'live-other']));
+    store.set('topic-courses', JSON.stringify(ids));
+    await syncTopics(FIXTURE_STATE);
+    expect(subscribed().sort()).toEqual([`c-${ids[0]}-live`, 'live-other']);
+    expect(fm.unsubscribeFromTopic.mock.calls.map((c) => c[0].topic)).toContain(`c-${ids[1]}-rec`);
   });
 
   it('recreates the channel on every launch', async () => {
@@ -69,7 +78,9 @@ describe('syncTopics', () => {
     await setTopic(`c-${ids[1]}-live`, false);
     vi.clearAllMocks();
     await syncTopics(FIXTURE_STATE);
-    expect(fm.subscribeToTopic).not.toHaveBeenCalled();
+    expect(subscribed()).toHaveLength(ids.length * 3);
+    expect(subscribed()).not.toContain(`c-${ids[1]}-live`);
+    expect(fm.unsubscribeFromTopic).toHaveBeenCalledWith({ topic: `c-${ids[1]}-live` });
   });
 });
 
@@ -82,7 +93,8 @@ describe('setTopic before the first sync', () => {
     expect(JSON.parse(store.get('topic-courses')!)).toEqual(ids);
     vi.clearAllMocks();
     await syncTopics(FIXTURE_STATE);
-    expect(fm.subscribeToTopic).not.toHaveBeenCalled();
+    expect(subscribed()).toHaveLength(ids.length * 3);
+    expect(subscribed()).not.toContain(`c-${ids[0]}-rec`);
   });
 
   it('serializes concurrent writes so none is lost', async () => {

@@ -43,8 +43,7 @@ const serial = <T>(task: () => Promise<T>): Promise<T> => {
   return run;
 };
 
-async function apply(current: string[], wanted: string[]): Promise<{ topics: string[]; failed: boolean }> {
-  const { sub, unsub } = diffTopics(current, wanted);
+async function apply(current: string[], { sub, unsub }: { sub: string[]; unsub: string[] }): Promise<{ topics: string[]; failed: boolean }> {
   const topics = new Set(current);
   let failed = false;
   if (native()) {
@@ -81,7 +80,7 @@ export const setTopic = (topic: string, on: boolean): Promise<string[] | null> =
     const stored = await loadStored();
     const toggle = (list: string[]) => (on ? [...new Set([...list, topic])] : list.filter((t) => t !== topic));
     if (stored) {
-      const { topics } = await apply(stored.topics, toggle(stored.topics));
+      const { topics } = await apply(stored.topics, diffTopics(stored.topics, toggle(stored.topics)));
       await save(topics);
       return topics;
     }
@@ -89,7 +88,7 @@ export const setTopic = (topic: string, on: boolean): Promise<string[] | null> =
     if (!state) return null;
     const ids = state.courses.map((c) => c.id);
     const defaults = topicsFor(ids);
-    const { topics, failed } = await apply([], toggle(defaults));
+    const { topics, failed } = await apply([], diffTopics([], toggle(defaults)));
     if (failed) return defaults;
     await save(topics, ids);
     return topics;
@@ -110,7 +109,10 @@ export const syncTopics = (state: StateDTO): Promise<void> =>
     if (native()) await prepareNotifications();
     const stored = await loadStored();
     const ids = state.courses.map((c) => c.id);
-    const { topics, failed } = await apply(stored?.topics ?? [], launchTopics(stored, ids));
+    const current = stored?.topics ?? [];
+    const wanted = launchTopics(stored, ids);
+    const unsub = [...new Set([...current, ...topicsFor(ids)])].filter((t) => !wanted.includes(t));
+    const { topics, failed } = await apply(current, { sub: wanted, unsub });
     if (failed && !stored) return;
     await save(topics, failed ? undefined : ids);
   });
