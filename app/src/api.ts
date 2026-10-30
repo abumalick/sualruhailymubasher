@@ -16,7 +16,7 @@ export async function loadCachedState(): Promise<StateDTO | null> {
 
 export async function fetchState(f: typeof fetch = fetch): Promise<{ state: StateDTO; fresh: boolean }> {
   try {
-    const res = await f(`${API_BASE}/api/state`, { cache: 'no-store' });
+    const res = await f(`${API_BASE}/api/state`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`state ${res.status}`);
     const state = (await res.json()) as StateDTO;
     await Preferences.set({ key: STATE_KEY, value: JSON.stringify(state) });

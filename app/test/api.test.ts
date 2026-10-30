@@ -23,6 +23,7 @@ describe('fetchState', () => {
     expect(await loadCachedState()).toEqual(FIXTURE_STATE);
     expect(f.mock.calls[0][0]).toMatch(/\/api\/state$/);
     expect(f.mock.calls[0][1]).toMatchObject({ cache: 'no-store' });
+    expect((f.mock.calls[0][1] as RequestInit).signal).toBeInstanceOf(AbortSignal);
   });
 
   it('falls back to the cache when the request rejects', async () => {

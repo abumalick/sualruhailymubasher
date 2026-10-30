@@ -1,5 +1,14 @@
 import { render, screen } from '@testing-library/preact';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../src/api', () => ({
+  loadCachedState: async () => null,
+  fetchState: async () => {
+    throw new Error('offline');
+  },
+  fetchLessons: async () => [],
+}));
+
 import { App } from '../src/App';
 
 describe('boot', () => {
