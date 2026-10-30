@@ -130,25 +130,43 @@ describe('expectedNextNumber', () => {
   const backdate = (courseId: string) =>
     db.prepare("UPDATE lessons SET created_at = '2026-10-01T00:00:00.000Z' WHERE course_id = ?").bind(courseId).run();
 
-  it('counts lesson days broadcast after the latest scraped lesson', async () => {
-    expect(await expectedNextNumber(db, 'n-none', '2026-11-01')).toBe(1);
+  // hijri dates of lesson() are months away from this instant, so created_at is the anchor
+  const FALLBACK_NOW = new Date('2026-11-01T00:00:00Z');
+
+  it('counts lesson days broadcast after the latest scraped lesson (created_at fallback)', async () => {
+    expect(await expectedNextNumber(db, 'n-none', '2026-11-01', FALLBACK_NOW)).toBe(1);
     await recordBroadcast(db, 'n0', 'n-none', '2026-10-20T02:30:00.000Z');
-    expect(await expectedNextNumber(db, 'n-none', '2026-11-01')).toBe(2);
+    expect(await expectedNextNumber(db, 'n-none', '2026-11-01', FALLBACK_NOW)).toBe(2);
 
     await insertLessonIfNew(db, 'n-c', lesson(7));
     await backdate('n-c');
-    expect(await expectedNextNumber(db, 'n-c', '2026-11-01')).toBe(8);
+    expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(8);
     await recordBroadcast(db, 'b1', 'n-c', '2026-09-30T02:30:00.000Z');
     await recordBroadcast(db, 'b2', 'n-c', '2026-10-20T02:30:00.000Z');
     await recordBroadcast(db, 'b2', 'n-c', '2026-10-20T02:30:00.000Z');
     await recordBroadcast(db, 'b3', 'n-c', '2026-10-20T03:10:00.000Z');
     await recordBroadcast(db, 'b4', 'other', '2026-10-21T02:30:00.000Z');
     await recordBroadcast(db, 'b5', null, '2026-10-21T02:30:00.000Z');
-    expect(await expectedNextNumber(db, 'n-c', '2026-11-01')).toBe(9);
-    expect(await expectedNextNumber(db, 'n-c', '2026-10-20')).toBe(8);
+    expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(9);
+    expect(await expectedNextNumber(db, 'n-c', '2026-10-20', FALLBACK_NOW)).toBe(8);
 
     await insertLessonIfNew(db, 'n-c', lesson(8));
-    expect(await expectedNextNumber(db, 'n-c', '2026-11-01')).toBe(9);
+    expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(9);
+  });
+});
+
+describe('expectedNextNumber anchored on the held date', () => {
+  const now = new Date('2026-10-21T12:00:00Z');
+  const held = (number: number, hijriDate: string) =>
+    insertLessonIfNew(db, 'h-c', { ...lesson(number), hijriDate });
+
+  it('still counts the next broadcast when the lesson is published after it', async () => {
+    await recordBroadcast(db, 'h7', 'h-c', '2026-10-20T02:30:00.000Z');
+    await recordBroadcast(db, 'h8', 'h-c', '2026-10-21T02:30:00.000Z');
+    await held(7, '09-05-1448');
+    expect(await expectedNextNumber(db, 'h-c', '2026-10-22', now)).toBe(9);
+    await held(8, '10-05-1448');
+    expect(await expectedNextNumber(db, 'h-c', '2026-10-22', now)).toBe(9);
   });
 });
 

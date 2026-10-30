@@ -2,7 +2,7 @@ import type { ExceptionDTO } from '@albadr/shared';
 import { describe, expect, it } from 'vitest';
 import { courseInWindow, isLessonDay, lessonTime, nextLessonDate } from '../src/schedule';
 import type { CourseRow } from '../src/repo';
-import { addDays, medinaDate, medinaInstant, weekday } from '../src/time';
+import { addDays, hijriToMedinaDate, medinaDate, medinaInstant, weekday } from '../src/time';
 
 const tafsir: CourseRow = {
   id: 'tafsir-saadi', title: 'شرح تفسير السعدي', slot: 'fajr', weekdays: [0, 1, 2, 3, 4, 5],
@@ -22,6 +22,18 @@ describe('time', () => {
     expect(medinaInstant('2026-11-01', '05:25').toISOString()).toBe('2026-11-01T02:25:00.000Z');
     expect(addDays('2026-11-30', 1)).toBe('2026-12-01');
     expect(weekday('2026-11-01')).toBe(0);
+  });
+});
+
+describe('hijriToMedinaDate', () => {
+  it('converts an al-badr.net Umm al-Qura date near now', () => {
+    expect(hijriToMedinaDate('09-05-1448', new Date('2026-10-30T12:00:00Z'))).toBe('2026-10-20');
+    expect(hijriToMedinaDate('10-05-1448', new Date('2026-10-30T12:00:00Z'))).toBe('2026-10-21');
+  });
+
+  it('returns null when out of range or malformed', () => {
+    expect(hijriToMedinaDate('09-05-1440', new Date('2026-10-30T12:00:00Z'))).toBeNull();
+    expect(hijriToMedinaDate('', new Date('2026-10-30T12:00:00Z'))).toBeNull();
   });
 });
 

@@ -29,7 +29,7 @@ async function remind(course: CourseRow, { db, fcm, now }: RemindersDeps, except
   if (!(await markSent(db, `prep:${course.id}:${next.date}`))) return;
 
   const latest = await latestLessons(db, course.id, 5);
-  const passage = nextPassage(course, latest, next, await expectedNextNumber(db, course.id, next.date));
+  const passage = nextPassage(course, latest, next, await expectedNextNumber(db, course.id, next.date, now));
   if (!passage) return;
   const detail = passage.startPoint
     ? passage.startPoint

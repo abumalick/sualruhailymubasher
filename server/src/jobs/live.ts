@@ -56,7 +56,7 @@ export async function runLivePoll({ db, fetch: f, fcm, now }: LiveDeps): Promise
 
   try {
     if (course) {
-      const number = await expectedNextNumber(db, course.id, day);
+      const number = await expectedNextNumber(db, course.id, day, now);
       await fcm.sendToTopic(courseTopic(course.id, 'live'), {
         title: '🔴 بدأ البث المباشر',
         body: `${course.title} · الدرس ${toArabicDigits(number)}`,

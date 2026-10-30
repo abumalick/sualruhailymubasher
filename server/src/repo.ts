@@ -7,6 +7,7 @@ import type {
   PendingTranscription,
   Slot,
 } from '@albadr/shared';
+import { hijriToMedinaDate } from './time';
 
 export interface CourseRow {
   id: string;
@@ -248,22 +249,28 @@ export async function recordBroadcast(
 }
 
 // Number of the lesson held on Medina date `on`: al-badr.net publishes with a lag, so lesson days
-// broadcast after the latest scraped lesson was stored (and before `on`) are counted too.
-// Days, not uids, so a reconnect that yields a second uid counts once.
-export async function expectedNextNumber(db: D1Database, courseId: string, on: string): Promise<number> {
+// broadcast after the latest scraped lesson was held (and before `on`) are counted too.
+// Days, not uids, so a reconnect that yields a second uid counts once. When the held date cannot be
+// derived from the hijri date, the lesson's created_at is the anchor instead.
+export async function expectedNextNumber(db: D1Database, courseId: string, on: string, now: Date): Promise<number> {
+  const [last] = await latestLessons(db, courseId, 1);
+  const created = last
+    ? await db
+        .prepare('SELECT created_at FROM lessons WHERE course_id = ? AND number = ?')
+        .bind(courseId, last.number)
+        .first<{ created_at: string }>()
+    : null;
+  const held = last ? hijriToMedinaDate(last.hijriDate, now) : null;
   const r = await db
     .prepare(
-      `WITH last AS (SELECT number, created_at FROM lessons WHERE course_id = ?1 ORDER BY number DESC LIMIT 1)
-       SELECT coalesce((SELECT number FROM last), 0) + 1 + (
-         SELECT count(DISTINCT date(started_at, '+3 hours')) FROM broadcasts
-         WHERE course_id = ?1
-           AND started_at > coalesce((SELECT created_at FROM last), '')
-           AND date(started_at, '+3 hours') < ?2
-       ) AS n`,
+      `SELECT count(DISTINCT date(started_at, '+3 hours')) AS n FROM broadcasts
+       WHERE course_id = ?1
+         AND date(started_at, '+3 hours') < ?2
+         AND (CASE WHEN ?3 IS NOT NULL THEN date(started_at, '+3 hours') > ?3 ELSE started_at > ?4 END)`,
     )
-    .bind(courseId, on)
+    .bind(courseId, on, held, created?.created_at ?? '')
     .first<{ n: number }>();
-  return r!.n;
+  return (last?.number ?? 0) + 1 + r!.n;
 }
 
 export async function pendingTranscriptions(db: D1Database): Promise<PendingTranscription[]> {

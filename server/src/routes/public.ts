@@ -62,7 +62,7 @@ publicRoutes.get('/api/state', async (c) => {
         time: next?.time ?? lessonTime(course, medinaDate(now)),
         pdfUrls: course.pdfUrls,
         latest,
-        next: next && nextPassage(course, latest, next, await expectedNextNumber(db, course.id, next.date)),
+        next: next && nextPassage(course, latest, next, await expectedNextNumber(db, course.id, next.date, now)),
         exceptions: mine,
       };
     }),
