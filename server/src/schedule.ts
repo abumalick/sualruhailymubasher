@@ -1,17 +1,6 @@
-import type { ExceptionDTO, Slot } from '@albadr/shared';
+import type { ExceptionDTO } from '@albadr/shared';
+import type { CourseRow } from './repo';
 import { addDays, medinaDate, medinaInstant, weekday } from './time';
-
-export interface CourseRow {
-  id: string;
-  title: string;
-  slot: Slot;
-  weekdays: number[];
-  time: string;
-  seriesId: number;
-  pdfUrls: string[];
-  active: boolean;
-  sort: number;
-}
 
 const LESSON_MS = 150 * 60_000;
 const LEAD_MS = 20 * 60_000;

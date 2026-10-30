@@ -1,6 +1,7 @@
 import type { ExceptionDTO } from '@albadr/shared';
 import { describe, expect, it } from 'vitest';
-import { courseInWindow, isLessonDay, nextLessonDate, type CourseRow } from '../src/schedule';
+import { courseInWindow, isLessonDay, nextLessonDate } from '../src/schedule';
+import type { CourseRow } from '../src/repo';
 import { addDays, medinaDate, medinaInstant, weekday } from '../src/time';
 
 const tafsir: CourseRow = {
