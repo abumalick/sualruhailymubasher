@@ -162,4 +162,12 @@ describe('settings and misc', () => {
   it('test-push requires a topic', async () => {
     expect((await call('POST', '/api/admin/test-push', {})).status).toBe(400);
   });
+
+  it('test-push only accepts topics the jobs send to', async () => {
+    expect((await call('POST', '/api/admin/test-push', { topic: 'c-tafsir-saadi-foo' })).status).toBe(400);
+    expect((await call('POST', '/api/admin/test-push', { topic: 'c-nope-live' })).status).toBe(400);
+    for (const topic of ['c-tafsir-saadi-live', 'c-kitab-tawhid-prep', 'live-other']) {
+      expect((await call('POST', '/api/admin/test-push', { topic })).status).not.toBe(400);
+    }
+  });
 });

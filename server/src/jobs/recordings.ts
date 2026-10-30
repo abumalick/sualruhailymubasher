@@ -1,4 +1,4 @@
-import { toArabicDigits } from '@albadr/shared';
+import { courseTopic, toArabicDigits } from '@albadr/shared';
 import type { Fcm } from '../fcm';
 import { insertLessonIfNew, latestLessons, listCourses, markSent, setRecordingUrl } from '../repo';
 import type { CourseRow } from '../repo';
@@ -36,7 +36,7 @@ async function ingestCourse(course: CourseRow, { db, fetch: f, fcm }: RecordingD
     if (!hadLessons || lesson.number !== newestNumber) continue;
     if (!(await markSent(db, `rec:${course.id}:${lesson.number}`))) continue;
     try {
-      await fcm.sendToTopic(`c-${course.id}-rec`, {
+      await fcm.sendToTopic(courseTopic(course.id, 'rec'), {
         title: 'التسجيل متاح · راجع الدرس',
         body: `${course.title} · الدرس ${toArabicDigits(lesson.number)}`,
         data: { kind: 'rec', courseId: course.id, number: String(lesson.number) },

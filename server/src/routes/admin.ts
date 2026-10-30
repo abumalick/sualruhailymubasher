@@ -1,4 +1,4 @@
-import type { CourseInput, ExceptionInput, LessonPatch } from '@albadr/shared';
+import { courseTopic, LIVE_OTHER_TOPIC, type CourseInput, type ExceptionInput, type LessonPatch } from '@albadr/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { getFcm, type Env } from '../index';
@@ -139,7 +139,11 @@ adminRoutes.get('/api/admin/pending-transcriptions', async (c) => c.json(await p
 
 adminRoutes.post('/api/admin/test-push', async (c) => {
   const b = await readJson(c);
-  if (!isObject(b) || !isString(b.topic) || b.topic === '') return bad(c);
+  if (!isObject(b) || !isString(b.topic)) return bad(c);
+  const known = (await listCourses(c.env.DB)).flatMap((course) =>
+    (['live', 'rec', 'prep'] as const).map((kind) => courseTopic(course.id, kind)),
+  );
+  if (b.topic !== LIVE_OTHER_TOPIC && !known.includes(b.topic)) return bad(c);
   try {
     await getFcm(c.env.FCM_SERVICE_ACCOUNT ?? '').sendToTopic(b.topic, {
       title: 'تجربة',

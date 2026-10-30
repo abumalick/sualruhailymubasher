@@ -31,7 +31,7 @@ function mockFetch(sendStatus = 200) {
   });
 }
 
-const note = { title: 't', body: 'b', data: { kind: 'live' } };
+const note = { title: 't', body: 'b', data: { kind: 'live' as const, number: '' } };
 
 describe('fcm', () => {
   afterEach(() => vi.useRealTimers());
@@ -97,7 +97,7 @@ describe('fcm', () => {
       message: {
         topic: 'c-tafsir-saadi-live',
         notification: { title: 't', body: 'b' },
-        data: { kind: 'live' },
+        data: { kind: 'live', number: '' },
         android: { priority: 'high', notification: { channel_id: 'lessons' } },
         apns: { payload: { aps: { sound: 'default' } } },
       },

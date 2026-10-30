@@ -1,4 +1,4 @@
-import { toArabicDigits } from '@albadr/shared';
+import { courseTopic, toArabicDigits } from '@albadr/shared';
 import { nextPassage } from '../estimate';
 import type { Fcm } from '../fcm';
 import { latestLessons, listCourses, listExceptions, markSent, type CourseRow } from '../repo';
@@ -36,7 +36,7 @@ async function remind(course: CourseRow, { db, fcm, now }: RemindersDeps, except
     : passage.number > 1
       ? `يتابع من حيث توقف الدرس ${toArabicDigits(passage.number - 1)}`
       : null;
-  await fcm.sendToTopic(`c-${course.id}-prep`, {
+  await fcm.sendToTopic(courseTopic(course.id, 'prep'), {
     title: 'حضّر للدرس القادم',
     body: detail ? `${course.title} · ${detail}` : course.title,
     data: { kind: 'prep', courseId: course.id, number: String(passage.number) },

@@ -1,3 +1,5 @@
+import type { PushData } from '@albadr/shared';
+
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 
@@ -10,7 +12,7 @@ interface ServiceAccount {
 export interface Notification {
   title: string;
   body: string;
-  data?: Record<string, string>;
+  data?: PushData;
 }
 
 const encoder = new TextEncoder();

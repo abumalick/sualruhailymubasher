@@ -1,4 +1,4 @@
-import { toArabicDigits } from '@albadr/shared';
+import { courseTopic, LIVE_OTHER_TOPIC, toArabicDigits } from '@albadr/shared';
 import type { Fcm } from '../fcm';
 import { courseInWindow } from '../schedule';
 import { parseChannelView } from '../sources/mixlr';
@@ -55,13 +55,13 @@ export async function runLivePoll({ db, fetch: f, fcm, now }: LiveDeps): Promise
     if (course) {
       const [latest] = await latestLessons(db, course.id, 1);
       const number = (latest?.number ?? 0) + 1;
-      await fcm.sendToTopic(`c-${course.id}-live`, {
+      await fcm.sendToTopic(courseTopic(course.id, 'live'), {
         title: '🔴 بدأ البث المباشر',
         body: `${course.title} · الدرس ${toArabicDigits(number)}`,
         data: { kind: 'live', courseId: course.id, number: String(number) },
       });
     } else {
-      await fcm.sendToTopic('live-other', {
+      await fcm.sendToTopic(LIVE_OTHER_TOPIC, {
         title: '🔴 بث مباشر الآن',
         body: 'دروس الشيخ عبد الرزاق البدر',
         data: { kind: 'live-other', number: '' },
