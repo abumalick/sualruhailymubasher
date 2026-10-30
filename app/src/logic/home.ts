@@ -27,12 +27,17 @@ function prepareFrom(c: CourseDTO): number {
     : lessonInstant(next.date, '15:30').getTime();
 }
 
+const hijriKey = (d: string) => d.split('-').reverse().join('');
+
 function todaySession(c: CourseDTO, today: string, weekday: number): { time: string } | null {
-  const covering = c.exceptions.filter((e) => e.dateFrom <= today && today <= (e.dateTo ?? e.dateFrom));
-  if (covering.some((e) => e.kind === 'cancel' || e.kind === 'pause')) return null;
-  const extra = covering.find((e) => e.kind === 'extra' || e.kind === 'move');
-  if (!extra && !c.weekdays.includes(weekday)) return null;
-  return { time: extra?.time ?? (c.next?.date === today ? c.next.time : c.time) };
+  const covers = (e: CourseDTO['exceptions'][number]) => e.dateFrom <= today && today <= (e.dateTo ?? e.dateFrom);
+  const ex = c.exceptions;
+  if (ex.some((e) => (e.kind === 'cancel' || e.kind === 'pause') && covers(e))) return null;
+  const arrival = ex.find((e) => (e.kind === 'move' ? e.dateTo === today : e.kind === 'extra' && covers(e)));
+  if (arrival) return { time: arrival.time ?? c.time };
+  if (ex.some((e) => e.kind === 'move' && e.dateFrom === today)) return null;
+  if (!c.weekdays.includes(weekday)) return null;
+  return { time: c.next?.date === today ? c.next.time : c.time };
 }
 
 export function buildHome(state: StateDTO, ticks: Ticks, now: Date): HomeModel {
@@ -103,19 +108,18 @@ export function buildHome(state: StateDTO, ticks: Ticks, now: Date): HomeModel {
   const focus = upcoming[0] ?? byNext[0];
   if (!focus) return { hero: null, cards: [], steps: null, today: todayList };
 
-  const find = <K extends Item['kind']>(kind: K) =>
-    focus.items.find((i): i is Extract<Item, { kind: K }> => i.kind === kind);
-  const review = find('review');
-  const prepare = find('prepare');
-  const awaitingItem = find('awaiting-recording');
+  const prepare = focus.items.find((i): i is Extract<Item, { kind: 'prepare' }> => i.kind === 'prepare');
+  const freshestReview = byNext
+    .flatMap((p) => p.items)
+    .filter((i): i is Extract<Item, { kind: 'review' }> => i.kind === 'review' && !i.done)
+    .sort((x, y) => hijriKey(y.lesson.hijriDate).localeCompare(hijriKey(x.lesson.hijriDate)))[0];
 
   let hero: Item;
   if (prepare && nowMs >= prepareFrom(focus.course)) hero = prepare;
-  else if (review && !review.done) hero = review;
-  else hero = prepare ?? awaitingItem ?? review!;
+  else hero = freshestReview ?? prepare ?? focus.items.find((i) => i.kind === 'awaiting-recording') ?? focus.items[0];
 
   const cards = flat(byNext).filter((i) => i !== hero);
-  const c = focus.course;
+  const c = state.courses.find((x) => x.id === (hero as { courseId: string }).courseId)!;
   const readTick = (n: number) => (ticks.read.has(`${c.id}:${n}`) ? ('done' as const) : null);
 
   let steps: HomeModel['steps'];
@@ -124,7 +128,7 @@ export function buildHome(state: StateDTO, ticks: Ticks, now: Date): HomeModel {
   } else if (hero.kind === 'review') {
     steps = { prepare: 'done', lesson: 'done', review: 'current' };
   } else {
-    const n = hero.kind === 'awaiting-recording' ? hero.lessonNumber : 0;
+    const n = (hero as Extract<Item, { kind: 'awaiting-recording' }>).lessonNumber;
     steps = { prepare: readTick(n) ?? 'todo', lesson: 'done', review: 'todo' };
   }
   return { hero, cards, steps, today: todayList };

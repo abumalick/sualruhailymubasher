@@ -53,7 +53,7 @@ describe('buildHome', () => {
   });
 
   it('Mon 09:40 -> review 443 hero, prepare 444 card', () => {
-    const h = buildHome(tafsirOnly(), none, MON_0940);
+    const h = buildHome(FIXTURE_STATE, none, MON_0940);
     expect(h.hero).toMatchObject({ kind: 'review', courseId: 'tafsir-saadi' });
     expect((h.hero as { lesson: { number: number } }).lesson.number).toBe(443);
     expect(h.cards).toContainEqual(expect.objectContaining({ kind: 'prepare', next: expect.objectContaining({ number: 444 }) }));
@@ -77,11 +77,26 @@ describe('buildHome', () => {
     expect(h.steps).toBeNull();
   });
 
-  it('reviewed tick at 09:40 -> prepare hero, review card kept as done', () => {
+  it('reviewed tick at 09:40 -> next not-done review hero, done review kept as card', () => {
     const ticks: Ticks = { read: new Set(), reviewed: new Set(['tafsir-saadi:443']) };
-    const h = buildHome(tafsirOnly(), ticks, MON_0940);
-    expect(h.hero).toMatchObject({ kind: 'prepare', courseId: 'tafsir-saadi' });
-    expect(h.cards).toContainEqual(expect.objectContaining({ kind: 'review', done: true }));
+    const h = buildHome(FIXTURE_STATE, ticks, MON_0940);
+    expect(h.hero).toMatchObject({ kind: 'review', courseId: 'kitab-tawhid' });
+    expect(h.cards).toContainEqual(expect.objectContaining({ kind: 'review', courseId: 'tafsir-saadi', done: true }));
+    expect(h.steps).toEqual({ prepare: 'done', lesson: 'done', review: 'current' });
+  });
+
+  it('all reviews done at 09:40 -> prepare of the soonest course', () => {
+    const ticks: Ticks = { read: new Set(), reviewed: new Set(['tafsir-saadi:443', 'kitab-tawhid:2']) };
+    const h = buildHome(FIXTURE_STATE, ticks, MON_0940);
+    expect(h.hero).toMatchObject({ kind: 'prepare', courseId: 'kitab-tawhid' });
+  });
+
+  it('a moved lesson is held on dateTo at the given time, not on dateFrom', () => {
+    const move = { id: 2, courseId: 'tafsir-saadi', kind: 'move' as const, dateFrom: '2026-11-02', dateTo: '2026-11-03', time: '07:00', note: '' };
+    const state = withCourse('tafsir-saadi', { exceptions: [move] });
+    expect(buildHome(state, none, MON_0940).today.map((t) => t.courseId)).toEqual(['kitab-tawhid']);
+    const tue = buildHome(state, none, new Date('2026-11-03T02:00:00Z'));
+    expect(tue.today).toContainEqual({ courseId: 'tafsir-saadi', time: '07:00', status: 'upcoming' });
   });
 
   it('course with no lessons and no next yields no items', () => {
@@ -98,7 +113,7 @@ describe('buildHome', () => {
 
   it('Maghrib prepare is not emphasised before 15:30', () => {
     const h = buildHome(FIXTURE_STATE, none, new Date('2026-11-02T12:29:00Z'));
-    expect(h.hero).toMatchObject({ kind: 'review', courseId: 'kitab-tawhid' });
+    expect(h.hero).toMatchObject({ kind: 'review', courseId: 'tafsir-saadi' });
   });
 
   it('awaiting recording when today is dated and has no recording', () => {
