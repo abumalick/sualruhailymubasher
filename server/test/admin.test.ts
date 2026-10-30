@@ -77,6 +77,14 @@ describe('courses', () => {
     expect(after.sort).toBe(before.sort);
   });
 
+  it.each(['Tafsir', 'a_b', 'a.b', 'x'.repeat(41), '%D8%A3'])('rejects course id %s (it becomes an FCM topic)', async (id) => {
+    expect((await call('PUT', `/api/admin/courses/${id}`, course)).status).toBe(400);
+  });
+
+  it('accepts a new book id', async () => {
+    expect((await call('PUT', '/api/admin/courses/tafsir-saadi-2', course)).status).toBe(204);
+  });
+
   it.each([
     { ...course, title: '' },
     { ...course, slot: 'asr' },

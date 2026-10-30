@@ -34,6 +34,7 @@ const isDate = (v: unknown) => isString(v) && /^\d{4}-\d{2}-\d{2}$/.test(v) && !
 const isTime = (v: unknown) => isString(v) && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
 const KINDS = ['cancel', 'pause', 'extra', 'move'];
+const COURSE_ID = /^[a-z0-9-]{1,40}$/;
 const LESSON_KEYS = ['startPoint', 'pdfIndex', 'startPage', 'endPoint', 'endPage', 'endPdfIndex'];
 
 function parseCourse(b: unknown): CourseInput | null {
@@ -99,9 +100,10 @@ const bad = (c: { json: (b: unknown, s: 400) => Response }) => c.json({ error: '
 adminRoutes.get('/api/admin/courses', async (c) => c.json(await listCourses(c.env.DB)));
 
 adminRoutes.put('/api/admin/courses/:id', async (c) => {
+  const id = c.req.param('id');
   const input = parseCourse(await readJson(c));
-  if (!input) return bad(c);
-  await upsertCourse(c.env.DB, c.req.param('id'), input);
+  if (!input || !COURSE_ID.test(id)) return bad(c);
+  await upsertCourse(c.env.DB, id, input);
   return c.body(null, 204);
 });
 

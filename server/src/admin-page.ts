@@ -22,6 +22,7 @@ input[type=checkbox]{width:auto}
 .days label{display:flex;align-items:center;gap:4px;margin:2px 0}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}
 button{background:var(--brown);color:#fff;border:0;border-radius:6px;padding:9px 14px;font:inherit;margin-top:10px;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
 button.danger{background:var(--red)}
 button.ghost{background:transparent;color:var(--brown);border:1px solid var(--brown)}
 .msg{margin-top:8px;font-size:14px;min-height:1.2em}
@@ -44,6 +45,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
 </section>
 
 <div id="app" hidden>
+  <div class="msg" id="load-msg"></div>
   <h2>الدورات</h2>
   <div id="courses"></div>
 
@@ -165,7 +167,8 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
 
   function errText(e) { return 'تعذر التنفيذ: ' + e.message; }
 
-  function courseCard(c) {
+  function courseCard(c, isNew) {
+    var idInput = isNew ? el('input', { type: 'text', dir: 'ltr', placeholder: 'tafsir-saadi-2' }) : null;
     var title = el('input', { value: c.title });
     var slot = el('select');
     slot.appendChild(el('option', { value: 'fajr', text: 'الفجر' }));
@@ -191,12 +194,17 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
         pdfUrls: pdfs.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
         active: active.checked
       };
-      api('/api/admin/courses/' + encodeURIComponent(c.id), 'PUT', body).then(function () {
+      var id = isNew ? idInput.value.trim() : c.id;
+      if (isNew && !/^[a-z0-9-]{1,40}$/.test(id)) { msg.textContent = 'معرّف الدورة: حروف إنجليزية صغيرة وأرقام و- فقط'; msg.className = 'msg err'; return; }
+      api('/api/admin/courses/' + encodeURIComponent(id), 'PUT', body).then(function () {
         msg.textContent = 'تم الحفظ'; msg.className = 'msg ok';
+        if (isNew) return reloadCourses();
       }, function (e) { msg.textContent = errText(e); msg.className = 'msg err'; });
     };
     return el('div', { className: 'card' }, [
-      el('h3', { text: c.id }),
+      isNew ? el('h3', { text: 'إضافة دورة' }) : el('h3', { text: c.id }),
+      isNew ? el('p', { className: 'muted', text: 'عند انتهاء كتاب: اجعل دورته غير فعّالة، وأضف الكتاب الجديد هنا بمعرّف دورة جديد ورقم سلسلته في al-badr.net. لا تغيّر رقم السلسلة لدورة موجودة.' }) : null,
+      isNew ? field('معرّف الدورة (حروف إنجليزية صغيرة وأرقام و-)', idInput) : null,
       field('العنوان', title),
       el('div', { className: 'grid' }, [field('الفترة', slot), field('دقائق بعد الأذان/الغروب', offset)]),
       el('label', { text: 'أيام الدرس' }),
@@ -211,7 +219,8 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
   function renderCourses() {
     var box = $('courses');
     box.textContent = '';
-    courses.forEach(function (c) { box.appendChild(courseCard(c)); });
+    courses.forEach(function (c) { box.appendChild(courseCard(c, false)); });
+    box.appendChild(courseCard({ id: '', title: '', slot: 'fajr', weekdays: [], offsetMin: 25, seriesId: 0, pdfUrls: [], active: true }, true));
     var sel = $('exc-course');
     sel.textContent = '';
     sel.appendChild(el('option', { value: '', text: 'كل الدورات' }));
@@ -283,23 +292,32 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     return el('div', { className: 'card' }, parts);
   }
 
+  var lessonsLoad = 0;
   function loadLessons() {
     var box = $('lessons');
-    box.textContent = '';
+    var load = ++lessonsLoad;
     return Promise.all(courses.map(function (c) {
-      return fetch('/api/courses/' + encodeURIComponent(c.id) + '/lessons?limit=10').then(function (r) { return r.json(); }).then(function (list) {
+      return fetch('/api/courses/' + encodeURIComponent(c.id) + '/lessons?limit=10').then(function (r) {
+        if (!r.ok) throw new Error('خطأ ' + r.status);
+        return r.json();
+      }).then(function (list) {
         var section = el('div', {}, [el('h3', { text: c.title })]);
         if (!list.length) section.appendChild(el('p', { className: 'muted', text: 'لا توجد دروس بعد' }));
         list.forEach(function (l) { section.appendChild(lessonCard(c.id, l)); });
         return section;
       });
     })).then(function (sections) {
+      if (load !== lessonsLoad) return;
+      box.textContent = '';
       sections.forEach(function (s) { box.appendChild(s); });
     });
   }
 
   function loadMode() {
-    return fetch('/api/state').then(function (r) { return r.json(); }).then(function (s) {
+    return fetch('/api/state').then(function (r) {
+      if (!r.ok) throw new Error('خطأ ' + r.status);
+      return r.json();
+    }).then(function (s) {
       $('live-mode').value = s.live.mode;
     });
   }
@@ -308,12 +326,21 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     $('login').hidden = true;
     $('app').hidden = false;
     $('logout').hidden = false;
-    api('/api/admin/courses').then(function (list) {
+    $('load-msg').textContent = '';
+    reloadCourses().then(function () {
+      return Promise.all([loadExceptions(), loadMode()]);
+    }).catch(loadFailed);
+  }
+
+  function loadFailed(e) {
+    if (e.message !== 'unauthorized') say('load-msg', errText(e), false);
+  }
+
+  function reloadCourses() {
+    return api('/api/admin/courses').then(function (list) {
       courses = list;
       renderCourses();
-      return Promise.all([loadExceptions(), loadLessons(), loadMode()]);
-    }).catch(function (e) {
-      if (e.message !== 'unauthorized') say('login-msg', errText(e), false);
+      loadLessons().catch(loadFailed);
     });
   }
 
@@ -358,11 +385,13 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
   };
 
   $('ingest-btn').onclick = function () {
+    var btn = $('ingest-btn');
+    btn.disabled = true;
     say('ingest-msg', 'جارٍ التحديث...', true);
     api('/api/admin/run/ingest', 'POST').then(function () {
       say('ingest-msg', 'تم تحديث الدروس', true);
       return loadLessons();
-    }, function (e) { say('ingest-msg', errText(e), false); });
+    }).catch(function (e) { say('ingest-msg', errText(e), false); }).then(function () { btn.disabled = false; });
   };
 
   if (getToken()) start(); else showLogin('');
