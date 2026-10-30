@@ -1,0 +1,25 @@
+[project]
+name = "albadr-agent"
+version = "0.1.0"
+description = "Transcribes lesson recordings and locates where each lesson stopped in the book"
+authors = [
+    { name = "abumalick", email = "abdullah.hilson@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "faster-whisper>=1.2.1",
+    "httpx>=0.28.1",
+    "pydantic>=2.14.2",
+]
+
+[project.scripts]
+albadr-agent = "albadr_agent.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.20,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
