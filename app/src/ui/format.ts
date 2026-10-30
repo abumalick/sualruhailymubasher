@@ -37,6 +37,7 @@ export function passageLine(next: NextPassageDTO): string {
 }
 
 export function bookHref(course: CourseDTO, pdfIndex: number | null, page: number | null, marker = false): string | null {
-  if (course.pdfUrls.length === 0 || page === null) return null;
+  if (course.pdfUrls.length === 0) return null;
+  if (page === null) return `#/book/${course.id}/${pdfIndex ?? 0}/1`;
   return `#/book/${course.id}/${pdfIndex ?? 0}/${page}${marker ? '?marker=1' : ''}`;
 }

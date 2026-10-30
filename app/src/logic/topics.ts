@@ -1,4 +1,5 @@
 import { courseTopic, LIVE_OTHER_TOPIC, type PushData, type StateDTO } from '@albadr/shared';
+import { bookHref } from '../ui/format';
 
 export const COURSE_KINDS = ['live', 'rec', 'prep'] as const;
 
@@ -32,9 +33,9 @@ export function routeForPush(data: PushData, state: StateDTO | null): string {
     case 'rec':
       return courseHref;
     case 'prep': {
-      const next = state?.courses.find((c) => c.id === data.courseId)?.next;
-      if (!next || next.startPage === null) return courseHref;
-      return `#/book/${data.courseId}/${next.pdfIndex ?? 0}/${next.startPage}?marker=1`;
+      const course = state?.courses.find((c) => c.id === data.courseId);
+      const next = course?.next;
+      return (course && next && bookHref(course, next.pdfIndex, next.startPage, true)) || courseHref;
     }
     default:
       return '#/';

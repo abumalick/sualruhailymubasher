@@ -108,7 +108,7 @@ function Body(p: HomeProps & { state: StateDTO; model: HomeModel }) {
                     {i.next.startPage !== null && ` · ص ${ar(i.next.startPage)}`}
                   </span>
                 </div>
-                {i.done && <Tick label="قرأتُه" done compact onClick={() => p.onTick('read', c.id, i.next.number)} />}
+                <Tick label="قرأتُه" done={i.done} compact onClick={() => p.onTick('read', c.id, i.next.number)} />
               </div>
             );
           })}
@@ -174,11 +174,11 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
             {c.next && ` · ${passageLine(c.next)}`}
           </p>
         )}
-        {book && c?.next?.startPage != null && (
+        {book && (
           <div class="acts">
             <a class="chip" href={book}>
               <Icon id="i-pdf" />
-              تابع في الكتاب · ص {ar(c.next.startPage)}
+              {c?.next?.startPage != null ? `تابع في الكتاب · ص ${ar(c.next.startPage)}` : 'افتح الكتاب'}
             </a>
           </div>
         )}
@@ -203,7 +203,7 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
           {book && (
             <a class="chip pri" href={book}>
               <Icon id="i-pdf" />
-              اقرأ في الكتاب · ص {ar(item.next.startPage!)}
+              {item.next.startPage !== null ? `اقرأ في الكتاب · ص ${ar(item.next.startPage)}` : 'افتح الكتاب'}
             </a>
           )}
           <Tick label="قرأتُه" done={item.done} onClick={() => p.onTick('read', c.id, item.next.number)} />
@@ -232,7 +232,7 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
           {book && (
             <a class="chip" href={book}>
               <Icon id="i-pdf" />
-              الكتاب · ص {ar(lesson.startPage!)}
+              {lesson.startPage !== null ? `الكتاب · ص ${ar(lesson.startPage)}` : 'افتح الكتاب'}
             </a>
           )}
           <Tick label="راجعتُه" done={item.done} onClick={() => p.onTick('reviewed', c.id, lesson.number)} />

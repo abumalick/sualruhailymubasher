@@ -85,6 +85,31 @@ describe('Home hero', () => {
     expect(screen.queryByText(/اقرأ في الكتاب/)).toBeNull();
   });
 
+  it('unknown pages still open the book at page 1 of the volume, without the marker', () => {
+    const blank = (c: (typeof FIXTURE_STATE.courses)[number]) => ({
+      ...c,
+      latest: c.latest.map((l) => ({ ...l, pdfIndex: null, startPage: null, endPage: null })),
+      next: { ...c.next!, pdfIndex: null, startPage: null, estEndPage: null },
+    });
+    const state = { ...FIXTURE_STATE, courses: FIXTURE_STATE.courses.map(blank) };
+    home(state, MON_2110);
+    expect(screen.getAllByRole('link', { name: 'افتح الكتاب' }).map((a) => a.getAttribute('href'))).toContain('#/book/tafsir-saadi/0/1');
+    expect(screen.queryByText(/اقرأ في الكتاب · ص/)).toBeNull();
+    cleanup();
+    home(state, MON_0940);
+    expect(screen.getByRole('link', { name: 'افتح الكتاب' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/1');
+  });
+
+  it('prepare cards carry a read tick even when not done', () => {
+    const onTick = vi.fn();
+    home(FIXTURE_STATE, MON_0940, { onTick });
+    const ticks = screen.getAllByRole('button', { name: 'قرأتُه' });
+    expect(ticks.length).toBe(2);
+    expect(ticks.every((t) => t.getAttribute('aria-pressed') === 'false')).toBe(true);
+    fireEvent.click(ticks[0]);
+    expect(onTick).toHaveBeenCalledWith('read', 'kitab-tawhid', 3);
+  });
+
   it('shows the Medina hijri date in the header', () => {
     home(FIXTURE_STATE, MON_0940);
     expect(document.querySelector('.head .date')?.textContent).toBe('الاثنين٢٢ جمادى الأولى');
@@ -139,6 +164,21 @@ describe('Course page', () => {
     await act(async () => observer!.cb([{ isIntersecting: true }]));
     expect(api.fetchLessons).toHaveBeenCalledWith('tafsir-saadi', 441);
     await waitFor(() => expect(titles()).toEqual(['الدرس ٤٤٣', 'الدرس ٤٤٢', 'الدرس ٤٤١', 'الدرس ٤٤٠', 'الدرس ٤٣٩']));
+  });
+
+  it('unknown page: one button per volume at page 1, or a single book button', () => {
+    const tawhid = FIXTURE_STATE.courses[1];
+    const blank = { ...tawhid, latest: tawhid.latest.map((l) => ({ ...l, startPage: null, endPage: null })), next: { ...tawhid.next!, startPage: null } };
+    render(<Course course={blank} ticks={none()} onTick={noop} onPlay={noop} />);
+    expect(['الجزء ١', 'الجزء ٢', 'الجزء ٣'].map((n) => screen.getByRole('link', { name: n }).getAttribute('href'))).toEqual([
+      '#/book/kitab-tawhid/0/1',
+      '#/book/kitab-tawhid/1/1',
+      '#/book/kitab-tawhid/2/1',
+    ]);
+    cleanup();
+    const single = { ...tafsir, latest: tafsir.latest.map((l) => ({ ...l, startPage: null, endPage: null })), next: { ...tafsir.next!, startPage: null } };
+    render(<Course course={single} ticks={none()} onTick={noop} onPlay={noop} />);
+    expect(screen.getByRole('link', { name: 'افتح الكتاب' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/1');
   });
 
   it('a course with no lessons and no next lesson renders without crashing', () => {

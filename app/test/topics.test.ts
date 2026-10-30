@@ -53,9 +53,14 @@ describe('routeForPush', () => {
     expect(routeForPush({ kind: 'prep', courseId: course.id, number: '2' }, state)).toBe(`#/book/${course.id}/0/12?marker=1`);
   });
 
-  it('prep falls back to the course page when the page is unknown or state is missing', () => {
-    course.next = { ...course.next!, startPage: null };
-    expect(routeForPush({ kind: 'prep', courseId: course.id, number: '2' }, state)).toBe(`#/course/${course.id}`);
+  it('prep with an unknown page opens page 1 of the volume without the marker', () => {
+    course.next = { ...course.next!, pdfIndex: null, startPage: null };
+    expect(routeForPush({ kind: 'prep', courseId: course.id, number: '2' }, state)).toBe(`#/book/${course.id}/0/1`);
+  });
+
+  it('prep falls back to the course page without PDFs or state', () => {
+    const noPdf = { ...state, courses: [{ ...course, pdfUrls: [], next: { ...course.next!, startPage: 12 } }] };
+    expect(routeForPush({ kind: 'prep', courseId: course.id, number: '2' }, noPdf)).toBe(`#/course/${course.id}`);
     expect(routeForPush({ kind: 'prep', courseId: course.id, number: '2' }, null)).toBe(`#/course/${course.id}`);
   });
 });

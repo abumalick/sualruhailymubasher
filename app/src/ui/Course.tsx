@@ -87,12 +87,19 @@ export function Course({ course, ticks, onTick, onPlay }: Props) {
             : 'لا يوجد درس قادم مجدول'}
         </span>
         <div class="acts start">
-          {book && page !== null && (
-            <a class="chip pri" href={book}>
-              <Icon id="i-pdf" />
-              الكتاب · ص {ar(page)}
-            </a>
-          )}
+          {page === null && course.pdfUrls.length > 1
+            ? course.pdfUrls.map((_, i) => (
+                <a class="chip" href={bookHref(course, i, null)!}>
+                  <Icon id="i-pdf" />
+                  الجزء {ar(i + 1)}
+                </a>
+              ))
+            : book && (
+                <a class="chip pri" href={book}>
+                  <Icon id="i-pdf" />
+                  {page !== null ? `الكتاب · ص ${ar(page)}` : 'افتح الكتاب'}
+                </a>
+              )}
           <a class="chip" href="#/notifications">
             <Icon id="i-bell" />
             التنبيهات
