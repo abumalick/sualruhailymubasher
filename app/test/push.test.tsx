@@ -121,3 +121,11 @@ describe('Notifications screen', () => {
     await waitFor(() => screen.getByText(/متوقفة من إعدادات الجهاز/));
   });
 });
+
+describe('setTopic without any state', () => {
+  it('does nothing and reports it', async () => {
+    expect(await setTopic('live-other', false)).toBeNull();
+    expect(fm.subscribeToTopic).not.toHaveBeenCalled();
+    expect(store.has('topics')).toBe(false);
+  });
+});

@@ -32,7 +32,10 @@ export function Notifications({ state }: { state: StateDTO | null }) {
   }, []);
 
   const on = (topic: string) => topics?.includes(topic) ?? false;
-  const toggle = async (topic: string) => setTopics(await setTopic(topic, !on(topic)));
+  const toggle = async (topic: string) => {
+    const next = await setTopic(topic, !on(topic));
+    if (next) setTopics(next);
+  };
   const row = (topic: string, label: string, hint?: string) => (
     <Toggle label={label} hint={hint} on={on(topic)} onToggle={() => void toggle(topic)} />
   );

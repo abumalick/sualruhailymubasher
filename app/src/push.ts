@@ -76,7 +76,7 @@ async function save(topics: string[], courses?: string[]) {
   if (courses) await Preferences.set({ key: COURSES_KEY, value: JSON.stringify(courses) });
 }
 
-export const setTopic = (topic: string, on: boolean): Promise<string[]> =>
+export const setTopic = (topic: string, on: boolean): Promise<string[] | null> =>
   serial(async () => {
     const stored = await loadStored();
     const toggle = (list: string[]) => (on ? [...new Set([...list, topic])] : list.filter((t) => t !== topic));
@@ -86,7 +86,7 @@ export const setTopic = (topic: string, on: boolean): Promise<string[]> =>
       return topics;
     }
     const state = currentState() ?? (await loadCachedState());
-    if (!state) return [];
+    if (!state) return null;
     const ids = state.courses.map((c) => c.id);
     const defaults = topicsFor(ids);
     const { topics, failed } = await apply([], toggle(defaults));

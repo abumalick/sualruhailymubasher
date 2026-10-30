@@ -70,6 +70,11 @@ export function useAppData(): AppData {
   return snapshot;
 }
 
+export function watchData(cb: (d: AppData) => void): () => void {
+  listeners.add(cb);
+  return () => void listeners.delete(cb);
+}
+
 export const currentState = (): StateDTO | null => data.state;
 
 export function watchState(cb: (state: StateDTO | null) => void): void {

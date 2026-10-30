@@ -77,3 +77,18 @@ describe('refresh loop', () => {
     expect(fetchState).not.toHaveBeenCalled();
   });
 });
+
+describe('clock re-render', () => {
+  it('notifies subscribers on every tick even when the fetch never settles or fails', async () => {
+    const { watchData } = await import('../src/store');
+    fetchState.mockReturnValue(new Promise(() => {}));
+    const seen = vi.fn();
+    const off = watchData(seen);
+    await startRefreshLoop();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(seen).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(seen).toHaveBeenCalledTimes(2);
+    off();
+  });
+});
