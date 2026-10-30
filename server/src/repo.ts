@@ -270,8 +270,9 @@ export async function pendingTranscriptions(db: D1Database): Promise<PendingTran
   const { results } = await db
     .prepare(
       `SELECT l.course_id, l.number, l.recording_url, l.start_point, c.pdf_urls
-       FROM lessons l JOIN courses c ON c.id = l.course_id
-       WHERE l.recording_url IS NOT NULL AND l.end_page IS NULL
+       FROM (SELECT *, row_number() OVER (PARTITION BY course_id ORDER BY number DESC) AS rank FROM lessons) l
+       JOIN courses c ON c.id = l.course_id
+       WHERE l.rank <= 3 AND l.recording_url IS NOT NULL AND l.end_page IS NULL
        ORDER BY l.course_id, l.number`,
     )
     .all<Row>();

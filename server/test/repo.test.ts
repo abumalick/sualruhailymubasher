@@ -98,7 +98,7 @@ describe('lessons', () => {
     expect((await latestLessons(db, 'l-chain', 1))[0]).toMatchObject({ number: 3, startPage: null, pdfIndex: null });
   });
 
-  it('pendingTranscriptions: recording set, no end_page, oldest first', async () => {
+  it('pendingTranscriptions: recording set, no end_page, among the newest 3, oldest first', async () => {
     const course = { title: 'P', slot: 'fajr' as const, weekdays: [1], offsetMin: 10, seriesId: 1, pdfUrls: ['u1'], active: true };
     await upsertCourse(db, 'l-pend', course);
     for (const n of [3, 1, 2, 4]) await insertLessonIfNew(db, 'l-pend', lesson(n));
@@ -107,9 +107,21 @@ describe('lessons', () => {
     await setRecordingUrl(db, 'l-pend', 2, 'r2');
     await patchLesson(db, 'l-pend', 2, { endPage: 5 });
     const pending = (await pendingTranscriptions(db)).filter((p) => p.courseId === 'l-pend');
-    expect(pending).toEqual([
-      { courseId: 'l-pend', number: 1, recordingUrl: 'r1', startPoint: 'point 1', pdfUrls: ['u1'] },
-      { courseId: 'l-pend', number: 3, recordingUrl: 'r3', startPoint: 'point 3', pdfUrls: ['u1'] },
+    expect(pending).toEqual([{ courseId: 'l-pend', number: 3, recordingUrl: 'r3', startPoint: 'point 3', pdfUrls: ['u1'] }]);
+  });
+
+  it('pendingTranscriptions ignores a backfilled backlog', async () => {
+    const course = { title: 'B', slot: 'fajr' as const, weekdays: [1], offsetMin: 10, seriesId: 1, pdfUrls: [], active: true };
+    for (const id of ['l-back', 'l-back2']) {
+      await upsertCourse(db, id, course);
+      for (let n = 1; n <= 10; n++) {
+        await insertLessonIfNew(db, id, lesson(n));
+        await setRecordingUrl(db, id, n, `r${n}`);
+      }
+    }
+    const pending = (await pendingTranscriptions(db)).filter((p) => p.courseId.startsWith('l-back'));
+    expect(pending.map((p) => `${p.courseId}:${p.number}`)).toEqual([
+      'l-back:8', 'l-back:9', 'l-back:10', 'l-back2:8', 'l-back2:9', 'l-back2:10',
     ]);
   });
 });
