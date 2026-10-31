@@ -26,7 +26,7 @@ PROMPT = """أنت تساعد في تحديد موضع قراءة الشيخ م�
 
 الكتاب: {title}
 نقطة بداية الدرس المعلنة: {start_point}
-
+{next_hint}
 نص الدرس المفرّغ (بعلامات الوقت [دقيقة:ثانية]) قد يحتوي على أخطاء في التفريغ:
 {transcript}
 
@@ -66,6 +66,7 @@ def build_prompt(pending: Pending, segments: list[Segment], pages: list[Page]) -
     return PROMPT.format(
         title=pending.course_id,
         start_point=pending.start_point,
+        next_hint=f"الدرس التالي يبدأ بـ: {pending.next_start_point}\n" if pending.next_start_point else "",
         transcript="\n".join(f"{_stamp(s.start)} {s.text}" for s in segments),
         pages="\n\n".join(f"=== ملف {pdf} صفحة {n} ===\n{text}" for pdf, n, text in pages),
         end_prefix=END_PREFIX,
@@ -97,6 +98,8 @@ def locate(prompt: str, run=subprocess.run) -> LocateResult | None:
             continue
         parsed = _parse(done.stdout)
         if parsed:
+            if not parsed.end_point.startswith(END_PREFIX):
+                parsed.end_point = f"{END_PREFIX} {parsed.end_point}"
             parsed.end_point = parsed.end_point[:MAX_END_POINT]
             return parsed
         log.warning("claude attempt %d returned an unusable reply", attempt)

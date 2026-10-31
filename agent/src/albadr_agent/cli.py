@@ -45,16 +45,15 @@ def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> End | None:
     own = _own_start(lesson, pages)
     start = page_position(pages, own) if own else find_page(lesson.start_point, pages)
     if start is None:
-        log.warning("%s: start point not found in the book, skipping", name)
-        return
+        return None
     # later pages that only cite the next start point (or the table of contents) can outscore the real page,
     # so stay near the start and demand a near-complete match
     span = pages[start : start + WINDOW_SIZE + EXTRA_WINDOW]
     end = find_page(lesson.next_start_point, pages, start, len(span), NEXT_MATCH)
     if end is None:
         best = max((match_score(lesson.next_start_point, text), pdf, n) for pdf, n, text in span)
-        log.warning("%s: next start point not found in the book after the start (best %.2f at %d:%d), skipping",
-                    name, *best)
+        log.warning("%s: next start point not found in the book after the start (best %.2f at %d:%d), "
+                    "falling back to the recording", name, *best)
         return
     (start_pdf, start_page, _), (end_pdf, end_page, _) = pages[start], pages[end]
     api.patch_lesson(lesson.course_id, lesson.number, {
@@ -112,7 +111,9 @@ def process_lesson(api: Api, lesson: Pending) -> End | None:
         return
     try:
         if lesson.next_start_point:
-            return _patch_from_next_start(api, lesson, name)
+            end = _patch_from_next_start(api, lesson, name)
+            if end:
+                return end
         return _patch_from_recording(api, lesson, name)
     except Exception as e:
         if isinstance(e, ApiError) and e.status in (401, 403):

@@ -156,12 +156,23 @@ def test_unusable_own_start_falls_back_to_the_start_point_match(chained, start_p
     assert (body["startPage"], body["pdfIndex"]) == (2, 0)
 
 
-def test_next_start_point_with_a_partial_match_stays_pending(chained, caplog):
+def test_next_start_point_without_a_confident_match_falls_through_to_the_recording(chained, monkeypatch, caplog):
     handler, patches = chained
-    handler.pending = [older(nextStartPoint="من قوله: باب الخوف من الشرك والرياء", startPage=None, pdfIndex=None)]
+    monkeypatch.setattr(cli, "download_audio", lambda url: cli.Path(url))
+    monkeypatch.setattr(cli, "transcribe", lambda mp3, out: [])
+    monkeypatch.setattr(cli, "candidate_pages", candidate_pages)
+    prompts = []
+    answer = good(start_page=1, end_page=1, pdf_index=1, end_pdf_index=1)
+    monkeypatch.setattr(cli, "locate", lambda prompt: prompts.append(prompt) or answer)
+    nxt = "من قوله: باب الخوف من الشرك والرياء"
+    handler.pending = [older(nextStartPoint=nxt, startPage=1, pdfIndex=1)]
     assert run(handler) == 0
-    assert patches == []
-    assert "next start point not found" in caplog.text and "best 0.75 at 1:1" in caplog.text
+    assert "best 0.75 at 1:1" in caplog.text and "falling back to the recording" in caplog.text
+    [prompt] = prompts
+    assert f"الدرس التالي يبدأ بـ: {nxt}" in prompt
+    assert "ملف 0 صفحة 3 ===" in prompt and "ملف 0 صفحة 2 ===" not in prompt
+    body = json.loads(patches[0][1])
+    assert (body["startPage"], body["pdfIndex"], body["endPage"], body["endPdfIndex"]) == (1, 1, 1, 1)
 
 
 def test_next_start_point_before_the_start_is_not_matched(chained, caplog):
@@ -169,7 +180,7 @@ def test_next_start_point_before_the_start_is_not_matched(chained, caplog):
     handler.pending = [older(nextStartPoint="من قوله: مقدمة الكتاب والحمد لله", startPage=None, pdfIndex=None)]
     assert run(handler) == 0
     assert patches == []
-    assert "next start point not found" in caplog.text
+    assert "falling back to the recording" in caplog.text
 
 
 def test_next_start_point_without_a_confident_match_stays_pending(chained, caplog):
@@ -177,7 +188,7 @@ def test_next_start_point_without_a_confident_match_stays_pending(chained, caplo
     handler.pending = [older(nextStartPoint="من قوله: كلام غير موجود اصلا هنا", startPage=None, pdfIndex=None)]
     assert run(handler) == 0
     assert patches == []
-    assert "next start point not found" in caplog.text
+    assert "falling back to the recording" in caplog.text
 
 
 def test_low_confidence_at_the_window_edge_retries_with_a_wider_window(setup, monkeypatch):

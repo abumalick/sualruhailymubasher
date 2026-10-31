@@ -120,6 +120,19 @@ def test_long_end_point_is_truncated_and_cli_flags_set():
     assert "--tools" in cmd and "--no-session-persistence" in cmd and kwargs["timeout"] == 300
 
 
+def test_end_point_without_prefix_is_normalized():
+    bare = {**GOOD, "end_point": "فمن كانت أعماله أنقص"}
+    got = locate("p", run=fake_run(json.dumps({"result": json.dumps(bare, ensure_ascii=False)})))
+    assert got.end_point == "من قوله: فمن كانت أعماله أنقص"
+    assert accept(got, [(0, n, "") for n in range(10, 15)])
+
+
+def test_prompt_hints_the_next_lesson_start_when_known():
+    hinted = PENDING.model_copy(update={"next_start_point": "من قوله: عن عبادة بن الصامت"})
+    assert "الدرس التالي يبدأ بـ: من قوله: عن عبادة بن الصامت" in build_prompt(hinted, [], PAGES)
+    assert "الدرس التالي" not in build_prompt(PENDING, [], PAGES)
+
+
 def _book(*specials):
     pages = [(0, n, "كلام عام") for n in range(1, 61)]
     for n, text in specials:
