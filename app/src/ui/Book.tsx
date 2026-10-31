@@ -17,6 +17,8 @@ interface Props {
 
 type Doc = { status: 'loading' } | { status: 'error' } | { status: 'ready'; pdf: PDFDocumentProxy };
 
+const isPdf = (data: Uint8Array) => String.fromCharCode(...data.subarray(0, 5)) === '%PDF-';
+
 const clamp = (n: number, total: number) => Math.min(Math.max(n, 1), total);
 
 export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick }: Props) {
@@ -35,8 +37,8 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
     setDoc({ status: 'loading' });
     (async () => {
       const [{ getDocument, GlobalWorkerOptions }, { default: workerSrc }] = await Promise.all([
-        import('pdfjs-dist'),
-        import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
+        import('pdfjs-dist/legacy/build/pdf.mjs'),
+        import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'),
       ]);
       GlobalWorkerOptions.workerSrc = workerSrc;
       const data = await getPdf(url);
@@ -46,7 +48,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
       try {
         loaded = await task.promise;
       } catch (e) {
-        if (!cancelled) await dropPdf(url);
+        if (!cancelled && !isPdf(data)) await dropPdf(url);
         throw e;
       }
       if (cancelled) return;

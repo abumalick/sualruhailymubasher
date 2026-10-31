@@ -17,14 +17,14 @@ vi.mock('@capacitor/core', async (orig) => ({
 const parse = vi.hoisted(() => ({ reject: false, started: false, pending: null as Promise<unknown> | null }));
 const rendered: number[] = [];
 const pdfDoc = vi.hoisted(() => ({ numPages: 20, destroy: vi.fn(), getPage: vi.fn() }));
-vi.mock('pdfjs-dist', () => ({
+vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({
   GlobalWorkerOptions: {},
   getDocument: () => {
     parse.started = true;
     return { promise: parse.reject ? Promise.reject(new Error('bad')) : (parse.pending ?? Promise.resolve(pdfDoc)), destroy: vi.fn() };
   },
 }));
-vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: 'worker.js' }));
+vi.mock('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url', () => ({ default: 'worker.js' }));
 
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { getPdf, dropPdf } from '../src/pdf/cache';
@@ -33,7 +33,7 @@ import { Book } from '../src/ui/Book';
 const course = FIXTURE_STATE.courses[0];
 const url = course.pdfUrls[0];
 const none = { read: new Set<string>(), reviewed: new Set<string>() };
-const bytes = new Uint8Array([37, 80, 68, 70]);
+const bytes = new Uint8Array([37, 80, 68, 70, 45, 49]);
 const b64 = btoa(String.fromCharCode(...bytes));
 
 const book = (page: number, marker = false, extra = {}) => (
@@ -162,7 +162,15 @@ describe('Book', () => {
     await screen.findByText('تعذّر تحميل الكتاب');
   });
 
-  it('parse failure drops the cached copy and shows the error', async () => {
+  it('parse failure on valid PDF bytes keeps the cached copy', async () => {
+    parse.reject = true;
+    render(book(10));
+    await screen.findByText('تعذّر تحميل الكتاب');
+    expect(fs.deleteFile).not.toHaveBeenCalled();
+  });
+
+  it('parse failure on invalid bytes drops the cached copy and shows the error', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([60, 104, 116, 109, 108]))));
     parse.reject = true;
     render(book(10));
     await screen.findByText('تعذّر تحميل الكتاب');
