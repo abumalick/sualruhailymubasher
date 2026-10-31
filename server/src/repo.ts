@@ -276,9 +276,11 @@ export async function expectedNextNumber(db: D1Database, courseId: string, on: s
 export async function pendingTranscriptions(db: D1Database): Promise<PendingTranscription[]> {
   const { results } = await db
     .prepare(
-      `SELECT l.course_id, l.number, l.recording_url, l.start_point, c.pdf_urls
+      `SELECT l.course_id, l.number, l.recording_url, l.start_point, l.start_page, l.pdf_index, c.pdf_urls,
+              n.start_point AS next_start_point
        FROM (SELECT *, row_number() OVER (PARTITION BY course_id ORDER BY number DESC) AS rank FROM lessons) l
        JOIN courses c ON c.id = l.course_id
+       LEFT JOIN lessons n ON n.course_id = l.course_id AND n.number = l.number + 1
        WHERE l.rank <= 3 AND l.recording_url IS NOT NULL AND l.end_page IS NULL
        ORDER BY l.course_id, l.number`,
     )
@@ -289,5 +291,8 @@ export async function pendingTranscriptions(db: D1Database): Promise<PendingTran
     recordingUrl: r.recording_url as string,
     startPoint: r.start_point as string,
     pdfUrls: JSON.parse(r.pdf_urls as string),
+    nextStartPoint: (r.next_start_point as string | null) ?? null,
+    startPage: (r.start_page as number | null) ?? null,
+    pdfIndex: (r.pdf_index as number | null) ?? null,
   }));
 }

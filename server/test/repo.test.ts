@@ -107,7 +107,25 @@ describe('lessons', () => {
     await setRecordingUrl(db, 'l-pend', 2, 'r2');
     await patchLesson(db, 'l-pend', 2, { endPage: 5 });
     const pending = (await pendingTranscriptions(db)).filter((p) => p.courseId === 'l-pend');
-    expect(pending).toEqual([{ courseId: 'l-pend', number: 3, recordingUrl: 'r3', startPoint: 'point 3', pdfUrls: ['u1'] }]);
+    expect(pending).toEqual([{
+      courseId: 'l-pend', number: 3, recordingUrl: 'r3', startPoint: 'point 3', pdfUrls: ['u1'],
+      nextStartPoint: 'point 4', startPage: 5, pdfIndex: null,
+    }]);
+  });
+
+  it('pendingTranscriptions carries the own chained start and the next lesson start point', async () => {
+    const course = { title: 'N', slot: 'fajr' as const, weekdays: [1], offsetMin: 10, seriesId: 1, pdfUrls: ['u1'], active: true };
+    await upsertCourse(db, 'l-next', course);
+    for (const n of [1, 2]) {
+      await insertLessonIfNew(db, 'l-next', lesson(n));
+      await setRecordingUrl(db, 'l-next', n, `r${n}`);
+    }
+    await patchLesson(db, 'l-next', 1, { startPage: 12, pdfIndex: 1 });
+    const pending = (await pendingTranscriptions(db)).filter((p) => p.courseId === 'l-next');
+    expect(pending.map(({ number, nextStartPoint, startPage, pdfIndex }) => ({ number, nextStartPoint, startPage, pdfIndex }))).toEqual([
+      { number: 1, nextStartPoint: 'point 2', startPage: 12, pdfIndex: 1 },
+      { number: 2, nextStartPoint: null, startPage: null, pdfIndex: null },
+    ]);
   });
 
   it('pendingTranscriptions ignores a backfilled backlog', async () => {

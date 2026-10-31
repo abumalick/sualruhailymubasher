@@ -29,4 +29,8 @@ export interface LessonPatch {                          // null clears a field
   endPoint?: string | null; endPage?: number | null; endPdfIndex?: number | null;
 }
 export interface ExceptionInput { courseId: string | null; kind: ExceptionKind; dateFrom: string; dateTo?: string | null; time?: string | null; note?: string; }
-export interface PendingTranscription { courseId: string; number: number; recordingUrl: string; startPoint: string; pdfUrls: string[]; }
+export interface PendingTranscription {
+  courseId: string; number: number; recordingUrl: string; startPoint: string; pdfUrls: string[];
+  nextStartPoint: string | null;                        // published start point of lesson number+1, when scraped
+  startPage: number | null; pdfIndex: number | null;    // the lesson's own chained start, when known
+}
