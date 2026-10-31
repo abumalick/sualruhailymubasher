@@ -9,6 +9,7 @@ import httpx
 from .api import Api, ApiError
 from .books import DEFAULT_CACHE, book_pages
 from .lock import DEFAULT_LOCK, run_lock
+from .transcribe import DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, download_audio, transcribe, url_key
 
 log = logging.getLogger("albadr_agent")
 
@@ -20,10 +21,20 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
     index = sub.add_parser("index-book", help="build the per-page text index of a book PDF")
     index.add_argument("url")
     index.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    one = sub.add_parser("transcribe-one", help="download and transcribe one lesson recording")
+    one.add_argument("url")
+    one.add_argument("--audio-dir", type=Path, default=DEFAULT_AUDIO)
+    one.add_argument("--transcripts-dir", type=Path, default=DEFAULT_TRANSCRIPTS)
     args = parser.parse_args(argv)
     if args.command == "index-book":
         pages = book_pages(args.url, args.cache_dir)
         log.info("indexed %d page(s) into %s", len(pages), args.cache_dir)
+        return 0
+    if args.command == "transcribe-one":
+        mp3 = download_audio(args.url, args.audio_dir)
+        out = args.transcripts_dir / f"{url_key(args.url)}.json"
+        segments = transcribe(mp3, out)
+        log.info("%d segment(s) written to %s", len(segments), out)
         return 0
     base, token = os.environ.get("API_BASE"), os.environ.get("ADMIN_TOKEN")
     if not base or not token:
