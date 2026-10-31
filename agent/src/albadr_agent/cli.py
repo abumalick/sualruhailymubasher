@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -10,16 +11,17 @@ import httpx
 from .api import Api, ApiError, Pending
 from .books import DEFAULT_CACHE, book_pages
 from .locate import (
-    MAX_END_POINT, MIN_CONFIDENCE, NEXT_MATCH, WINDOW_SIZE, Page, accept, build_prompt, candidate_pages,
-    find_page, locate, match_score, page_position,
+    MAX_END_POINT, MIN_CONFIDENCE, NEXT_MATCH, WINDOW_SIZE, ClaudeUnavailable, LocateResult, Page, accept,
+    build_prompt, candidate_pages, find_page, locate, match_score, page_position,
 )
 from .lock import DEFAULT_LOCK, run_lock
-from .transcribe import DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
+from .transcribe import CACHE_ROOT, DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
 log = logging.getLogger("albadr_agent")
 
 
 EXTRA_WINDOW = 12
+DEFAULT_VERDICTS = CACHE_ROOT / "verdicts"
 
 
 def _book(lesson: Pending) -> list[Page]:
@@ -43,9 +45,10 @@ End = tuple[int, int]
 def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> End | None:
     pages = _book(lesson)
     own = _own_start(lesson, pages)
-    start = page_position(pages, own) if own else find_page(lesson.start_point, pages)
-    if start is None:
+    if own is None:
+        log.info("%s: no known start page, using the recording", name)
         return None
+    start = page_position(pages, own)
     # later pages that only cite the next start point (or the table of contents) can outscore the real page,
     # so stay near the start and demand a near-complete match
     span = pages[start : start + WINDOW_SIZE + EXTRA_WINDOW]
@@ -54,8 +57,8 @@ def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> End | None:
         best = max((match_score(lesson.next_start_point, text), pdf, n) for pdf, n, text in span)
         log.warning("%s: next start point not found in the book after the start (best %.2f at %d:%d), "
                     "falling back to the recording", name, *best)
-        return
-    (start_pdf, start_page, _), (end_pdf, end_page, _) = pages[start], pages[end]
+        return None
+    (start_pdf, start_page, start_text), (end_pdf, end_page, end_text) = pages[start], pages[end]
     api.patch_lesson(lesson.course_id, lesson.number, {
         "end_point": lesson.next_start_point[:MAX_END_POINT],
         "end_page": end_page,
@@ -63,9 +66,35 @@ def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> End | None:
         "start_page": start_page,
         "pdf_index": start_pdf,
     })
-    log.info("%s: patched pages %d:%d-%d:%d from the next lesson's start point (match %.2f)",
-             name, start_pdf, start_page, end_pdf, end_page, match_score(lesson.next_start_point, pages[end][2]))
+    log.info("%s: patched pages %d:%d-%d:%d from the next lesson's start point (start match %.2f, end match %.2f)",
+             name, start_pdf, start_page, end_pdf, end_page,
+             match_score(lesson.start_point, start_text), match_score(lesson.next_start_point, end_text))
     return end_pdf, end_page
+
+
+def _verdict_path(lesson: Pending, segments: list[Segment], candidates: list[Page]) -> Path:
+    transcript = json.dumps([s.model_dump() for s in segments], ensure_ascii=False)
+    inputs = json.dumps([
+        lesson.course_id, lesson.number, hashlib.sha256(transcript.encode()).hexdigest(),
+        [(pdf, n) for pdf, n, _ in candidates], lesson.next_start_point,
+    ], ensure_ascii=False)
+    return DEFAULT_VERDICTS / f"{hashlib.sha256(inputs.encode()).hexdigest()}.json"
+
+
+def _ask(lesson: Pending, segments: list[Segment], candidates: list[Page], name: str) -> LocateResult | None:
+    path = _verdict_path(lesson, segments, candidates)
+    try:
+        cached = json.loads(path.read_text())
+        log.info("%s: using the cached claude verdict (inputs unchanged)", name)
+        return LocateResult.model_validate(cached) if cached else None
+    except (OSError, ValueError):
+        pass
+    found = locate(build_prompt(lesson, segments, candidates))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".part")
+    tmp.write_text(found.model_dump_json() if found else "null")
+    tmp.replace(path)
+    return found
 
 
 def _patch_from_recording(api: Api, lesson: Pending, name: str) -> End | None:
@@ -76,8 +105,8 @@ def _patch_from_recording(api: Api, lesson: Pending, name: str) -> End | None:
     candidates = candidate_pages(lesson, pages, own)
     if not candidates:
         log.warning("%s: start point not found in the book, skipping", name)
-        return
-    found = locate(build_prompt(lesson, segments, candidates))
+        return None
+    found = _ask(lesson, segments, candidates, name)
     if (
         found is not None
         and found.confidence < MIN_CONFIDENCE
@@ -85,22 +114,22 @@ def _patch_from_recording(api: Api, lesson: Pending, name: str) -> End | None:
     ):
         log.info("%s: low confidence at the window edge, retrying with %d more pages", name, EXTRA_WINDOW)
         candidates = candidate_pages(lesson, pages, own, WINDOW_SIZE + EXTRA_WINDOW)
-        found = locate(build_prompt(lesson, segments, candidates))
+        found = _ask(lesson, segments, candidates, name)
     if found is None:
         log.warning("%s: no usable answer from claude, skipping", name)
-        return
+        return None
     if not accept(found, candidates):
         log.warning("%s: result rejected: %s", name, found.model_dump_json())
-        return
-    api.patch_lesson(lesson.course_id, lesson.number, {
-        "start_page": found.start_page,
-        "pdf_index": found.pdf_index,
+        return None
+    patch = {} if own else {"start_page": found.start_page, "pdf_index": found.pdf_index}
+    patch |= {
         "end_page": found.end_page,
         "end_pdf_index": found.end_pdf_index,
-        "end_point": found.end_point,
-    })
+        "end_point": lesson.next_start_point[:MAX_END_POINT] if lesson.next_start_point else found.end_point,
+    }
+    api.patch_lesson(lesson.course_id, lesson.number, patch)
     mp3.unlink(missing_ok=True)
-    log.info("%s: patched pages %d-%d", name, found.start_page, found.end_page)
+    log.info("%s: patched pages %d-%d", name, own[1] if own else found.start_page, found.end_page)
     return found.end_pdf_index, found.end_page
 
 
@@ -108,17 +137,20 @@ def process_lesson(api: Api, lesson: Pending) -> End | None:
     name = f"{lesson.course_id} #{lesson.number}"
     if not lesson.pdf_urls:
         log.info("%s: no book PDF for this course yet, skipping", name)
-        return
+        return None
     try:
         if lesson.next_start_point:
             end = _patch_from_next_start(api, lesson, name)
             if end:
                 return end
         return _patch_from_recording(api, lesson, name)
+    except ClaudeUnavailable:
+        raise
     except Exception as e:
         if isinstance(e, ApiError) and e.status in (401, 403):
             raise
         log.exception("%s: failed, continuing with the next lesson", name)
+        return None
 
 
 def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = None) -> int:
@@ -189,17 +221,22 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
             pending = api.pending()
             log.info("%d pending lesson(s)", len(pending))
             previous: tuple[str, int, End] | None = None
+            claude_down = False
             for lesson in pending:
                 if previous and previous[:2] == (lesson.course_id, lesson.number - 1) and lesson.start_page is None:
                     lesson.pdf_index, lesson.start_page = previous[2]
-                end = process_lesson(api, lesson)
+                try:
+                    end = process_lesson(api, lesson)
+                except ClaudeUnavailable as e:
+                    log.error("%s #%d: claude CLI unavailable: %s", lesson.course_id, lesson.number, e)
+                    claude_down, end = True, None
                 previous = (lesson.course_id, lesson.number, end) if end else None
         except ApiError as e:
             log.error("server error: %s", e)
             return 1
         finally:
             api.close()
-        return 0
+        return 1 if claude_down else 0
 
 
 if __name__ == "__main__":

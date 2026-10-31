@@ -46,6 +46,10 @@ PROMPT = """أنت تساعد في تحديد موضع قراءة الشيخ م�
 أرقام الصفحات والملفات هي الواردة في رؤوس الصفحات المرشحة."""
 
 
+class ClaudeUnavailable(Exception):
+    pass
+
+
 class LocateResult(BaseModel):
     start_page: int
     end_page: int
@@ -87,15 +91,19 @@ def _parse(stdout: str) -> LocateResult | None:
 
 
 def locate(prompt: str, run=subprocess.run) -> LocateResult | None:
+    replied = False
     for attempt in range(1, ATTEMPTS + 1):
         try:
             done = run(CLAUDE_CMD, input=prompt, capture_output=True, text=True, timeout=CLAUDE_TIMEOUT)
-        except (subprocess.TimeoutExpired, OSError) as e:
+        except OSError as e:
+            raise ClaudeUnavailable(str(e)) from e
+        except subprocess.TimeoutExpired as e:
             log.warning("claude attempt %d failed: %s", attempt, e)
             continue
         if done.returncode != 0:
             log.warning("claude attempt %d exited %d: %s", attempt, done.returncode, done.stderr[:200])
             continue
+        replied = True
         parsed = _parse(done.stdout)
         if parsed:
             if not parsed.end_point.startswith(END_PREFIX):
@@ -103,6 +111,8 @@ def locate(prompt: str, run=subprocess.run) -> LocateResult | None:
             parsed.end_point = parsed.end_point[:MAX_END_POINT]
             return parsed
         log.warning("claude attempt %d returned an unusable reply", attempt)
+    if not replied:
+        raise ClaudeUnavailable(f"no reply in {ATTEMPTS} attempts (timeout or error exit)")
     return None
 
 

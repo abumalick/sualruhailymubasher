@@ -1,8 +1,10 @@
 import json
 import subprocess
 
+import pytest
+
 from albadr_agent.api import Pending
-from albadr_agent.locate import LocateResult, accept, build_prompt, candidate_pages, find_page, locate
+from albadr_agent.locate import ClaudeUnavailable, LocateResult, accept, build_prompt, candidate_pages, find_page, locate
 from albadr_agent.transcribe import Segment
 
 PENDING = Pending(
@@ -70,13 +72,38 @@ def test_broken_outer_json_then_success_on_retry():
     assert len(run.calls) == 2
 
 
-def test_nonzero_exit_and_timeout_do_not_raise():
+def test_timeouts_and_error_exits_on_every_attempt_mean_claude_is_unavailable():
     def failing(cmd, **kwargs):
         raise subprocess.TimeoutExpired(cmd, 1)
 
-    assert locate("p", run=failing) is None
+    with pytest.raises(ClaudeUnavailable):
+        locate("p", run=failing)
     bad = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1, stdout="", stderr="boom")  # noqa: E731
-    assert locate("p", run=bad) is None
+    with pytest.raises(ClaudeUnavailable):
+        locate("p", run=bad)
+
+
+def test_one_error_exit_then_an_answer_is_fine():
+    run = fake_run(json.dumps({"result": json.dumps(GOOD, ensure_ascii=False)}))
+    outputs = iter([subprocess.CompletedProcess([], 1, stdout="", stderr="x"), None])
+
+    def flaky(cmd, **kw):
+        out = next(outputs)
+        return out if out is not None else run(cmd, **kw)
+
+    assert locate("p", run=flaky).end_page == GOOD["end_page"]
+
+
+def test_missing_claude_cli_raises_without_retrying():
+    calls = []
+
+    def missing(cmd, **kwargs):
+        calls.append(cmd)
+        raise FileNotFoundError("claude")
+
+    with pytest.raises(ClaudeUnavailable):
+        locate("p", run=missing)
+    assert len(calls) == 1
 
 
 def test_accept_rules():
