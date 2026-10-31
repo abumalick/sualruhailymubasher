@@ -9,11 +9,90 @@ import httpx
 
 from .api import Api, ApiError, Pending
 from .books import DEFAULT_CACHE, book_pages
-from .locate import accept, build_prompt, candidate_pages, locate
+from .locate import (
+    MAX_END_POINT, MIN_CONFIDENCE, WINDOW_SIZE, Page, accept, build_prompt, candidate_pages,
+    find_page, locate, page_position,
+)
 from .lock import DEFAULT_LOCK, run_lock
 from .transcribe import DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
 log = logging.getLogger("albadr_agent")
+
+
+EXTRA_WINDOW = 12
+
+
+def _book(lesson: Pending) -> list[Page]:
+    return [
+        (pdf, n, text)
+        for pdf, url in enumerate(lesson.pdf_urls)
+        for n, text in enumerate(book_pages(url), start=1)
+    ]
+
+
+def _own_start(lesson: Pending, pages: list[Page]) -> tuple[int, int] | None:
+    if lesson.start_page is None or lesson.pdf_index is None:
+        return None
+    key = (lesson.pdf_index, lesson.start_page)
+    return key if page_position(pages, key) is not None else None
+
+
+def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> None:
+    pages = _book(lesson)
+    own = _own_start(lesson, pages)
+    start = page_position(pages, own) if own else find_page(lesson.start_point, pages)
+    if start is None:
+        log.warning("%s: start point not found in the book, skipping", name)
+        return
+    end = find_page(lesson.next_start_point, pages, start)
+    if end is None:
+        log.warning("%s: next start point not found in the book after the start, skipping", name)
+        return
+    (start_pdf, start_page, _), (end_pdf, end_page, _) = pages[start], pages[end]
+    api.patch_lesson(lesson.course_id, lesson.number, {
+        "end_point": lesson.next_start_point[:MAX_END_POINT],
+        "end_page": end_page,
+        "end_pdf_index": end_pdf,
+        "start_page": start_page,
+        "pdf_index": start_pdf,
+    })
+    log.info("%s: patched pages %d:%d-%d:%d from the next lesson's start point",
+             name, start_pdf, start_page, end_pdf, end_page)
+
+
+def _patch_from_recording(api: Api, lesson: Pending, name: str) -> None:
+    mp3 = download_audio(lesson.recording_url)
+    segments = transcribe(mp3, DEFAULT_TRANSCRIPTS / f"{url_key(lesson.recording_url)}.json")
+    pages = _book(lesson)
+    own = _own_start(lesson, pages)
+    candidates = candidate_pages(lesson, pages, own)
+    if not candidates:
+        log.warning("%s: start point not found in the book, skipping", name)
+        return
+    found = locate(build_prompt(lesson, segments, candidates))
+    if (
+        found is not None
+        and found.confidence < MIN_CONFIDENCE
+        and (found.end_pdf_index, found.end_page) == candidates[-1][:2]
+    ):
+        log.info("%s: low confidence at the window edge, retrying with %d more pages", name, EXTRA_WINDOW)
+        candidates = candidate_pages(lesson, pages, own, WINDOW_SIZE + EXTRA_WINDOW)
+        found = locate(build_prompt(lesson, segments, candidates))
+    if found is None:
+        log.warning("%s: no usable answer from claude, skipping", name)
+        return
+    if not accept(found, candidates):
+        log.warning("%s: result rejected: %s", name, found.model_dump_json())
+        return
+    api.patch_lesson(lesson.course_id, lesson.number, {
+        "start_page": found.start_page,
+        "pdf_index": found.pdf_index,
+        "end_page": found.end_page,
+        "end_pdf_index": found.end_pdf_index,
+        "end_point": found.end_point,
+    })
+    mp3.unlink(missing_ok=True)
+    log.info("%s: patched pages %d-%d", name, found.start_page, found.end_page)
 
 
 def process_lesson(api: Api, lesson: Pending) -> None:
@@ -22,34 +101,13 @@ def process_lesson(api: Api, lesson: Pending) -> None:
         log.info("%s: no book PDF for this course yet, skipping", name)
         return
     try:
-        mp3 = download_audio(lesson.recording_url)
-        segments = transcribe(mp3, DEFAULT_TRANSCRIPTS / f"{url_key(lesson.recording_url)}.json")
-        pages = [
-            (pdf, n, text)
-            for pdf, url in enumerate(lesson.pdf_urls)
-            for n, text in enumerate(book_pages(url), start=1)
-        ]
-        candidates = candidate_pages(lesson, pages, None)
-        if not candidates:
-            log.warning("%s: start point not found in the book, skipping", name)
-            return
-        found = locate(build_prompt(lesson, segments, candidates))
-        if found is None:
-            log.warning("%s: no usable answer from claude, skipping", name)
-            return
-        if not accept(found, candidates):
-            log.warning("%s: result rejected: %s", name, found.model_dump_json())
-            return
-        api.patch_lesson(lesson.course_id, lesson.number, {
-            "start_page": found.start_page,
-            "pdf_index": found.pdf_index,
-            "end_page": found.end_page,
-            "end_pdf_index": found.end_pdf_index,
-            "end_point": found.end_point,
-        })
-        mp3.unlink(missing_ok=True)
-        log.info("%s: patched pages %d-%d", name, found.start_page, found.end_page)
-    except Exception:
+        if lesson.next_start_point:
+            _patch_from_next_start(api, lesson, name)
+        else:
+            _patch_from_recording(api, lesson, name)
+    except Exception as e:
+        if isinstance(e, ApiError) and e.status in (401, 403):
+            raise
         log.exception("%s: failed, continuing with the next lesson", name)
 
 

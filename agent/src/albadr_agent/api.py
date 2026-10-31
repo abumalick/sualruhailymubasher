@@ -17,6 +17,9 @@ class Pending(BaseModel):
     recording_url: str
     start_point: str
     pdf_urls: list[str]
+    next_start_point: str | None = None
+    start_page: int | None = None
+    pdf_index: int | None = None
 
 
 class Api:

@@ -122,23 +122,27 @@ def _tokens(text: str) -> set[str]:
     return set(re.findall(r"[ء-ي]+", _MARKS.sub("", text).translate(_FOLD)))
 
 
-def _best_match(start_point: str, pages: list[Page]) -> int | None:
-    wanted = _tokens(start_point.replace(END_PREFIX, "")) - _tokens("من قوله")
+def find_page(point: str, pages: list[Page], start: int = 0) -> int | None:
+    wanted = _tokens(point.replace(END_PREFIX, "")) - _tokens("من قوله")
     if not wanted:
         return None
-    scores = [len(wanted & _tokens(text)) / len(wanted) for _, _, text in pages]
-    best = max(range(len(pages)), key=scores.__getitem__, default=None)
-    return best if best is not None and scores[best] >= MIN_MATCH else None
+    scores = [len(wanted & _tokens(text)) / len(wanted) for _, _, text in pages[start:]]
+    best = max(range(len(scores)), key=scores.__getitem__, default=None)
+    return start + best if best is not None and scores[best] >= MIN_MATCH else None
+
+
+def page_position(pages: list[Page], key: tuple[int, int]) -> int | None:
+    return next((i for i, (pdf, n, _) in enumerate(pages) if (pdf, n) == key), None)
 
 
 def candidate_pages(
-    pending: Pending, pages: list[Page], previous_end: tuple[int, int] | None
+    pending: Pending, pages: list[Page], previous_end: tuple[int, int] | None, size: int = WINDOW_SIZE
 ) -> list[Page]:
     if previous_end is not None:
-        position = next((i for i, (pdf, n, _) in enumerate(pages) if (pdf, n) == previous_end), None)
+        position = page_position(pages, previous_end)
     else:
-        position = _best_match(pending.start_point, pages)
+        position = find_page(pending.start_point, pages)
     if position is None:
         return []
     first = max(0, position - WINDOW_BEFORE)
-    return pages[first : first + WINDOW_SIZE]
+    return pages[first : first + size]
