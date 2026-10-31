@@ -156,6 +156,14 @@ def test_unusable_own_start_falls_back_to_the_start_point_match(chained, start_p
     assert (body["startPage"], body["pdfIndex"]) == (2, 0)
 
 
+def test_next_start_point_with_a_partial_match_stays_pending(chained, caplog):
+    handler, patches = chained
+    handler.pending = [older(nextStartPoint="من قوله: باب الخوف من الشرك والرياء", startPage=None, pdfIndex=None)]
+    assert run(handler) == 0
+    assert patches == []
+    assert "next start point not found" in caplog.text and "best 0.75 at 1:1" in caplog.text
+
+
 def test_next_start_point_before_the_start_is_not_matched(chained, caplog):
     handler, patches = chained
     handler.pending = [older(nextStartPoint="من قوله: مقدمة الكتاب والحمد لله", startPage=None, pdfIndex=None)]
@@ -217,3 +225,19 @@ def test_unauthorized_patch_stops_the_run(setup, monkeypatch):
 
     assert run(deny) == 1
     assert seen == ["/api/admin/lessons/c/1"]
+
+
+def test_a_patched_end_becomes_the_next_lessons_start_in_the_same_run(chained, monkeypatch):
+    handler, patches = chained
+    monkeypatch.setattr(cli, "download_audio", lambda url: cli.Path(url))
+    monkeypatch.setattr(cli, "transcribe", lambda mp3, out: [])
+    monkeypatch.setattr(cli, "candidate_pages", candidate_pages)
+    prompts = []
+    monkeypatch.setattr(cli, "locate", lambda prompt: prompts.append(prompt) or None)
+    handler.pending = [
+        older(nextStartPoint="من قوله: باب الخوف من الشرك", startPage=None, pdfIndex=None),
+        lesson("c", 5, pdfs=list(BOOK), startPoint="من قوله: شرح الحديث الاول"),
+    ]
+    assert run(handler) == 0
+    assert len(patches) == 1
+    assert "=== ملف 1 صفحة 1 ===" in prompts[0] and "ملف 0 صفحة 2 ===" not in prompts[0]

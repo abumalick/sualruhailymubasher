@@ -2,7 +2,7 @@ import json
 import subprocess
 
 from albadr_agent.api import Pending
-from albadr_agent.locate import LocateResult, accept, build_prompt, candidate_pages, locate
+from albadr_agent.locate import LocateResult, accept, build_prompt, candidate_pages, find_page, locate
 from albadr_agent.transcribe import Segment
 
 PENDING = Pending(
@@ -118,3 +118,30 @@ def test_long_end_point_is_truncated_and_cli_flags_set():
     assert len(got.end_point) == 80
     cmd, kwargs = run.calls[0]
     assert "--tools" in cmd and "--no-session-persistence" in cmd and kwargs["timeout"] == 300
+
+
+def _book(*specials):
+    pages = [(0, n, "كلام عام") for n in range(1, 61)]
+    for n, text in specials:
+        pages[n - 1] = (0, n, text)
+    return pages
+
+
+def test_find_page_prefers_a_near_match_within_the_span_over_a_better_far_one():
+    pages = _book((8, "عن عبادة قال رسول"), (50, "عن عبادة بن الصامت قال رسول"))
+    assert find_page("من قوله: عن عبادة بن الصامت قال رسول", pages, 2, span=24) == 7
+
+
+def test_find_page_ignores_pages_beyond_the_span():
+    pages = _book((50, "عن عبادة بن الصامت قال رسول"))
+    assert find_page("من قوله: عن عبادة بن الصامت قال رسول", pages, 2, span=24) is None
+
+
+def test_find_page_floor():
+    pages = _book((8, "عن عبادة قال رسول"))
+    assert find_page("من قوله: عن عبادة بن الصامت قال رسول", pages, 2, span=24, floor=0.8) is None
+    assert find_page("من قوله: عن عبادة بن الصامت قال رسول", pages, 2, span=24, floor=0.6) == 7
+
+
+def test_find_page_none_when_nothing_matches():
+    assert find_page("من قوله: عن عبادة بن الصامت", _book(), 2, span=24) is None

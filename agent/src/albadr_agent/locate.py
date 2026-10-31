@@ -13,6 +13,7 @@ MIN_CONFIDENCE = 0.6
 MAX_END_POINT = 80
 WINDOW_BEFORE, WINDOW_SIZE = 1, 12
 MIN_MATCH = 0.3
+NEXT_MATCH = 0.8
 ATTEMPTS = 2
 CLAUDE_TIMEOUT = 300
 CLAUDE_CMD = [
@@ -122,13 +123,18 @@ def _tokens(text: str) -> set[str]:
     return set(re.findall(r"[ء-ي]+", _MARKS.sub("", text).translate(_FOLD)))
 
 
-def find_page(point: str, pages: list[Page], start: int = 0) -> int | None:
+def match_score(point: str, text: str) -> float:
     wanted = _tokens(point.replace(END_PREFIX, "")) - _tokens("من قوله")
-    if not wanted:
-        return None
-    scores = [len(wanted & _tokens(text)) / len(wanted) for _, _, text in pages[start:]]
+    return len(wanted & _tokens(text)) / len(wanted) if wanted else 0.0
+
+
+def find_page(
+    point: str, pages: list[Page], start: int = 0, span: int | None = None, floor: float = MIN_MATCH
+) -> int | None:
+    stop = start + span if span is not None else len(pages)
+    scores = [match_score(point, text) for _, _, text in pages[start:stop]]
     best = max(range(len(scores)), key=scores.__getitem__, default=None)
-    return start + best if best is not None and scores[best] >= MIN_MATCH else None
+    return start + best if best is not None and scores[best] >= floor else None
 
 
 def page_position(pages: list[Page], key: tuple[int, int]) -> int | None:

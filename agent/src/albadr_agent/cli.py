@@ -10,8 +10,8 @@ import httpx
 from .api import Api, ApiError, Pending
 from .books import DEFAULT_CACHE, book_pages
 from .locate import (
-    MAX_END_POINT, MIN_CONFIDENCE, WINDOW_SIZE, Page, accept, build_prompt, candidate_pages,
-    find_page, locate, page_position,
+    MAX_END_POINT, MIN_CONFIDENCE, NEXT_MATCH, WINDOW_SIZE, Page, accept, build_prompt, candidate_pages,
+    find_page, locate, match_score, page_position,
 )
 from .lock import DEFAULT_LOCK, run_lock
 from .transcribe import DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
@@ -37,16 +37,24 @@ def _own_start(lesson: Pending, pages: list[Page]) -> tuple[int, int] | None:
     return key if page_position(pages, key) is not None else None
 
 
-def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> None:
+End = tuple[int, int]
+
+
+def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> End | None:
     pages = _book(lesson)
     own = _own_start(lesson, pages)
     start = page_position(pages, own) if own else find_page(lesson.start_point, pages)
     if start is None:
         log.warning("%s: start point not found in the book, skipping", name)
         return
-    end = find_page(lesson.next_start_point, pages, start)
+    # later pages that only cite the next start point (or the table of contents) can outscore the real page,
+    # so stay near the start and demand a near-complete match
+    span = pages[start : start + WINDOW_SIZE + EXTRA_WINDOW]
+    end = find_page(lesson.next_start_point, pages, start, len(span), NEXT_MATCH)
     if end is None:
-        log.warning("%s: next start point not found in the book after the start, skipping", name)
+        best = max((match_score(lesson.next_start_point, text), pdf, n) for pdf, n, text in span)
+        log.warning("%s: next start point not found in the book after the start (best %.2f at %d:%d), skipping",
+                    name, *best)
         return
     (start_pdf, start_page, _), (end_pdf, end_page, _) = pages[start], pages[end]
     api.patch_lesson(lesson.course_id, lesson.number, {
@@ -56,11 +64,12 @@ def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> None:
         "start_page": start_page,
         "pdf_index": start_pdf,
     })
-    log.info("%s: patched pages %d:%d-%d:%d from the next lesson's start point",
-             name, start_pdf, start_page, end_pdf, end_page)
+    log.info("%s: patched pages %d:%d-%d:%d from the next lesson's start point (match %.2f)",
+             name, start_pdf, start_page, end_pdf, end_page, match_score(lesson.next_start_point, pages[end][2]))
+    return end_pdf, end_page
 
 
-def _patch_from_recording(api: Api, lesson: Pending, name: str) -> None:
+def _patch_from_recording(api: Api, lesson: Pending, name: str) -> End | None:
     mp3 = download_audio(lesson.recording_url)
     segments = transcribe(mp3, DEFAULT_TRANSCRIPTS / f"{url_key(lesson.recording_url)}.json")
     pages = _book(lesson)
@@ -93,18 +102,18 @@ def _patch_from_recording(api: Api, lesson: Pending, name: str) -> None:
     })
     mp3.unlink(missing_ok=True)
     log.info("%s: patched pages %d-%d", name, found.start_page, found.end_page)
+    return found.end_pdf_index, found.end_page
 
 
-def process_lesson(api: Api, lesson: Pending) -> None:
+def process_lesson(api: Api, lesson: Pending) -> End | None:
     name = f"{lesson.course_id} #{lesson.number}"
     if not lesson.pdf_urls:
         log.info("%s: no book PDF for this course yet, skipping", name)
         return
     try:
         if lesson.next_start_point:
-            _patch_from_next_start(api, lesson, name)
-        else:
-            _patch_from_recording(api, lesson, name)
+            return _patch_from_next_start(api, lesson, name)
+        return _patch_from_recording(api, lesson, name)
     except Exception as e:
         if isinstance(e, ApiError) and e.status in (401, 403):
             raise
@@ -178,8 +187,12 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
         try:
             pending = api.pending()
             log.info("%d pending lesson(s)", len(pending))
+            previous: tuple[str, int, End] | None = None
             for lesson in pending:
-                process_lesson(api, lesson)
+                if previous and previous[:2] == (lesson.course_id, lesson.number - 1) and lesson.start_page is None:
+                    lesson.pdf_index, lesson.start_page = previous[2]
+                end = process_lesson(api, lesson)
+                previous = (lesson.course_id, lesson.number, end) if end else None
         except ApiError as e:
             log.error("server error: %s", e)
             return 1
