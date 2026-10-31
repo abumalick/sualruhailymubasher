@@ -1,0 +1,139 @@
+import json
+import logging
+import re
+import subprocess
+
+from pydantic import BaseModel, ValidationError
+
+from .api import Pending
+from .transcribe import Segment
+
+log = logging.getLogger("albadr_agent")
+MIN_CONFIDENCE = 0.6
+MAX_END_POINT = 80
+WINDOW_BEFORE, WINDOW_SIZE = 1, 12
+MIN_MATCH = 0.3
+ATTEMPTS = 2
+CLAUDE_TIMEOUT = 900
+CLAUDE_CMD = ["claude", "-p", "--model", "sonnet", "--output-format", "json"]
+END_PREFIX = "من قوله:"
+
+PROMPT = """أنت تساعد في تحديد موضع قراءة الشيخ من الكتاب في درس مسجل.
+
+الكتاب: {title}
+نقطة بداية الدرس المعلنة: {start_point}
+
+نص الدرس المفرّغ (بعلامات الوقت [دقيقة:ثانية]) قد يحتوي على أخطاء في التفريغ:
+{transcript}
+
+الصفحات المرشحة من الكتاب (نصها مستخرج بالتعرّف الضوئي وفيه أخطاء وتشكيل غير دقيق، فطابق الكلام تقريبياً لا حرفياً):
+{pages}
+
+المطلوب:
+1. حدد الصفحة التي يبدأ فيها الجزء المقروء من الكتاب في هذا الدرس.
+2. حدد آخر جملة من الكتاب قرأها الشيخ في هذا الدرس، والصفحة التي توجد فيها.
+3. اكتب أول كلمات الجملة التالية التي لم تُقرأ بعد، بصيغة: {end_prefix} <أول الكلمات>… في حدود {max_end} حرفاً، منقولة من نص الكتاب.
+4. إن كان الدرس محاضرة مستقلة لا قراءة فيها من الكتاب، أو لم تستطع التحديد بثقة، فأعطِ confidence أقل من 0.5.
+
+أجب بكائن JSON فقط، بلا شرح ولا علامات تنسيق، بهذه الحقول بالضبط:
+{{"start_page": عدد صحيح, "end_page": عدد صحيح, "pdf_index": رقم الملف الذي فيه صفحة البداية, "end_pdf_index": رقم الملف الذي فيه صفحة النهاية, "end_point": نص, "confidence": عدد بين 0 و1}}
+أرقام الصفحات والملفات هي الواردة في رؤوس الصفحات المرشحة."""
+
+
+class LocateResult(BaseModel):
+    start_page: int
+    end_page: int
+    pdf_index: int
+    end_pdf_index: int
+    end_point: str
+    confidence: float
+
+
+Page = tuple[int, int, str]
+
+
+def _stamp(seconds: float) -> str:
+    return f"[{int(seconds) // 60:02d}:{int(seconds) % 60:02d}]"
+
+
+def build_prompt(pending: Pending, segments: list[Segment], pages: list[Page]) -> str:
+    return PROMPT.format(
+        title=pending.course_id,
+        start_point=pending.start_point,
+        transcript="\n".join(f"{_stamp(s.start)} {s.text}" for s in segments),
+        pages="\n\n".join(f"=== ملف {pdf} صفحة {n} ===\n{text}" for pdf, n, text in pages),
+        end_prefix=END_PREFIX,
+        max_end=MAX_END_POINT,
+    )
+
+
+def _parse(stdout: str) -> LocateResult | None:
+    try:
+        reply = json.loads(stdout)
+        if isinstance(reply, list):
+            reply = next(e for e in reply if e.get("type") == "result")
+        text = reply["result"]
+        start, end = text.index("{"), text.rindex("}")
+        return LocateResult.model_validate_json(text[start : end + 1])
+    except (ValueError, KeyError, StopIteration, AttributeError, TypeError, ValidationError):
+        return None
+
+
+def locate(prompt: str, run=subprocess.run) -> LocateResult | None:
+    for attempt in range(1, ATTEMPTS + 1):
+        try:
+            done = run(CLAUDE_CMD, input=prompt, capture_output=True, text=True, timeout=CLAUDE_TIMEOUT)
+        except (subprocess.TimeoutExpired, OSError) as e:
+            log.warning("claude attempt %d failed: %s", attempt, e)
+            continue
+        if done.returncode != 0:
+            log.warning("claude attempt %d exited %d: %s", attempt, done.returncode, done.stderr[:200])
+            continue
+        parsed = _parse(done.stdout)
+        if parsed:
+            return parsed
+        log.warning("claude attempt %d returned an unusable reply", attempt)
+    return None
+
+
+def accept(r: LocateResult, pages: list[Page]) -> bool:
+    known = {(pdf, n) for pdf, n, _ in pages}
+    start, end = (r.pdf_index, r.start_page), (r.end_pdf_index, r.end_page)
+    return (
+        r.confidence >= MIN_CONFIDENCE
+        and start in known
+        and end in known
+        and start <= end
+        and r.end_point.startswith(END_PREFIX)
+        and len(r.end_point) <= MAX_END_POINT
+    )
+
+
+_MARKS = re.compile(r"[ـً-ٰٟ]")
+_FOLD = str.maketrans("أإآٱىة", "اااايه")
+
+
+def _tokens(text: str) -> set[str]:
+    return set(re.findall(r"[ء-ي]+", _MARKS.sub("", text).translate(_FOLD)))
+
+
+def _best_match(start_point: str, pages: list[Page]) -> int | None:
+    wanted = _tokens(start_point.replace(END_PREFIX, "")) - _tokens("من قوله")
+    if not wanted:
+        return None
+    scores = [len(wanted & _tokens(text)) / len(wanted) for _, _, text in pages]
+    best = max(range(len(pages)), key=scores.__getitem__, default=None)
+    return best if best is not None and scores[best] >= MIN_MATCH else None
+
+
+def candidate_pages(
+    pending: Pending, pages: list[Page], previous_end: tuple[int, int] | None
+) -> list[Page]:
+    if previous_end is not None:
+        position = next((i for i, (pdf, n, _) in enumerate(pages) if (pdf, n) == previous_end), None)
+    else:
+        position = _best_match(pending.start_point, pages)
+    if position is None:
+        return []
+    first = max(0, position - WINDOW_BEFORE)
+    return pages[first : first + WINDOW_SIZE]
