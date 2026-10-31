@@ -7,5 +7,5 @@ cp systemd/albadr-agent.service systemd/albadr-agent.timer ~/.config/systemd/use
 systemctl --user daemon-reload
 systemctl --user enable --now albadr-agent.timer
 systemctl --user start albadr-agent.service   # run once now
-journalctl --user -t env -n 50   # heavy runs the job in a transient scope, so logs carry the `env` identifier
+journalctl --user -t albadr-agent -n 50   # heavy moves the job into a transient scope, so `-u albadr-agent` misses its logs
 ```
