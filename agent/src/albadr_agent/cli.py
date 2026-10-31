@@ -7,20 +7,57 @@ from pathlib import Path
 
 import httpx
 
-from .api import Api, ApiError
+from .api import Api, ApiError, Pending
 from .books import DEFAULT_CACHE, book_pages
 from .locate import accept, build_prompt, candidate_pages, locate
 from .lock import DEFAULT_LOCK, run_lock
-from .api import Pending
 from .transcribe import DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
 log = logging.getLogger("albadr_agent")
+
+
+def process_lesson(api: Api, lesson: Pending) -> None:
+    name = f"{lesson.course_id} #{lesson.number}"
+    if not lesson.pdf_urls:
+        log.info("%s: no book PDF for this course yet, skipping", name)
+        return
+    try:
+        mp3 = download_audio(lesson.recording_url)
+        segments = transcribe(mp3, DEFAULT_TRANSCRIPTS / f"{url_key(lesson.recording_url)}.json")
+        pages = [
+            (pdf, n, text)
+            for pdf, url in enumerate(lesson.pdf_urls)
+            for n, text in enumerate(book_pages(url), start=1)
+        ]
+        candidates = candidate_pages(lesson, pages, None)
+        if not candidates:
+            log.warning("%s: start point not found in the book, skipping", name)
+            return
+        found = locate(build_prompt(lesson, segments, candidates))
+        if found is None:
+            log.warning("%s: no usable answer from claude, skipping", name)
+            return
+        if not accept(found, candidates):
+            log.warning("%s: result rejected: %s", name, found.model_dump_json())
+            return
+        api.patch_lesson(lesson.course_id, lesson.number, {
+            "start_page": found.start_page,
+            "pdf_index": found.pdf_index,
+            "end_page": found.end_page,
+            "end_pdf_index": found.end_pdf_index,
+            "end_point": found.end_point,
+        })
+        mp3.unlink(missing_ok=True)
+        log.info("%s: patched pages %d-%d", name, found.start_page, found.end_page)
+    except Exception:
+        log.exception("%s: failed, continuing with the next lesson", name)
 
 
 def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(prog="albadr-agent")
     sub = parser.add_subparsers(dest="command")
+    sub.add_parser("run", help="process every pending lesson")
     index = sub.add_parser("index-book", help="build the per-page text index of a book PDF")
     index.add_argument("url")
     index.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
@@ -67,6 +104,9 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
             return 1
         log.info("result: %s accepted=%s", found.model_dump_json(), accept(found, candidates))
         return 0
+    if args.command != "run":
+        parser.print_help()
+        return 2
     base, token = os.environ.get("API_BASE"), os.environ.get("ADMIN_TOKEN")
     if not base or not token:
         log.error("API_BASE and ADMIN_TOKEN must be set (see ~/.config/albadr-lessons/agent.env)")
@@ -79,10 +119,14 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
         api = Api(base, token, httpx.Client(transport=transport, timeout=30))
         try:
             pending = api.pending()
+            log.info("%d pending lesson(s)", len(pending))
+            for lesson in pending:
+                process_lesson(api, lesson)
         except ApiError as e:
             log.error("server error: %s", e)
             return 1
-        log.info("%d pending lesson(s)", len(pending))
+        finally:
+            api.close()
         return 0
 
 

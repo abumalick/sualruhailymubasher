@@ -86,7 +86,6 @@ def test_accept_rules():
     assert not accept(result(start_page=9), PAGES)
     assert not accept(result(end_page=15), PAGES)
     assert not accept(result(pdf_index=1), PAGES)
-    assert not accept(result(end_point="x" * 81), PAGES)
     assert not accept(result(end_point="باب الدعاء"), PAGES)
 
 
@@ -110,3 +109,12 @@ def test_candidates_without_previous_end_search_by_start_point():
 
 def test_candidates_empty_when_nothing_matches():
     assert candidate_pages(PENDING, [(0, 1, "zzz")], None) == []
+
+
+def test_long_end_point_is_truncated_and_cli_flags_set():
+    long = {**GOOD, "end_point": "من قوله: " + "ك" * 200}
+    run = fake_run(json.dumps({"result": json.dumps(long, ensure_ascii=False)}))
+    got = locate("p", run=run)
+    assert len(got.end_point) == 80
+    cmd, kwargs = run.calls[0]
+    assert "--tools" in cmd and "--no-session-persistence" in cmd and kwargs["timeout"] == 300

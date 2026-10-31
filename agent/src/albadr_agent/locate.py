@@ -14,8 +14,11 @@ MAX_END_POINT = 80
 WINDOW_BEFORE, WINDOW_SIZE = 1, 12
 MIN_MATCH = 0.3
 ATTEMPTS = 2
-CLAUDE_TIMEOUT = 900
-CLAUDE_CMD = ["claude", "-p", "--model", "sonnet", "--output-format", "json"]
+CLAUDE_TIMEOUT = 300
+CLAUDE_CMD = [
+    "claude", "-p", "--model", "sonnet", "--output-format", "json",
+    "--tools", "", "--no-session-persistence",
+]
 END_PREFIX = "من قوله:"
 
 PROMPT = """أنت تساعد في تحديد موضع قراءة الشيخ من الكتاب في درس مسجل.
@@ -28,6 +31,8 @@ PROMPT = """أنت تساعد في تحديد موضع قراءة الشيخ م�
 
 الصفحات المرشحة من الكتاب (نصها مستخرج بالتعرّف الضوئي وفيه أخطاء وتشكيل غير دقيق، فطابق الكلام تقريبياً لا حرفياً):
 {pages}
+
+تجاهل رؤوس الصفحات المتكررة وأرقام الصفحات والحواشي عند اختيار آخر جملة قرأها الشيخ والجملة التالية.
 
 المطلوب:
 1. حدد الصفحة التي يبدأ فيها الجزء المقروء من الكتاب في هذا الدرس.
@@ -91,6 +96,7 @@ def locate(prompt: str, run=subprocess.run) -> LocateResult | None:
             continue
         parsed = _parse(done.stdout)
         if parsed:
+            parsed.end_point = parsed.end_point[:MAX_END_POINT]
             return parsed
         log.warning("claude attempt %d returned an unusable reply", attempt)
     return None
@@ -105,7 +111,6 @@ def accept(r: LocateResult, pages: list[Page]) -> bool:
         and end in known
         and start <= end
         and r.end_point.startswith(END_PREFIX)
-        and len(r.end_point) <= MAX_END_POINT
     )
 
 

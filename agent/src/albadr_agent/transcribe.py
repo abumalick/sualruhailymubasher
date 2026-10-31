@@ -41,7 +41,7 @@ def transcribe(mp3: Path, out: Path) -> list[Segment]:
     if out.exists():
         try:
             return [Segment(**s) for s in json.loads(out.read_text())]
-        except ValueError:
+        except (ValueError, TypeError):
             log.warning("corrupt transcript %s, transcribing again", out)
     model = WhisperModel(MODEL, device="cpu", compute_type="int8", cpu_threads=8)
     raw, _ = model.transcribe(str(mp3), language="ar", vad_filter=True)

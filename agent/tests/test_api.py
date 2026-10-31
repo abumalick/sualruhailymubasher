@@ -86,3 +86,10 @@ def test_patch_lesson_error_raises():
     with pytest.raises(ApiError) as e:
         api.patch_lesson("c1", 4, {"end_page": 1})
     assert e.value.status == 404
+
+
+@pytest.mark.parametrize("body", [b"not json", b'{"a": 1}', b'[{"courseId": "c"}]'])
+def test_malformed_200_body_raises_api_error(body):
+    api = api_with(lambda r: httpx.Response(200, content=body))
+    with pytest.raises(ApiError):
+        api.pending()

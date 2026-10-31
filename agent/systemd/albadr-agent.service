@@ -1,0 +1,9 @@
+[Unit]
+Description=Al-Badr lessons transcription agent
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=%h/.config/albadr-lessons/agent.env
+ExecStart=/usr/bin/env zsh -c 'heavy uv run --project %h/workspace/dawa/lessons-radio/agent albadr-agent run'
+TimeoutStartSec=infinity

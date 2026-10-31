@@ -1,5 +1,5 @@
 import httpx
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
 
 
@@ -36,8 +36,14 @@ class Api:
         return response
 
     def pending(self) -> list[Pending]:
-        data = self._request("GET", "/api/admin/pending-transcriptions").json()
-        return [Pending.model_validate(item) for item in data]
+        response = self._request("GET", "/api/admin/pending-transcriptions")
+        try:
+            return TypeAdapter(list[Pending]).validate_python(response.json())
+        except (ValueError, ValidationError) as e:
+            raise ApiError(f"pending-transcriptions returned a malformed body: {e}") from e
+
+    def close(self) -> None:
+        self._client.close()
 
     def patch_lesson(self, course_id: str, number: int, patch: dict) -> None:
         body = {to_camel(key): value for key, value in patch.items()}
