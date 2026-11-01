@@ -552,7 +552,7 @@ S.
 
 1. **Silent failures and public mistakes** (cheap, protects everything else): O3, S1, O1, O2, S5, S6, S4.
 2. **The study cycle itself:** B1 (verify on a real phone first), P1, L1 with L2, H1, T1 (label), S2, A1, A3.
-3. **Owner decisions,** then A2, S9, N1, H3.
+3. **Items whose direction the decisions below now settle:** A2, S9, N1, H3.
 4. **The Should list,** in table order. Ticket each must item before starting it.
 
 ## Decisions on the review questions
