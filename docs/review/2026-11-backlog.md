@@ -31,7 +31,7 @@ A full review of the v1.0.3 test build covered four areas: the app as a student 
 | **T1** | Times are Medina time with no label; day words are Medina-relative | Must | S (label) |
 | **H1** | Tafsir hero: the big central button is a disabled no-op | Must | S |
 | **A1** | One wrong page carries forward to every following lesson | Must | M |
-| **A2** | Kitab at-Tawhid pages are PDF indices, 2 off the printed page | Must* | S–M |
+| **A2** | Kitab at-Tawhid pages are PDF indices, 2 off the printed page | Must | S–M |
 | S3 | Corrections made on al-badr.net never reach the app; no lesson delete | Should | M |
 | S4 | Scraper changes fail silently | Should | S |
 | S5 | Push is marked sent before sending: one failure loses it for good | Should | S |
@@ -69,7 +69,7 @@ A full review of the v1.0.3 test build covered four areas: the app as a student 
 | S13 | Smaller robustness points | Later | S |
 | D2 | Fixture states can't be reached on a device build | Later | S |
 
-\* A2 depends on owner question Q1. If PDF page numbers are kept, it becomes a labelling fix.
+References such as (Q3) point to [Decisions on the review questions](#decisions-on-the-review-questions) at the end.
 
 ---
 
@@ -182,7 +182,7 @@ A full review of the v1.0.3 test build covered four areas: the app as a student 
   - Expose "aired today" per course (the `broadcasts` table already has it).
   - Show «التسجيل قريبًا» only after a broadcast in the window. After the window passes with none, show «لم يُبثّ الدرس».
   - Keep the previous review until a lesson actually airs.
-  - Consider skipping the prep reminder when the previous scheduled lesson did not air (Q3).
+  - Keep sending the prep reminder even after a lesson that did not air (Q3): a missed reminder costs more than a spurious one.
   - The real fix for announcements is the Telegram reader (later iteration 2).
 - **Effort:** M · **Known:** partly. Exceptions are manual in v1. How often breaks happen, and the lost review, are not discussed.
 
@@ -197,7 +197,7 @@ A full review of the v1.0.3 test build covered four areas: the app as a student 
 - **Direction:**
   - Now: append «بتوقيت المدينة» everywhere a time appears (S).
   - Then: show the device-local time first, with Medina time as a second line, and day words relative to the device date (M).
-  - Per-zone reminders would need local notifications (L, Q2).
+  - Reminders stay at fixed Medina times, as the spec sets for v1 (Q2). Per-zone reminders would need local notifications (L, later).
 - **Effort:** S / M / L · **Known:** no
 
 ### H1. Tafsir hero: the big central button is a disabled no-op
@@ -227,7 +227,7 @@ A full review of the v1.0.3 test build covered four areas: the app as a student 
   - Volume 1: PDF page 223 prints «221», and PDF page 229 prints «227». The header shows ص ٢٣٥ over a page printed ٢٣٣ ([`book-garbled-arabic-text.png`](screenshots/book-garbled-arabic-text.png)).
   - Tafsir is fine: page 628 of the Ibn al-Jawzi scan prints ٦٢٨ ([`tafsir-scan-p628-printed-628.png`](screenshots/tafsir-scan-p628-printed-628.png)).
 - **Direction:** Add a `pageOffset` per volume (admin field). Show the printed number, and convert to the PDF index only when opening the viewer.
-- **Effort:** S–M · **Known:** no · Depends on Q1.
+- **Effort:** S–M · **Known:** no · Printed numbers chosen (Q1).
 
 ---
 
@@ -239,7 +239,7 @@ A full review of the v1.0.3 test build covered four areas: the app as a student 
   - `INSERT OR IGNORE` on `(course_id, number)` (`server/src/repo.ts:120-127`). Only `recording_url` is ever updated.
   - This is happening now: the site shows 451/452 as «من الآية (٥٣)»/«(٦٠)», while production still has `(53)`/`(60)` ([`api-state-2026-11-01.json`](evidence/api-state-2026-11-01.json)).
   - The admin API has no lesson DELETE (`routes/admin.ts`).
-- **Direction:** On each scrape, update `start_point`, `hijri_date` and `detail_path` when they differ, unless an `edited_by_admin` flag is set (Q11). Add a "delete or hide lesson" admin action.
+- **Direction:** On each scrape, update `start_point`, `hijri_date` and `detail_path` when they differ, unless an `edited_by_admin` flag is set: the admin wins (Q11). Add a "delete or hide lesson" admin action.
 - **Effort:** M
 
 ### S4. Scraper changes fail silently
@@ -277,7 +277,7 @@ A full review of the v1.0.3 test build covered four areas: the app as a student 
 - **Direction:**
   - Narrow the window to roughly ±30 min around the start time.
   - Log each broadcast's offset and show the drift on the admin page.
-  - Let the admin re-attribute a broadcast (Q10).
+  - Keep attributing immediately, because the live push can't wait for confirmation, and let the admin re-attribute a broadcast (Q10).
 - **Effort:** S · **Known:** partly (attribution by window is the spec's rule; its width is not)
 
 ### S8. Client and server disagree when exceptions overlap
@@ -290,7 +290,7 @@ A full review of the v1.0.3 test build covered four areas: the app as a student 
 - **Impact:** In Ramadan 1448 (≈ 8 Feb – 9 Mar 2027) lesson times usually shift. The only tool is an `extra` range, which also turns every day off (Friday, Saturday) into a lesson day.
 - **Evidence:** Edge case H1: an extra range at 22:00 makes Friday and Saturday lesson days for a Sunday–Thursday course. The kinds are `cancel | pause | extra | move` (`shared/src/api.ts`).
 - **Direction:** Add a `retime` kind: a date range plus a new time or offset, keeping the weekdays.
-- **Effort:** S–M · Before Ramadan (Q8)
+- **Effort:** S–M · Build before Ramadan; enter the actual times once they are announced (Q8)
 
 ### A3. Start points are cut mid-word
 - **Impact:** The prepare card, the 21:00 reminder and the next lesson's start show text like «…مِنْ قُو», cut mid-word with an unclosed ﴿ and no «…».
@@ -391,7 +391,7 @@ A full review of the v1.0.3 test build covered four areas: the app as a student 
 ### H3. Cancellations and pauses are never shown to students
 - **Impact:** When the admin enters a cancellation, pause or postponement, the lesson just disappears from «دروس اليوم». Nobody is told it is cancelled or until when the course pauses, so students wait for a live that won't come.
 - **Evidence:** `exceptions` is used only to hide today's session (`app/src/logic/home.ts:33-41`). Nothing in `app/src/ui/` renders it.
-- **Direction:** Show a notice card on home and on the course page («أُلغي درس المغرب الليلة», «الدرس متوقف حتى …»), with the admin's note. Possibly send a push (Q4).
+- **Direction:** Show a notice card on home and on the course page («أُلغي درس المغرب الليلة», «الدرس متوقف حتى …»), with the admin's note appended to app-written wording. Also send a push to the course's live topic (Q4).
 - **Effort:** S
 
 ### H4. The course page's «وصلنا إلى» mixes two lessons
@@ -448,7 +448,7 @@ A full review of the v1.0.3 test build covered four areas: the app as a student 
   - Ask from a soft in-app card on home («فعّل التنبيهات لتصلك بداية البث وتذكير التحضير»).
   - Show the switches as off and greyed while permission is not granted, with a «فتح الإعدادات» deep link.
   - On `notificationReceived`, refresh and show a toast.
-- **Effort:** S–M · Must if store review flags it · Q6
+- **Effort:** S–M · Must if store review flags it · Topics stay on by default once permission is granted (Q6)
 
 ### X1. Offline and stale data
 - **Impact:**
@@ -524,7 +524,7 @@ When no start page is known, «اقرأ في الكتاب» opens vol. 1, page 1
 After Maghrib it lists two «انتهى» and nothing about tomorrow, and the hero says «حضّر لدرس الفجر غدًا» with no time ([`home-today-all-finished.png`](screenshots/home-today-all-finished.png), `Home.tsx:141`). **Direction:** switch the section to «الدروس القادمة» after the last lesson of the day, and add the time to the tag. S.
 
 ### H8. Links screen
-The hostnames are left-aligned under right-aligned titles (`Links.tsx:27`). «مجتمع واتساب ١/٢» are unexplained. There is no «عن التطبيق» entry with the version and a feedback link ([`links.png`](screenshots/links.png)). **Direction:** align the hostnames right, give the WhatsApp links descriptive titles (Q5), and add an about row. S.
+The hostnames are left-aligned under right-aligned titles (`Links.tsx:27`). «مجتمع واتساب ١/٢» are unexplained. Their invite pages show both groups as «دروس الشيخ عبد الرزاق البدر», numbered (٢) and (٥): copies of the same group, so a student need join only one. There is no «عن التطبيق» entry with the version and a feedback link ([`links.png`](screenshots/links.png)). **Direction:** align the hostnames right, and replace the two WhatsApp rows with one «مجموعة واتساب للدروس» row that says the groups are copies (Q5). Add an about row. S.
 
 ### S10. Reminder catch-up
 If the cron misses the 5-minute window (`jobs/reminders.ts:89,95-96`), that day's prep reminder is lost. **Direction:** send when `now ≥ target` and not yet sent, up to the lesson time. S.
@@ -533,7 +533,7 @@ If the cron misses the 5-minute window (`jobs/reminders.ts:89,95-96`), that day'
 For non-course broadcasts the dedupe key is the uid (`live:${uid}`, `jobs/live.ts:55`), so a reconnect sends «بث مباشر الآن» twice. In the worst case the home screen shows live about 2.5 min after the start (1-min cron, 15 s cache, 60 s foreground poll). **Direction:** dedupe by date and slot. S.
 
 ### S12. Older lessons
-The course page lists only scraped lessons (Tafsir 441–453). `server/README.md` says "repeat to fill older recordings", but repeating only fills mp3 URLs (`sources/albadr.ts:61-76`). **Direction:** decide (Q9), then either backfill or fix the README. S.
+The course page lists only scraped lessons (Tafsir 441–453). `server/README.md` says "repeat to fill older recordings", but repeating only fills mp3 URLs (`sources/albadr.ts:61-76`). **Direction:** no backfill in v1, because an archive is a non-goal (Q9). Fix the README wording. S.
 
 ### S13. Smaller robustness points
 - Book and transcript caches are keyed by URL (`agent/.../books.py:72`, `transcribe.py:124`), so a file replaced at the same URL is never re-read.
@@ -555,19 +555,27 @@ S.
 3. **Owner decisions,** then A2, S9, N1, H3.
 4. **The Should list,** in table order. Ticket each must item before starting it.
 
-## Open questions for the owner
+## Decisions on the review questions
 
-1. **Page numbers:** should the app speak in *printed* page numbers (what paper copies show) or in PDF page numbers? For Kitab at-Tawhid they differ by about 2 per volume. Tafsir's scan already matches the print.
-2. **Times abroad:** should lessons be shown in Medina time, local time, or both? Should the prepare reminder fire at 21:00/15:30 Medina, or in the student's own evening?
-3. **Days off:** until the Telegram reader exists, who enters cancellations and how fast? Should the prepare reminder be skipped when the previous scheduled lesson did not air?
-4. **Cancellations:** who writes the student-facing wording, and should a cancellation also send a push?
-5. **WhatsApp communities 1 and 2:** what is the difference, so the links can say it?
-6. **Notification opt-in:** is a soft in-app ask acceptable, or should every topic start OFF until the student opts in?
-7. **Live and book together:** is a collapsed live bar plus the book acceptable within embed mode? If not, should testers be told now that opening the book stops the live audio?
-8. **Ramadan 1448 (from ≈ 8 Feb 2027):** are the lesson times and days known?
-9. **Older lessons:** should a course list every earlier lesson of the current book (Tafsir 1–440), or only lessons since the app started?
-10. **Broadcast attribution:** should every broadcast in a course's window count as a lesson immediately, or only once confirmed?
-11. **Site vs admin:** when al-badr.net edits a lesson that the admin also corrected, which one wins?
-12. **Operations:** who will run the admin page after release, and where should alerts go (Telegram, e-mail)? Is a hidden "tester" switch in the app acceptable, so test pushes reach only testers?
-13. **Tafsir book:** should the app tell students they need their own copy of the Ibn al-Jawzi edition, and where to get one?
-14. **Offline listening:** is downloading recordings for offline review in scope?
+The review raised 14 questions. Ten are answered below with a default that follows the spec or standard practice; the owner can still overturn any of them. Numbers match the (Qn) references above.
+
+| # | Question | Decision | Why |
+|---|---|---|---|
+| 1 | Printed or PDF page numbers? | **Printed.** Keep the PDF index internally, add `pageOffset` per volume, and convert only when opening the viewer (A2). | A page number shown to a person means the number on the page. Tafsir already works this way. |
+| 2 | Medina or local time? | **Both:** device-local first, «بتوقيت المدينة» second; day words follow the device date. **Reminders stay at fixed Medina times** (T1). | The spec sets fixed Medina reminder times for v1. Per-zone reminders are a later item. |
+| 3 | Skip the prep reminder after a lesson that didn't air? | **No, keep sending it.** The requester enters cancellations through the admin page, as the spec says for v1 (S2). | A missed reminder costs more than a spurious one, and the in-app phantom states are fixed separately. |
+| 4 | Cancellation wording, and a push? | **The app's own wording,** with the admin's note appended, **plus a push** to the course's live topic (H3). | Those subscribers would otherwise wait for a live that won't come. |
+| 5 | WhatsApp communities 1 and 2? | **Copies of the same group:** the invite pages read «دروس الشيخ عبد الرزاق البدر (٢)» and «(٥)». Show one row that says so (H8). | Looked up. The app's "1/2" labels don't match the groups' own numbers. |
+| 6 | Notification opt-in? | **A soft in-app ask; after the grant, topics stay on by default** (N1). | Matches the spec's default-on toggles and standard Android 13+ practice. |
+| 7 | Live and book together? | **Build the collapsed live bar (L1),** and add the tester note now (L2). Before building, check Mixlr's embed terms for any visibility rule; if there is one, keep a small visible iframe in the bar. | The audio still comes from Mixlr's official embed; collapsing it is not re-transmission. |
+| 8 | Ramadan 1448 times? | **Build the `retime` exception now (S9).** Enter the times from al-badr.net/streaming once they are announced. | Only the data is unknown, and it is not needed to build. |
+| 10 | Count broadcasts in the window immediately? | **Yes, immediately,** with a ±30–45 min window and admin re-attribution (S7). | The live push can't wait for a confirmation. |
+| 11 | al-badr.net vs admin? | **Admin wins,** via an `edited_by_admin` flag; the site updates everything else (S3). | Manual corrections are deliberate. |
+| 12 | Operator, alerts, tester switch? | **The requester operates the admin page** (as the spec says). **Alerts go to Telegram.** **No tester switch:** debug builds subscribe to a `test` topic and release builds never do (O1, O2, O3). | Standard practice; all three follow from the spec. |
+| 13 | Tell students to use their own Tafsir copy? | **Yes:** «اقرأ من نسختك: ص N، طبعة دار ابن الجوزي», naming the edition, with no purchase link (H1). | The PDF is deliberately not linked. |
+
+### Still open for the owner (none blocks the release list)
+
+1. **Course history (Q9):** should a course list every earlier lesson of the current book (Tafsir 1–440)? Default for now: no backfill, because an archive is a non-goal, and the README gets fixed (S12).
+2. **Offline downloads (Q14):** should students be able to download recordings for offline listening? Default: out of v1 scope.
+3. **Ramadan 1448 times (Q8):** the actual lesson times and days, once announced.
