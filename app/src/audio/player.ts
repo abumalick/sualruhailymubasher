@@ -66,9 +66,18 @@ function element(): HTMLAudioElement {
   return a;
 }
 
+let handlersRegistered = false;
+let stopEmbed: (() => void) | null = null;
+
 function registerHandlers() {
-  quiet(MediaSession.setActionHandler({ action: 'play' }, () => void player.resume()));
-  quiet(MediaSession.setActionHandler({ action: 'pause' }, () => player.pause()));
+  if (handlersRegistered) return;
+  handlersRegistered = true;
+  quiet(
+    MediaSession.setActionHandler({ action: 'play' }, () => {
+      if (!stopEmbed) void player.resume();
+    }),
+  );
+  quiet(MediaSession.setActionHandler({ action: 'pause' }, () => (stopEmbed ? stopEmbed() : player.pause())));
   quiet(
     MediaSession.setActionHandler({ action: 'seekto' }, (d) => {
       if (state.src?.kind === 'recording' && d.seekTime != null) player.seek(d.seekTime);
@@ -110,6 +119,22 @@ export const player = {
     } catch {
       if (state.src === src) set({ playing: false, error: 'تعذّر تشغيل الصوت' });
     }
+  },
+
+  // The live embed plays in a cross-origin iframe we cannot observe; the media session only keeps it
+  // alive in the background and lets the notification's pause close it.
+  startEmbed(title: string, onStop: () => void): void {
+    stopEmbed = onStop;
+    registerHandlers();
+    quiet(MediaSession.setMetadata({ title, artist: ARTIST, album: '', artwork: [{ src: ARTWORK, sizes: '512x512', type: 'image/png' }] }));
+    quiet(MediaSession.setPositionState({ duration: 0, position: 0, playbackRate: 1 }));
+    quiet(MediaSession.setPlaybackState({ playbackState: 'playing' }));
+  },
+
+  endEmbed(): void {
+    if (!stopEmbed) return;
+    stopEmbed = null;
+    quiet(MediaSession.setPlaybackState({ playbackState: 'none' }));
   },
 
   seek(sec: number): void {

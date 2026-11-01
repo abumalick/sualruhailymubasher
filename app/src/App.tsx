@@ -82,7 +82,13 @@ export function App() {
       </div>
       <MiniPlayer />
       <NavBar route={route} />
-      {sheet && state && <LiveSheet live={state.live} onClose={() => setSheet(false)} />}
+      {sheet && state && (
+        <LiveSheet
+          live={state.live}
+          title={state.courses.find((c) => c.id === state.live.courseId)?.title ?? 'البث المباشر'}
+          onClose={() => setSheet(false)}
+        />
+      )}
     </div>
   );
 }
