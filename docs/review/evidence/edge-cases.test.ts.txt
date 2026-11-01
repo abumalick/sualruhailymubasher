@@ -1,0 +1,114 @@
+import { describe, expect, it } from 'vitest';
+import type { CourseDTO, StateDTO } from '@albadr/shared';
+import { readFileSync } from 'node:fs';
+import { buildHome } from '../../../app/src/logic/home';
+import { nextPassage } from '../../../server/src/estimate';
+import { isLessonDay, nextLessonDate } from '../../../server/src/schedule';
+import { clock12, dayWord, passageLine } from '../../../app/src/ui/format';
+
+const none = { read: new Set<string>(), reviewed: new Set<string>() };
+const REAL: StateDTO = JSON.parse(readFileSync(new URL('./api-state-2026-11-01.json', import.meta.url), 'utf8'));
+const brief = (h: ReturnType<typeof buildHome>) => ({
+  hero: h.hero && { kind: h.hero.kind, course: (h.hero as any).courseId, n: (h.hero as any).lesson?.number ?? (h.hero as any).next?.number ?? (h.hero as any).lessonNumber },
+  cards: h.cards.map((c) => `${c.kind}:${(c as any).courseId}:${(c as any).lesson?.number ?? (c as any).next?.number ?? (c as any).lessonNumber}`),
+  today: h.today,
+});
+
+describe('A. stale cache (offline) — real state of Sun 1 Nov 20:59 Medina', () => {
+  it('opened Tue 3 Nov 09:00 Medina while offline', () => {
+    const h = buildHome(REAL, none, new Date('2026-11-03T06:00:00Z'));
+    console.log('A1 offline +36h', JSON.stringify(brief(h)));
+  });
+  it('opened Mon 2 Nov 09:00 Medina while offline (after Fajr lesson 454 was held)', () => {
+    const h = buildHome(REAL, none, new Date('2026-11-02T06:00:00Z'));
+    console.log('A2 offline next morning', JSON.stringify(brief(h)));
+  });
+  it('cached live=true survives forever offline', () => {
+    const live = { ...REAL, live: { ...REAL.live, isLive: true, courseId: 'kitab-tawhid', startedAt: '2026-11-01T15:15:00Z' } };
+    const h = buildHome(live, none, new Date('2026-11-04T06:00:00Z'));
+    console.log('A3 cached live 3 days later', JSON.stringify(brief(h)));
+  });
+});
+
+describe('B. unannounced day off (e.g. Fri 30 Oct, no admin exception)', () => {
+  // state as the server would serve it Fri 30 Oct 06:30 Medina: tafsir next is Fri 05:3x (within 150 min), no broadcast
+  const tafsir = REAL.courses[0];
+  const s: StateDTO = {
+    ...REAL,
+    courses: [
+      {
+        ...tafsir,
+        latest: tafsir.latest.slice(1).map((l) => l),
+        next: { ...tafsir.next!, date: '2026-10-30', time: '05:33', number: 453 },
+      },
+    ],
+  };
+  it('06:30 Medina, no broadcast happened', () => {
+    const h = buildHome(s, none, new Date('2026-10-30T03:30:00Z'));
+    console.log('B1 day off 06:30', JSON.stringify(brief(h)));
+  });
+});
+
+describe('C. today pill after an early-ending lesson', () => {
+  const tawhid = REAL.courses[1];
+  const s: StateDTO = { ...REAL, courses: [{ ...tawhid, next: { ...tawhid.next!, date: '2026-11-02', time: '18:11' } }] };
+  it('lesson 18:11-19:05, now 19:30 Medina, not live, no recording yet', () => {
+    const h = buildHome(s, none, new Date('2026-11-02T16:30:00Z'));
+    console.log('C1 today', JSON.stringify(h.today), 'label', clock12(h.today[0]?.time ?? '00:00'));
+  });
+});
+
+describe('D. client/server disagree on overlapping pause + extra', () => {
+  const tawhid = REAL.courses[1];
+  const ex = [
+    { id: 1, courseId: 'kitab-tawhid', kind: 'pause' as const, dateFrom: '2026-11-08', dateTo: '2026-11-12', time: null, note: '' },
+    { id: 2, courseId: 'kitab-tawhid', kind: 'extra' as const, dateFrom: '2026-11-10', dateTo: null, time: '20:00', note: '' },
+  ];
+  it('server says held, client today list says not held', () => {
+    const row = { id: 'kitab-tawhid', title: '', slot: 'maghrib' as const, weekdays: [0, 1, 2, 3, 4], offsetMin: 0, seriesId: 481, pdfUrls: [], edition: null, active: true, sort: 0 };
+    console.log('D server', JSON.stringify(isLessonDay(row, '2026-11-10', ex)));
+    const s: StateDTO = { ...REAL, courses: [{ ...tawhid, exceptions: ex, next: { ...tawhid.next!, date: '2026-11-10', time: '20:00' } }] };
+    const h = buildHome(s, none, new Date('2026-11-10T10:00:00Z'));
+    console.log('D client today', JSON.stringify(h.today));
+  });
+});
+
+describe('E. time zones: what a user abroad reads', () => {
+  it('Jakarta (UTC+7) user at 01:30 local Tue, tafsir next Tue 05:34 Medina', () => {
+    const now = new Date('2026-11-02T18:30:00Z');
+    console.log('E1 tag day word', dayWord('2026-11-03', now), 'time shown', clock12('05:34'), 'local actual', new Date('2026-11-03T02:34:00Z').toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta' }));
+  });
+  it('New York user, maghrib reminder 15:30 Medina', () => {
+    console.log('E2 reminder in NY', new Date('2026-11-02T12:30:00Z').toLocaleTimeString('en-US', { timeZone: 'America/New_York' }), '; in Jakarta fajr reminder 21:00 Medina =', new Date('2026-11-02T18:00:00Z').toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta' }));
+  });
+});
+
+describe('F. next passage across a volume boundary (Kitab at-Tawhid)', () => {
+  it('previous lesson ended at the last page of volume 1', () => {
+    const base = { number: 30, hijriDate: '01-07-1448', startPoint: 'x', recordingUrl: 'u', detailPath: '/d' };
+    const latest = [
+      { ...base, pdfIndex: 0, startPage: 300, endPoint: 'آخر الجزء', endPage: 304, endPdfIndex: 0 },
+      { ...base, number: 29, pdfIndex: 0, startPage: 294, endPoint: 'y', endPage: 300, endPdfIndex: 0 },
+    ];
+    const p = nextPassage({} as any, latest as any, { date: '2026-12-01', time: '18:00' });
+    console.log('F1', JSON.stringify(p), passageLine(p!));
+    const est = nextPassage({} as any, [{ ...latest[0], endPoint: null, endPage: null, endPdfIndex: null }, latest[1]] as any, { date: '2026-12-01', time: '18:00' });
+    console.log('F2 estimated (no transcription)', JSON.stringify(est));
+  });
+});
+
+describe('G. estimated start is not labelled', () => {
+  it('real kitab next is estimated=true, label', () => {
+    const n = REAL.courses[1].next!;
+    console.log('G1', n.estimated, '|', passageLine(n));
+  });
+});
+
+describe('H. server next lesson with Ramadan-style time override needs one exception per day', () => {
+  it('extra range with a time covers a range', () => {
+    const row = { id: 'kitab-tawhid', title: '', slot: 'maghrib' as const, weekdays: [0, 1, 2, 3, 4], offsetMin: 10, seriesId: 481, pdfUrls: [], edition: null, active: true, sort: 0 };
+    const ex = [{ id: 3, courseId: 'kitab-tawhid', kind: 'extra' as const, dateFrom: '2027-02-08', dateTo: '2027-03-09', time: '22:00', note: 'رمضان' }];
+    console.log('H1 Saturday in range held?', JSON.stringify(isLessonDay(row, '2027-02-13', ex)), 'Fri', JSON.stringify(isLessonDay(row, '2027-02-12', ex)));
+    console.log('H2 next from 2027-02-10T12:00Z', JSON.stringify(nextLessonDate(row, ex, new Date('2027-02-10T12:00:00Z'))));
+  });
+});

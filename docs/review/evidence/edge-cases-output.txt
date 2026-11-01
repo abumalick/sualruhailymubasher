@@ -1,0 +1,14 @@
+A1 offline +36h {"hero":{"kind":"awaiting-recording","course":"kitab-tawhid","n":8},"cards":[],"today":[{"courseId":"tafsir-saadi","time":"05:34","status":"done"},{"courseId":"kitab-tawhid","time":"18:11","status":"upcoming"}]}
+A2 offline next morning {"hero":{"kind":"prepare","course":"kitab-tawhid","n":9},"cards":["awaiting-recording:kitab-tawhid:8"],"today":[{"courseId":"tafsir-saadi","time":"05:34","status":"done"},{"courseId":"kitab-tawhid","time":"18:11","status":"upcoming"}]}
+A3 cached live 3 days later {"hero":{"kind":"live","course":"kitab-tawhid","n":9},"cards":[],"today":[{"courseId":"tafsir-saadi","time":"05:34","status":"done"},{"courseId":"kitab-tawhid","time":"18:11","status":"live"}]}
+B1 day off 06:30 {"hero":{"kind":"awaiting-recording","course":"tafsir-saadi","n":453},"cards":[],"today":[{"courseId":"tafsir-saadi","time":"05:33","status":"upcoming"}]}
+C1 today [{"courseId":"kitab-tawhid","time":"18:11","status":"upcoming"}] label ٦:١١ م
+E1 tag day word غدًا time shown ٥:٣٤ ص local actual 09:34:00
+E2 reminder in NY 7:30:00 AM ; in Jakarta fajr reminder 21:00 Medina = 01:00:00
+F1 {"date":"2026-12-01","time":"18:00","number":31,"pdfIndex":0,"startPoint":"آخر الجزء","startPage":304,"estEndPage":309,"estimated":false} آخر الجزء · إلى نحو ص ٣٠٩
+F2 estimated (no transcription) {"date":"2026-12-01","time":"18:00","number":31,"pdfIndex":0,"startPoint":null,"startPage":306,"estEndPage":312,"estimated":true}
+G1 true | يتابع من حيث توقف الدرس ٨ · إلى نحو ص ٢٤١
+H1 Saturday in range held? {"held":true,"time":"22:00"} Fri {"held":true,"time":"22:00"}
+H2 next from 2027-02-10T12:00Z {"date":"2027-02-10","time":"22:00"}
+D server {"held":true,"time":"20:00"}
+D client today []
