@@ -81,6 +81,15 @@ describe('courses', () => {
     expect((await call('PUT', `/api/admin/courses/${id}`, course)).status).toBe(400);
   });
 
+  it('stores the edition label and clears it when omitted', async () => {
+    const edition = () =>
+      call('GET', '/api/admin/courses').then(async (r) => ((await r.json()) as any[]).find((c) => c.id === 'ed').edition);
+    await call('PUT', '/api/admin/courses/ed', { ...course, edition: 'طبعة دار ابن الجوزي' });
+    expect(await edition()).toBe('طبعة دار ابن الجوزي');
+    await call('PUT', '/api/admin/courses/ed', course);
+    expect(await edition()).toBeNull();
+  });
+
   it('accepts a new book id', async () => {
     expect((await call('PUT', '/api/admin/courses/tafsir-saadi-2', course)).status).toBe(204);
   });
@@ -97,6 +106,7 @@ describe('courses', () => {
     { ...course, seriesId: -1 },
     { ...course, pdfUrls: [1] },
     { ...course, active: 'yes' },
+    { ...course, edition: 5 },
     'text',
   ])('rejects invalid course %#', async (body) => {
     const res = await call('PUT', '/api/admin/courses/x', body);

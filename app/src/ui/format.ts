@@ -36,6 +36,11 @@ export function passageLine(next: NextPassageDTO): string {
   return next.estEndPage === null ? start : `${start} · إلى نحو ص ${ar(next.estEndPage)}`;
 }
 
+export function editionPage(course: CourseDTO, page: number | null): string | null {
+  if (course.pdfUrls.length > 0 || !course.edition || page === null) return null;
+  return `ص ${ar(page)} · ${course.edition}`;
+}
+
 export function bookHref(course: CourseDTO, pdfIndex: number | null, page: number | null, marker = false): string | null {
   if (course.pdfUrls.length === 0) return null;
   if (page === null) return `#/book/${course.id}/${pdfIndex ?? 0}/1`;

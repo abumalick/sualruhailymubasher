@@ -17,13 +17,14 @@ export interface ExceptionDTO { id: number; courseId: string | null; kind: Excep
 export interface CourseDTO {
   id: string; title: string; slot: Slot; weekdays: number[]; time: string;  // lesson time on the next lesson date (prayer time + offset)
   pdfUrls: string[]; latest: LessonDTO[];               // newest first, max 5
+  edition: string | null;                               // edition the page numbers refer to, shown when the book is not linked
   next: NextPassageDTO | null; exceptions: ExceptionDTO[];  // upcoming only
 }
 export interface LiveDTO { isLive: boolean; mode: 'embed' | 'direct'; embedUrl: string; streamUrl: string | null; courseId: string | null; startedAt: string | null; }
 export interface StateDTO { generatedAt: string; live: LiveDTO; courses: CourseDTO[]; links: { title: string; url: string }[]; }
 
 // admin writes
-export interface CourseInput { title: string; slot: Slot; weekdays: number[]; offsetMin: number; seriesId: number; pdfUrls: string[]; active: boolean; }  // offsetMin: minutes after Fajr / sunset, 0..120
+export interface CourseInput { title: string; slot: Slot; weekdays: number[]; offsetMin: number; seriesId: number; pdfUrls: string[]; active: boolean; edition?: string | null; }  // offsetMin: minutes after Fajr / sunset, 0..120
 export interface LessonPatch {                          // null clears a field
   startPoint?: string; pdfIndex?: number | null; startPage?: number | null;
   endPoint?: string | null; endPage?: number | null; endPdfIndex?: number | null;

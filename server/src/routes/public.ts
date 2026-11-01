@@ -61,6 +61,7 @@ publicRoutes.get('/api/state', async (c) => {
         weekdays: course.weekdays,
         time: next?.time ?? lessonTime(course, medinaDate(now)),
         pdfUrls: course.pdfUrls,
+        edition: course.edition,
         latest,
         next: next && nextPassage(course, latest, next, await expectedNextNumber(db, course.id, next.date, now)),
         exceptions: mine,

@@ -22,6 +22,7 @@ export const FIXTURE_STATE: StateDTO = {
       weekdays: [0, 1, 2, 3, 4, 5],
       time: '05:25',
       pdfUrls: ['https://al-badr.net/download/mutun/TafsirAsSaadi.pdf'],
+      edition: null,
       latest: [
         {
           number: 443,
@@ -83,6 +84,7 @@ export const FIXTURE_STATE: StateDTO = {
         'https://al-badr.net/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_02.pdf',
         'https://al-badr.net/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_03.pdf',
       ],
+      edition: null,
       latest: [
         {
           number: 2,

@@ -85,6 +85,13 @@ describe('Home hero', () => {
     expect(screen.queryByText(/اقرأ في الكتاب/)).toBeNull();
   });
 
+  it('an unlinked book shows the page in its edition instead of a book button', () => {
+    const state = { ...FIXTURE_STATE, courses: [{ ...tafsir, pdfUrls: [], edition: 'طبعة دار ابن الجوزي' }, FIXTURE_STATE.courses[1]] };
+    home(state, MON_2110);
+    expect(screen.getByText('ص ٣١٢ · طبعة دار ابن الجوزي')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /الكتاب/ })).toBeNull();
+  });
+
   it('unknown pages still open the book at page 1 of the volume, without the marker', () => {
     const blank = (c: (typeof FIXTURE_STATE.courses)[number]) => ({
       ...c,
@@ -186,6 +193,11 @@ describe('Course page', () => {
     const single = { ...tafsir, latest: tafsir.latest.map((l) => ({ ...l, startPage: null, endPage: null })), next: { ...tafsir.next!, startPage: null } };
     render(<Course course={single} ticks={none()} onTick={noop} onPlay={noop} />);
     expect(screen.getByRole('link', { name: 'افتح الكتاب' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/1');
+  });
+
+  it('an unlinked book shows the reached page in its edition', () => {
+    render(<Course course={{ ...tafsir, pdfUrls: [], edition: 'طبعة دار ابن الجوزي' }} ticks={none()} onTick={noop} onPlay={noop} />);
+    expect(screen.getByText('ص ٣١٢ · طبعة دار ابن الجوزي')).toBeTruthy();
   });
 
   it('a course with no lessons and no next lesson renders without crashing', () => {

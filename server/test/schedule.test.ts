@@ -6,11 +6,11 @@ import { addDays, hijriToMedinaDate, medinaDate, medinaInstant, weekday } from '
 
 const tafsir: CourseRow = {
   id: 'tafsir-saadi', title: 'شرح تفسير السعدي', slot: 'fajr', weekdays: [0, 1, 2, 3, 4, 5],
-  offsetMin: 25, seriesId: 456, pdfUrls: [], active: true, sort: 1,
+  offsetMin: 25, seriesId: 456, pdfUrls: [], edition: null, active: true, sort: 1,
 };
 const tawhid: CourseRow = {
   id: 'kitab-tawhid', title: 'كتاب التوحيد', slot: 'maghrib', weekdays: [0, 1, 2, 3, 4],
-  offsetMin: 30, seriesId: 481, pdfUrls: [], active: true, sort: 2,
+  offsetMin: 30, seriesId: 481, pdfUrls: [], edition: null, active: true, sort: 2,
 };
 const ex = (p: Partial<ExceptionDTO> & Pick<ExceptionDTO, 'kind' | 'dateFrom'>): ExceptionDTO => ({
   id: 1, courseId: null, dateTo: null, time: null, note: '', ...p,

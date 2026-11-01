@@ -3,7 +3,7 @@ import type { ComponentChildren } from 'preact';
 import { buildHome, type HomeModel, type Item } from '../logic/home';
 import type { TickKind, Ticks } from '../logic/ticks';
 import { hijriLabel } from '../logic/time';
-import { ar, arText, bookHref, clock12, dayWord, passageLine, slotName, weekdayOf } from './format';
+import { ar, arText, bookHref, clock12, dayWord, editionPage, passageLine, slotName, weekdayOf } from './format';
 import { Disc, Icon, Tick } from './Star';
 
 export interface HomeProps {
@@ -180,6 +180,11 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
             {c.next && ` · ${passageLine(c.next)}`}
           </p>
         )}
+        {!book && c?.next && editionPage(c, c.next.startPage) && (
+          <div class="acts">
+            <span class="pill o">{editionPage(c, c.next.startPage)}</span>
+          </div>
+        )}
         {book && (
           <div class="acts">
             <a class="chip" href={book}>
@@ -206,6 +211,7 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
         <h3>{c.title}</h3>
         <p>{passageLine(item.next)}</p>
         <div class="acts">
+          {!book && editionPage(c, item.next.startPage) && <span class="pill o">{editionPage(c, item.next.startPage)}</span>}
           {book && (
             <a class="chip pri" href={book}>
               <Icon id="i-pdf" />
@@ -235,6 +241,7 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
             <Icon id="play" class="fill" />
             استمع
           </button>
+          {!book && editionPage(c, lesson.startPage) && <span class="pill o">{editionPage(c, lesson.startPage)}</span>}
           {book && (
             <a class="chip" href={book}>
               <Icon id="i-pdf" />

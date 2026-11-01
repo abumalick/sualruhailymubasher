@@ -177,6 +177,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     var offset = el('input', { type: 'number', min: 0, max: 120, value: String(c.offsetMin) });
     var series = el('input', { type: 'number', min: 0, value: String(c.seriesId) });
     var pdfs = el('textarea', { value: c.pdfUrls.join('\n') });
+    var edition = el('input', { value: c.edition || '', placeholder: 'طبعة دار ابن الجوزي' });
     var active = el('input', { type: 'checkbox', checked: c.active });
     var boxes = DAYS.map(function (d, i) {
       var cb = el('input', { type: 'checkbox', checked: c.weekdays.indexOf(i) >= 0 });
@@ -192,6 +193,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
         offsetMin: Number(offset.value),
         seriesId: Number(series.value),
         pdfUrls: pdfs.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
+        edition: edition.value.trim() || null,
         active: active.checked
       };
       var id = isNew ? idInput.value.trim() : c.id;
@@ -211,6 +213,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
       el('div', { className: 'days' }, boxes.map(function (b) { return b.node; })),
       field('رقم السلسلة في al-badr.net', series),
       field('روابط PDF (رابط في كل سطر)', pdfs),
+      field('الطبعة (تظهر مع أرقام الصفحات حين لا يُربط الكتاب)', edition),
       el('label', {}, [active, document.createTextNode(' الدورة فعّالة')]),
       save, msg
     ]);
@@ -220,7 +223,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     var box = $('courses');
     box.textContent = '';
     courses.forEach(function (c) { box.appendChild(courseCard(c, false)); });
-    box.appendChild(courseCard({ id: '', title: '', slot: 'fajr', weekdays: [], offsetMin: 25, seriesId: 0, pdfUrls: [], active: true }, true));
+    box.appendChild(courseCard({ id: '', title: '', slot: 'fajr', weekdays: [], offsetMin: 25, seriesId: 0, pdfUrls: [], edition: null, active: true }, true));
     var sel = $('exc-course');
     sel.textContent = '';
     sel.appendChild(el('option', { value: '', text: 'كل الدورات' }));

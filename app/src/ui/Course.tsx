@@ -2,7 +2,7 @@ import type { CourseDTO, LessonDTO } from '@albadr/shared';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { fetchLessons } from '../api';
 import type { TickKind, Ticks } from '../logic/ticks';
-import { ar, arText, bookHref, clock12, schedule, slotName, weekdayOf } from './format';
+import { ar, arText, bookHref, clock12, editionPage, schedule, slotName, weekdayOf } from './format';
 import { Icon, Tick } from './Star';
 
 const PAGE = 20;
@@ -78,7 +78,7 @@ export function Course({ course, ticks, onTick, onPlay }: Props) {
         </div>
         {page !== null && (
           <span class="m">
-            {course.pdfUrls.length > 1 && `الجزء ${ar((pdfIndex ?? 0) + 1)} · `}ص {ar(page)}
+            {editionPage(course, page) ?? `${course.pdfUrls.length > 1 ? `الجزء ${ar((pdfIndex ?? 0) + 1)} · ` : ''}ص ${ar(page)}`}
           </span>
         )}
         <span class="m">
