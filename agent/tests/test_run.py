@@ -345,3 +345,15 @@ def test_a_patched_end_becomes_the_next_lessons_start_in_the_same_run(recorded):
     assert run(handler) == 0
     assert len(patches) == 1
     assert "=== ملف 1 صفحة 1 ===" in prompts[0] and "ملف 0 صفحة 2 ===" not in prompts[0]
+
+
+def test_course_without_pdfs_uses_its_local_book(setup, monkeypatch):
+    handler, patches, _ = setup
+    monkeypatch.setenv("ALBADR_LOCAL_BOOKS", "tafsir=/books/t1.pdf,/books/t2.pdf;other=/books/o.pdf")
+    opened = []
+    monkeypatch.setattr(cli, "book_pages", lambda url: opened.append(url) or PAGES)
+    monkeypatch.setattr(cli, "locate", lambda prompt: good())
+    handler.pending = [lesson("tafsir", 1, pdfs=())]
+    assert run(handler) == 0
+    assert opened == ["/books/t1.pdf", "/books/t2.pdf"]
+    assert [p for p, _ in patches] == ["/api/admin/lessons/tafsir/1"]

@@ -24,6 +24,15 @@ EXTRA_WINDOW = 12
 DEFAULT_VERDICTS = CACHE_ROOT / "verdicts"
 
 
+def _local_books() -> dict[str, list[str]]:
+    """ALBADR_LOCAL_BOOKS="course-id=/a.pdf,/b.pdf;other=/c.pdf": books the agent may read but the app must not link."""
+    books = {}
+    for entry in filter(None, os.environ.get("ALBADR_LOCAL_BOOKS", "").split(";")):
+        course, _, paths = entry.partition("=")
+        books[course.strip()] = [p.strip() for p in paths.split(",") if p.strip()]
+    return books
+
+
 def _book(lesson: Pending) -> list[Page]:
     return [
         (pdf, n, text)
@@ -222,7 +231,10 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
             log.info("%d pending lesson(s)", len(pending))
             previous: tuple[str, int, End] | None = None
             claude_down = False
+            local = _local_books()
             for lesson in pending:
+                if not lesson.pdf_urls:
+                    lesson.pdf_urls = local.get(lesson.course_id, [])
                 if previous and previous[:2] == (lesson.course_id, lesson.number - 1) and lesson.start_page is None:
                     lesson.pdf_index, lesson.start_page = previous[2]
                 try:

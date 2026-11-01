@@ -159,3 +159,28 @@ def test_missing_page_count_is_a_clear_error(tmp_path, monkeypatch):
     )
     with pytest.raises(ValueError, match="no page count"):
         books._page_count(tmp_path / "a.pdf")
+
+
+@needs_font
+def test_local_path_is_read_in_place(tmp_path):
+    book = tmp_path / "book.pdf"
+    book.write_bytes(text_pdf())
+    pages = books.book_pages(str(book), tmp_path / "cache", fetch=lambda *a, **k: pytest.fail("downloaded"))
+    assert len(pages) == 2
+    assert book.exists() and not list((tmp_path / "cache").glob("*.pdf"))
+
+
+def test_indexing_resumes_from_saved_pages(tmp_path, monkeypatch):
+    monkeypatch.setattr(books, "_page_count", lambda pdf: 3)
+    monkeypatch.setattr(books, "_page_text", lambda pdf, n: "")
+    seen = []
+    monkeypatch.setattr(books, "_ocr_page", lambda pdf, n: seen.append(n) or f"صفحة {n}")
+    key = hashlib.sha1(URL.encode()).hexdigest()
+    (tmp_path / f"{key}.pdf").write_bytes(b"%PDF")
+    saved = tmp_path / f"{key}.pages"
+    saved.mkdir()
+    (saved / "1.txt").write_text("صفحة 1")
+    (saved / "2.txt").write_text("صفحة 2")
+    assert books.book_pages(URL, tmp_path, fetch=Fetcher(b"")) == ["صفحة 1", "صفحة 2", "صفحة 3"]
+    assert seen == [3]
+    assert not saved.exists()
