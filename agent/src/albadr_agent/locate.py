@@ -136,7 +136,11 @@ def _tokens(text: str) -> set[str]:
     return set(re.findall(r"[ء-ي]+", _MARKS.sub("", text).translate(_FOLD)))
 
 
+_TAFSIR_LABEL = re.compile(r"^\s*تفسير\s+سورة\s+[^:]+:\s*من\s+الآية\s*\([^)]*\)")
+
+
 def match_score(point: str, text: str) -> float:
+    point = _TAFSIR_LABEL.sub("", point)
     wanted = _tokens(point.replace(END_PREFIX, "")) - _tokens("من قوله")
     return len(wanted & _tokens(text)) / len(wanted) if wanted else 0.0
 

@@ -195,3 +195,9 @@ def test_candidates_without_previous_end_stay_in_the_named_surah():
         (0, 3, "سورة الأنفال (60) وأعدوا لهم"),
     ]
     assert [n for _, n, _ in candidate_pages(point, pages, None)] == [2, 3]
+
+
+def test_tafsir_label_is_not_matched_as_book_text():
+    from albadr_agent.locate import match_score
+    point = "تفسير سورة الأنفال: من الآية (60) ﴿وَأَعِدُّوا لَهُمْ مَا اسْتَطَعْتُمْ﴾"
+    assert match_score(point, "وأعدوا لهم ما استطعتم") == 1.0
