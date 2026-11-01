@@ -154,13 +154,28 @@ def page_position(pages: list[Page], key: tuple[int, int]) -> int | None:
     return next((i for i, (pdf, n, _) in enumerate(pages) if (pdf, n) == key), None)
 
 
+_SURAH = re.compile(r"سورة\s+([ء-ي]+)")
+
+
+def _find_in_surah(point: str, pages: list[Page]) -> int | None:
+    """A tafsir verse is quoted again in other surahs' commentary; when the start point names its surah,
+    search only the pages whose running header carries that surah's name."""
+    surah = _SURAH.search(_MARKS.sub("", point))
+    if surah is None:
+        return find_page(point, pages)
+    name = _tokens(surah.group(1))
+    inside = [i for i, (_, _, text) in enumerate(pages) if name <= _tokens(text)]
+    found = find_page(point, [pages[i] for i in inside])
+    return inside[found] if found is not None else None
+
+
 def candidate_pages(
     pending: Pending, pages: list[Page], previous_end: tuple[int, int] | None, size: int = WINDOW_SIZE
 ) -> list[Page]:
     if previous_end is not None:
         position = page_position(pages, previous_end)
     else:
-        position = find_page(pending.start_point, pages)
+        position = _find_in_surah(pending.start_point, pages)
     if position is None:
         return []
     first = max(0, position - WINDOW_BEFORE)

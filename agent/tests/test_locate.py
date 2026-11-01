@@ -185,3 +185,13 @@ def test_find_page_floor():
 
 def test_find_page_none_when_nothing_matches():
     assert find_page("من قوله: عن عبادة بن الصامت", _book(), 2, span=24) is None
+
+
+def test_candidates_without_previous_end_stay_in_the_named_surah():
+    point = PENDING.model_copy(update={"start_point": "تفسير سورة الأنفال: من الآية (60) ﴿وَأَعِدُّوا لَهُمْ مَا اسْتَطَعْتُمْ مِنْ قُوَّةٍ﴾"})
+    pages = [
+        (0, 1, "سورة البقرة وأعدوا لهم ما استطعتم من قوة ومن رباط الخيل"),
+        (0, 2, "سورة الأنفال (55-59) كلام آخر"),
+        (0, 3, "سورة الأنفال (60) وأعدوا لهم"),
+    ]
+    assert [n for _, n, _ in candidate_pages(point, pages, None)] == [2, 3]
