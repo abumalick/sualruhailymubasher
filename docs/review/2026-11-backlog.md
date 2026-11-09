@@ -290,7 +290,7 @@ References such as (Q3) point to [Decisions on the review questions](#decisions-
 - **Impact:** In Ramadan 1448 (≈ 8 Feb – 9 Mar 2027) lesson times usually shift. The only tool is an `extra` range, which also turns every day off (Friday, Saturday) into a lesson day.
 - **Evidence:** Edge case H1: an extra range at 22:00 makes Friday and Saturday lesson days for a Sunday–Thursday course. The kinds are `cancel | pause | extra | move` (`shared/src/api.ts`).
 - **Direction:** Add a `retime` kind: a date range plus a new time or offset, keeping the weekdays.
-- **Effort:** S–M · Build before Ramadan; enter the actual times once they are announced (Q8)
+- **Effort:** S–M · Build before Ramadan; the times are announced in the Telegram group at the time and entered then (Q8)
 
 ### A3. Start points are cut mid-word
 - **Impact:** The prepare card, the 21:00 reminder and the next lesson's start show text like «…مِنْ قُو», cut mid-word with an unclosed ﴿ and no «…».
@@ -533,7 +533,7 @@ If the cron misses the 5-minute window (`jobs/reminders.ts:89,95-96`), that day'
 For non-course broadcasts the dedupe key is the uid (`live:${uid}`, `jobs/live.ts:55`), so a reconnect sends «بث مباشر الآن» twice. In the worst case the home screen shows live about 2.5 min after the start (1-min cron, 15 s cache, 60 s foreground poll). **Direction:** dedupe by date and slot. S.
 
 ### S12. Older lessons
-The course page lists only scraped lessons (Tafsir 441–453). `server/README.md` says "repeat to fill older recordings", but repeating only fills mp3 URLs (`sources/albadr.ts:61-76`). **Direction:** no backfill in v1, because an archive is a non-goal (Q9). Fix the README wording. S.
+The course page lists only scraped lessons (Tafsir 441–453). `server/README.md` says "repeat to fill older recordings", but repeating only fills mp3 URLs (`sources/albadr.ts:61-76`). **Direction:** no backfill in v1, by owner decision (Q9). Fix the README wording. S.
 
 ### S13. Smaller robustness points
 - Book and transcript caches are keyed by URL (`agent/.../books.py:72`, `transcribe.py:124`), so a file replaced at the same URL is never re-read.
@@ -557,7 +557,7 @@ S.
 
 ## Decisions on the review questions
 
-The review raised 14 questions. Ten are answered below with a default that follows the spec or standard practice; the owner can still overturn any of them. Numbers match the (Qn) references above.
+The review raised 14 questions. All are settled: the owner accepted the defaults below and decided the last three. Numbers match the (Qn) references above.
 
 | # | Question | Decision | Why |
 |---|---|---|---|
@@ -574,8 +574,12 @@ The review raised 14 questions. Ten are answered below with a default that follo
 | 12 | Operator, alerts, tester switch? | **The requester operates the admin page** (as the spec says). **Alerts go to Telegram.** **No tester switch:** debug builds subscribe to a `test` topic and release builds never do (O1, O2, O3). | Standard practice; all three follow from the spec. |
 | 13 | Tell students to use their own Tafsir copy? | **Yes:** «اقرأ من نسختك: ص N، طبعة دار ابن الجوزي», naming the edition, with no purchase link (H1). | The PDF is deliberately not linked. |
 
-### Still open for the owner (none blocks the release list)
+### Settled by the owner
 
-1. **Course history (Q9):** should a course list every earlier lesson of the current book (Tafsir 1–440)? Default for now: no backfill, because an archive is a non-goal, and the README gets fixed (S12).
-2. **Offline downloads (Q14):** should students be able to download recordings for offline listening? Default: out of v1 scope.
-3. **Ramadan 1448 times (Q8):** the actual lesson times and days, once announced.
+| # | Question | Decision |
+|---|---|---|
+| 8 | Ramadan 1448 times | **Not known in advance.** The channel announces them in its Telegram group at the time; enter them then as a `retime` exception (S9). |
+| 9 | Full course history (Tafsir 1–440) | **Dropped for v1.** Revisit later. Fix the README wording now (S12). |
+| 14 | Offline downloads of recordings | **Dropped for v1.** Revisit later. |
+
+The owner confirmed the decisions above. No questions remain open.
