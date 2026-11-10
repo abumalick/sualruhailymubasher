@@ -83,6 +83,11 @@ cat > "$dstubs/pnpm" <<'EOF'
 case "$*" in *"wrangler dev"*) ;; *) exit 0 ;; esac
 [ -z "${STUB_WRANGLER_DIE:-}" ] || exit 1
 while [ $# -gt 0 ]; do [ "$1" = --port ] && port="$2"; shift; done
+if [ -n "${STUB_WRANGLER_FOREIGN:-}" ]; then
+  # Another checkout's server took the port first; this wrangler never binds it.
+  (cd "$STUB_WRANGLER_FOREIGN" && exec node -e "require('http').createServer((q, r) => r.end('ok')).listen($port, '127.0.0.1')") &
+  exec sleep 300
+fi
 exec node -e "require('http').createServer((q, r) => r.end('ok')).listen($port, '127.0.0.1')"
 EOF
 printf '#!/bin/sh\necho "$1" > "%s/portless-name"\n' "$scratch" > "$dstubs/portless"
@@ -96,6 +101,10 @@ check "dev-server.sh stops its Worker when Vite exits (status $DS_STATUS)" \
 rm -f "$scratch/portless-name"
 run_ds STUB_WRANGLER_DIE=1
 check "dev-server.sh exits without starting Vite when its wrangler dies" \
+  all '[ "$DS_STATUS" -ne 0 ]' '[ "$DS_STATUS" -ne 124 ]' '[ ! -e "$scratch/portless-name" ]'
+rm -f "$scratch/portless-name"
+run_ds STUB_WRANGLER_FOREIGN="$scratch" WH_API_TIMEOUT=2
+check "dev-server.sh refuses to start Vite when another checkout answers on its port" \
   all '[ "$DS_STATUS" -ne 0 ]' '[ "$DS_STATUS" -ne 124 ]' '[ ! -e "$scratch/portless-name" ]'
 
 # list: a process whose command line holds a newline does not break the output

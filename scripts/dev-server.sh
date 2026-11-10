@@ -36,7 +36,7 @@ trap 'wh_kill_tree "$api_pid"; [ -z "$vite_pid" ] || wh_kill_tree "$vite_pid"' E
 
 # Vite must not start until this checkout's own Worker holds the port: with a port
 # collision, another worktree's Worker would answer and Vite would proxy to it.
-if ! wh_wait_own_port "$api_port" "$root" "$api_pid" 90; then
+if ! wh_wait_own_port "$api_port" "$root" "$api_pid" "${WH_API_TIMEOUT:-90}"; then
   echo "error: this checkout's wrangler did not take port $api_port (exited, or another process holds it)" >&2
   exit 1
 fi
