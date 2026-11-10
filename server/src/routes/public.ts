@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from '../index';
 import { nextPassage } from '../estimate';
+import { servePdf } from '../pdf';
 import {
   expectedNextNumber,
   getLive,
@@ -93,4 +94,13 @@ publicRoutes.get('/api/courses/:id/lessons', async (c) => {
   if (!courses.some((course) => course.id === id)) return c.json({ error: 'not found' }, 404);
   const limit = Math.min(positiveInt(c.req.query('limit')) ?? DEFAULT_LIMIT, MAX_LIMIT);
   return c.json(await lessonsBefore(db, id, positiveInt(c.req.query('before')), limit));
+});
+
+publicRoutes.get('/api/courses/:id/pdf/:index', async (c) => {
+  const index = Number(c.req.param('index'));
+  const course = (await listCourses(c.env.DB)).find((x) => x.id === c.req.param('id'));
+  const url = Number.isInteger(index) && index >= 0 ? course?.pdfUrls[index] : undefined;
+  if (!url) return c.json({ error: 'not found' }, 404);
+  const edge = (caches as unknown as { default: Cache }).default;
+  return servePdf(url, { fetch: (input, init) => fetch(input, init), cache: edge, waitUntil: (p) => c.executionCtx.waitUntil(p) });
 });
