@@ -127,9 +127,11 @@ export function createFcm(serviceAccountJson: string, f: typeof fetch) {
     },
 
     // Data-only and Android-only in effect: the app's MessagingService handles it even when the app
-    // is killed. Without content-available, iOS gets it only while the app is in the foreground.
+    // is killed. Normal priority because it shows nothing: FCM deprioritises apps whose high-priority
+    // messages show nothing, and that would delay the live push. In Doze it waits for the next
+    // maintenance window or for the user to wake the phone.
     async sendDataToTopic(topic: string, data: Record<string, string>, ttlSec: number): Promise<void> {
-      await send({ topic, data, android: { priority: 'high', ttl: lifespan(ttlSec).ttl } });
+      await send({ topic, data, android: { priority: 'normal', ttl: lifespan(ttlSec).ttl } });
     },
   };
 }

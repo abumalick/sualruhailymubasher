@@ -119,7 +119,7 @@ describe('fcm', () => {
     const f = mockFetch();
     await createFcm(account(), f).sendDataToTopic('live-other', { dismiss: 'live' }, 3600);
     expect(JSON.parse(String(f.mock.calls[1]![1]!.body))).toEqual({
-      message: { topic: 'live-other', data: { dismiss: 'live' }, android: { priority: 'high', ttl: '3600s' } },
+      message: { topic: 'live-other', data: { dismiss: 'live' }, android: { priority: 'normal', ttl: '3600s' } },
     });
   });
 

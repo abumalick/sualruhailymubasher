@@ -197,9 +197,23 @@ describe('live dismiss', () => {
     const { deps, sendDataToTopic } = setup(offline);
     await poll(offline, 0, deps.fcm);
     await poll(respond(withStart('2026-10-19T17:01:00Z', 'again')) as typeof fetch, 1, deps.fcm);
-    await poll(offline, 30, deps.fcm);
-    await poll(offline, 31, deps.fcm);
+    await poll(offline, 3, deps.fcm);
     expect(sendDataToTopic).not.toHaveBeenCalled();
+    await poll(offline, 6, deps.fcm);
+    expect(sendDataToTopic).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs a failed dismiss and does not resend it', async () => {
+    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' });
+    const { deps, sendDataToTopic } = setup(offline);
+    sendDataToTopic.mockRejectedValue(new Error('fcm down'));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await poll(offline, 0, deps.fcm);
+    await poll(offline, 3, deps.fcm);
+    await poll(offline, 4, deps.fcm);
+    expect(sendDataToTopic).toHaveBeenCalledTimes(1);
+    expect(err).toHaveBeenCalledWith('live dismiss push failed', expect.any(Error));
+    err.mockRestore();
   });
 
   it('sends nothing on an offline poll without a broadcast that just ended', async () => {

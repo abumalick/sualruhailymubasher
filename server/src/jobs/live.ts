@@ -76,7 +76,6 @@ export async function runLivePoll({ db, fetch: f, fcm, now }: LiveDeps): Promise
     return;
   }
   if (!view.uid) return;
-  if (readPending(await getSetting(db, END_KEY))) await setSetting(db, END_KEY, '');
 
   const at = view.startedAt ? new Date(view.startedAt) : now;
   const [courses, exceptions] = await Promise.all([
