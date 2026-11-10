@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">دروس الشيخ عبد الرزاق البدر</string>
     <string name="title_activity_main">دروس الشيخ عبد الرزاق البدر</string>
-    <string name="package_name">net.h2.albadrlessons</string>
-    <string name="custom_url_scheme">net.h2.albadrlessons</string>
+    <string name="package_name">com.albadrmubasher.app</string>
+    <string name="custom_url_scheme">com.albadrmubasher.app</string>
 </resources>

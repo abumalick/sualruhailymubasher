@@ -1,4 +1,4 @@
-package net.h2.albadrlessons;
+package com.albadrmubasher.app;
 
 import com.getcapacitor.BridgeActivity;
 
