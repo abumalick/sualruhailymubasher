@@ -1,8 +1,7 @@
 import type { CourseDTO, LiveDTO } from '@albadr/shared';
 import { useEffect } from 'preact/hooks';
 import { player } from '../audio/player';
-import { liveLessonNumber } from '../logic/home';
-import { ar, bookHref, editionPage, startText } from './format';
+import { liveContext } from '../logic/live';
 import { Icon } from './Star';
 
 export interface LiveSheetProps {
@@ -15,21 +14,9 @@ export interface LiveSheetProps {
   onClose: () => void;
 }
 
-export function liveContext(course: CourseDTO | undefined) {
-  const next = course?.next ?? null;
-  return {
-    title: course?.title ?? 'البث المباشر',
-    lesson: course ? `الدرس ${ar(liveLessonNumber(course))}` : null,
-    start: next ? startText(next) : null,
-    edition: course && next ? editionPage(course, next.startPage) : null,
-    book: course && next ? bookHref(course, next.pdfIndex, next.startPage, true) : null,
-    bookLabel: next?.startPage != null ? `تابع في الكتاب · ص ${ar(next.startPage)}` : 'تابع في الكتاب',
-  };
-}
-
 // The iframe stays the first child in both states: moving or re-inserting it reloads Mixlr and cuts the audio.
 export function LiveSheet({ live, course, expanded, inBook = false, onExpand, onCollapse, onClose }: LiveSheetProps) {
-  const ctx = liveContext(course);
+  const ctx = liveContext(course, live.isLive);
   useEffect(() => {
     player.startEmbed(ctx.title, onClose);
     return () => player.endEmbed();
@@ -51,7 +38,7 @@ export function LiveSheet({ live, course, expanded, inBook = false, onExpand, on
             </button>
             <div class="t">
               <b>{ctx.title}</b>
-              <span>{ctx.lesson ? `البث المباشر · ${ctx.lesson}` : 'البث المباشر'}</span>
+              <span>{ctx.header}</span>
             </div>
           </div>
           {ctx.start && (
@@ -67,15 +54,8 @@ export function LiveSheet({ live, course, expanded, inBook = false, onExpand, on
           <button class="t" aria-label="عرض البث المباشر" onClick={onExpand}>
             <span class="b">{ctx.title}</span>
             <span class="m">
-              {live.isLive ? (
-                <>
-                  <i class="dot" />
-                  {ctx.lesson ? `مباشر · ${ctx.lesson}` : 'بث مباشر'}
-                  {ctx.edition && ` · ${ctx.edition}`}
-                </>
-              ) : (
-                'انتهى البث'
-              )}
+              {ctx.status.live && <i class="dot" />}
+              {ctx.status.text}
             </span>
           </button>
           {!inBook && bookLink}

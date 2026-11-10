@@ -3,12 +3,17 @@ import { FIXTURE_STATE } from '../src/dev/fixture-state';
 
 const [tafsir, tawhid] = FIXTURE_STATE.courses;
 
-// Shaped like production: Tafsir has no in-app book and names its printed edition instead.
+// Start texts, pages and edition as served by /api/state for these two courses (tafsir lesson 460, tawhid lesson 15).
 export const TAFSIR = {
   ...tafsir,
   pdfUrls: [],
   edition: 'طبعة دار ابن الجوزي',
-  next: { ...tafsir.next!, number: 461, startPoint: 'تفسير سورة التوبة: من الآية (8) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ﴾', startPage: 628 },
+  next: {
+    ...tafsir.next!,
+    number: 460,
+    startPoint: 'تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ لَا يَرْقُبُوا فِيكُمْ إِلًّا وَلَا ذِمَّةً...﴾',
+    startPage: 636,
+  },
 };
 export const TAWHID = {
   ...tawhid,

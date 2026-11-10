@@ -81,9 +81,9 @@ it('hands the session back to recordings after the sheet closes', async () => {
 it('Tafsir: names the lesson and shows where it starts with the printed page and edition, without a book button', () => {
   render(sheet({ course: TAFSIR }));
   expect(screen.getByText('شرح تفسير السعدي')).toBeTruthy();
-  expect(screen.getByText('البث المباشر · الدرس ٤٦١')).toBeTruthy();
-  expect(screen.getByText('تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ﴾')).toBeTruthy();
-  expect(screen.getByText('ص ٦٢٨ · طبعة دار ابن الجوزي')).toBeTruthy();
+  expect(screen.getByText('البث المباشر · الدرس ٤٦٠')).toBeTruthy();
+  expect(screen.getByText('تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ لَا يَرْقُبُوا فِيكُمْ إِلًّا وَلَا ذِمَّةً...﴾')).toBeTruthy();
+  expect(screen.getByText('ص ٦٣٦ · طبعة دار ابن الجوزي')).toBeTruthy();
   expect(screen.queryByRole('link')).toBeNull();
 });
 
@@ -131,7 +131,7 @@ it('collapses into a bar with the course, lesson and book link while keeping the
 
 it('the Tafsir bar shows the printed page instead of a book link', () => {
   render(sheet({ course: TAFSIR, expanded: false }));
-  expect(screen.getByText(/مباشر · الدرس ٤٦١ · ص ٦٢٨ · طبعة دار ابن الجوزي/)).toBeTruthy();
+  expect(screen.getByText(/مباشر · الدرس ٤٦٠ · ص ٦٣٦ · طبعة دار ابن الجوزي/)).toBeTruthy();
   expect(screen.queryByRole('link')).toBeNull();
 });
 

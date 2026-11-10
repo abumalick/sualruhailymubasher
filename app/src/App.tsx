@@ -1,6 +1,7 @@
 import type { CourseDTO, LessonDTO } from '@albadr/shared';
 import { useEffect, useState } from 'preact/hooks';
 import { startLive } from './audio/live';
+import { nextLiveView, type LiveEvent, type LiveView } from './logic/live';
 import { player } from './audio/player';
 import { useRoute } from './router';
 import { boot, nowOverride, refresh, toggleTick, useAppData } from './store';
@@ -16,23 +17,22 @@ import { ar, arText } from './ui/format';
 import { NavBar } from './ui/NavBar';
 import { Defs } from './ui/Star';
 
-type LiveView = 'closed' | 'expanded' | 'collapsed';
-
 export function App() {
   document.documentElement.dir = 'rtl';
   document.documentElement.lang = 'ar';
   const route = useRoute();
   const { state, ticks, error } = useAppData();
   const [liveView, setLiveView] = useState<LiveView>('closed');
+  const send = (e: LiveEvent) => setLiveView((v) => nextLiveView(v, e));
   useEffect(() => void boot(), []);
-  useEffect(() => setLiveView((v) => (v === 'expanded' ? 'collapsed' : v)), [route]);
+  useEffect(() => send('navigate'), [route]);
   const now = nowOverride() ?? new Date();
-  const onLive = () => state && startLive(state, () => setLiveView('expanded'));
+  const onLive = () => state && startLive(state, () => send('open'));
   const onTick = (kind: 'read' | 'reviewed', courseId: string, n: number) => void toggleTick(kind, courseId, n);
   const onPlay = (lesson: LessonDTO, course: CourseDTO) => {
     if (!lesson.recordingUrl) return;
     player.endEmbed();
-    setLiveView('closed');
+    send('play-recording');
     void player.play({
       url: lesson.recordingUrl,
       title: `${course.title} · الدرس ${ar(lesson.number)}`,
@@ -91,9 +91,9 @@ export function App() {
           course={state.courses.find((c) => c.id === state.live.courseId)}
           expanded={liveView === 'expanded'}
           inBook={route.name === 'book'}
-          onExpand={() => setLiveView('expanded')}
-          onCollapse={() => setLiveView('collapsed')}
-          onClose={() => setLiveView('closed')}
+          onExpand={() => send('expand')}
+          onCollapse={() => send('collapse')}
+          onClose={() => send('close')}
         />
       ) : (
         <MiniPlayer />
