@@ -389,6 +389,8 @@ def test_tafsir_end_point_is_the_next_ayah_as_announced(recorded):
     dict(next_surah="سورة لا توجد"),
     dict(next_ayah=4, next_ayah_words="إِلَّا الَّذِينَ عَاهَدتُّم"),
     dict(next_surah="يونس", next_ayah=2, next_ayah_words="أَكَانَ لِلنَّاسِ عَجَبًا"),
+    dict(next_ayah=60, next_ayah_words="إِنَّمَا الصَّدَقَاتُ لِلْفُقَرَاءِ"),
+    dict(next_surah="يونس", next_ayah=1, next_ayah_words="الر تِلْكَ آيَاتُ الْكِتَابِ"),
 ])
 def test_tafsir_keeps_the_book_sentence_when_the_ayah_does_not_check_out(recorded, caplog, over):
     handler, patches, _, fake = recorded

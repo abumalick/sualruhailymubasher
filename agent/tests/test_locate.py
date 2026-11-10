@@ -217,3 +217,16 @@ def test_prompt_asks_for_the_next_ayah_only_for_tafsir_lessons():
     tafsir = PENDING.model_copy(update={"start_point": "تفسير سورة التوبة: من الآية (٥) ﴿فَإِذَا انْسَلَخَ...﴾"})
     assert "next_ayah_words" in build_prompt(tafsir, [], PAGES)
     assert "next_ayah" not in build_prompt(PENDING, [], PAGES) and "3ب" not in build_prompt(PENDING, [], PAGES)
+
+
+def test_clip_closes_a_short_quote_and_nested_brackets_innermost_first():
+    assert clip("من قوله: ﴿وَأَعِدُّوا لَهُمْ") == "من قوله: ﴿وَأَعِدُّوا لَهُمْ﴾"
+    assert clip("من قوله: «قال ﴿كذا") == "من قوله: «قال ﴿كذا﴾»"
+    assert len(clip("من قوله: «قال ﴿" + "كذا " * 40)) <= 80
+
+
+@pytest.mark.parametrize("value,expected", [("٨", 8), ("8", 8), (8, 8), ("8-10", None), (8.5, None), (None, None)])
+def test_an_odd_next_ayah_does_not_sink_the_reply(value, expected):
+    reply = {**GOOD, "next_surah": 9, "next_ayah": value, "next_ayah_words": ["x"]}
+    got = locate("p", run=fake_run(json.dumps({"result": json.dumps(reply, ensure_ascii=False)})))
+    assert (got.end_page, got.next_ayah, got.next_surah, got.next_ayah_words) == (13, expected, None, None)

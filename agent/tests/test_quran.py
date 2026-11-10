@@ -60,6 +60,16 @@ def test_opening_keeps_whole_words_and_closes_the_bracket():
     assert opening(ayah(9, 1)) == f"﴿{ayah(9, 1)}﴾"
 
 
+def test_matches_needs_every_written_letter_when_ayahs_share_an_opening():
+    assert matches(ayah(8, 20), 8, 20)
+    assert not matches(ayah(8, 20), 8, 15)
+
+
+def test_matches_ignores_a_basmala_before_the_first_ayah():
+    assert matches("بسم الله الرحمن الرحيم يسألونك عن الأنفال", 8, 1)
+    assert matches("الم", 2, 1)
+
+
 def test_matches_rejects_another_ayah_and_too_few_letters():
     assert matches("كيف وإن يظهروا عليكم", 9, 8)
     assert not matches("كيف يكون للمشركين عهد", 9, 8)

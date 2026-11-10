@@ -15,7 +15,7 @@ from .locate import (
     build_prompt, candidate_pages, find_page, locate, match_score, page_position,
 )
 from .lock import DEFAULT_LOCK, run_lock
-from .quran import label, matches, parse_label, surah_number
+from .quran import ayah_count, label, matches, parse_label, surah_number
 from .transcribe import CACHE_ROOT, DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
 log = logging.getLogger("albadr_agent")
@@ -24,6 +24,7 @@ log = logging.getLogger("albadr_agent")
 EXTRA_WINDOW = 12
 DEFAULT_VERDICTS = CACHE_ROOT / "verdicts"
 VERDICT_SCHEMA = 2
+MAX_AYAH_STEP = 40
 
 
 def _local_books() -> dict[str, list[str]]:
@@ -86,7 +87,7 @@ def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> End | None:
 def _verdict_path(lesson: Pending, segments: list[Segment], candidates: list[Page]) -> Path:
     transcript = json.dumps([s.model_dump() for s in segments], ensure_ascii=False)
     inputs = json.dumps([
-        VERDICT_SCHEMA, lesson.course_id, lesson.number, hashlib.sha256(transcript.encode()).hexdigest(),
+        VERDICT_SCHEMA, lesson.course_id, lesson.number, lesson.start_point, hashlib.sha256(transcript.encode()).hexdigest(),
         [(pdf, n) for pdf, n, _ in candidates], lesson.next_start_point,
     ], ensure_ascii=False)
     return DEFAULT_VERDICTS / f"{hashlib.sha256(inputs.encode()).hexdigest()}.json"
@@ -119,7 +120,9 @@ def _next_ayah(lesson: Pending, found: LocateResult, name: str) -> str | None:
         log.warning("%s: claude's next ayah (%s %s «%s») is not a known ayah opening, keeping the book sentence",
                     name, found.next_surah, found.next_ayah, found.next_ayah_words)
         return None
-    if not ((surah == own[0] and ayah > own[1]) or (surah == own[0] + 1 and ayah == 1)):
+    same_surah = surah == own[0] and own[1] < ayah <= own[1] + MAX_AYAH_STEP
+    next_surah = surah == own[0] + 1 and ayah == 1 and ayah_count(own[0]) - own[1] <= MAX_AYAH_STEP
+    if not (same_surah or next_surah):
         log.warning("%s: claude's next ayah %d:%d does not follow the lesson's start %d:%d, keeping the book sentence",
                     name, surah, ayah, *own)
         return None

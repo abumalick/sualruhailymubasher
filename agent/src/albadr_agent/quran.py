@@ -77,8 +77,17 @@ def label(surah: int, number: int) -> str:
 
 
 def matches(words: str, surah: int, number: int) -> bool:
-    """Whether words someone wrote are the opening of that ayah."""
+    """Whether words someone wrote are the opening of that ayah. Every letter they wrote must agree, since many
+    ayahs share an opening such as «يا أيها الذين آمنوا»."""
     text = ayah(surah, number)
-    wanted, actual = normalize(words), normalize(text or "")
-    size = min(len(wanted), len(actual), 12)
-    return size >= 3 and wanted[:size] == actual[:size]
+    if text is None:
+        return False
+    wanted, actual = normalize(words), normalize(text)
+    if surah != 1:
+        wanted = wanted.removeprefix(normalize(_ayahs()[1, 1]))
+    size = min(len(wanted), len(actual))
+    return size >= min(8, len(actual)) and wanted[:size] == actual[:size]
+
+
+def ayah_count(surah: int) -> int:
+    return max(n for s, n in _ayahs() if s == surah)

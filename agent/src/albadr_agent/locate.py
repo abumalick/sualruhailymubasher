@@ -3,10 +3,10 @@ import logging
 import re
 import subprocess
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_validator
 
 from .api import Pending
-from .quran import parse_label
+from .quran import WESTERN_DIGITS, parse_label
 from .transcribe import Segment
 
 log = logging.getLogger("albadr_agent")
@@ -68,6 +68,21 @@ class LocateResult(BaseModel):
     next_ayah: int | None = None
     next_ayah_words: str | None = None
 
+    @field_validator("next_surah", "next_ayah_words", mode="before")
+    @classmethod
+    def _text_or_none(cls, value):
+        return value if isinstance(value, str) else None
+
+    @field_validator("next_ayah", mode="before")
+    @classmethod
+    def _ayah_or_none(cls, value):
+        """An odd ayah number must not sink the whole reply, which also carries the pages."""
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+        if isinstance(value, str) and value.strip().translate(WESTERN_DIGITS).isdigit():
+            return int(value.strip().translate(WESTERN_DIGITS))
+        return None
+
 
 Page = tuple[int, int, str]
 
@@ -76,16 +91,25 @@ def _stamp(seconds: float) -> str:
     return f"[{int(seconds) // 60:02d}:{int(seconds) % 60:02d}]"
 
 
+def _unclosed(text: str) -> str:
+    closers = dict(_PAIRS)
+    stack: list[str] = []
+    for ch in text:
+        if ch in closers:
+            stack.append(closers[ch])
+        elif stack and ch == stack[-1]:
+            stack.pop()
+    return "".join(reversed(stack))
+
+
 def clip(text: str, limit: int = MAX_END_POINT) -> str:
-    """Cut on a word boundary, mark the cut with «…», and close any bracket the cut left open."""
-    if len(text) <= limit:
-        return text
-    cut = text[: limit - 2]
-    if " " in cut:
-        cut = cut[: cut.rindex(" ")]
-    cut = cut.rstrip(" ،,.:؛…") + "…"
-    closing = "".join(close for open_, close in _PAIRS if cut.count(open_) > cut.count(close))
-    return cut + closing
+    """Cut on a word boundary, mark the cut with «…», and close any bracket left open, innermost first."""
+    if len(text) > limit:
+        cut = text[: limit - 4]
+        if " " in cut:
+            cut = cut[: cut.rindex(" ")]
+        text = cut.rstrip(" ،,.:؛…") + "…"
+    return text + _unclosed(text)
 
 
 def build_prompt(pending: Pending, segments: list[Segment], pages: list[Page]) -> str:
