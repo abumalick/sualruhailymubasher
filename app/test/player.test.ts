@@ -113,4 +113,18 @@ describe('player', () => {
     expect(player.state.error).toBeNull();
     expect(player.state.src?.url).toBe('https://x/b.mp3');
   });
+
+  it('stop clears the source and leaves the media session stopped, even when the pause event lands later', async () => {
+    const player = await load();
+    await player.play(rec);
+    const a = FakeAudio.last;
+    a.pause = vi.fn(() => {
+      a.paused = true;
+      setTimeout(() => a.dispatchEvent(new Event('pause')));
+    });
+    player.stop();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(player.state.src).toBeNull();
+    expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'none' });
+  });
 });

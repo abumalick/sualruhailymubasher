@@ -21,6 +21,6 @@ it('embed mode pauses the player and opens the sheet', () => {
 it('direct mode plays the stream without the sheet', () => {
   const open = vi.fn();
   startLive(state({ mode: 'direct', streamUrl: 'https://s/live' }), open);
-  expect(p.play).toHaveBeenCalledWith({ url: 'https://s/live', title: 'الأصول', subtitle: '', kind: 'live' });
+  expect(p.play).toHaveBeenCalledWith({ url: 'https://s/live', title: 'الأصول', subtitle: '', kind: 'live', courseId: 'c1' });
   expect(open).not.toHaveBeenCalled();
 });

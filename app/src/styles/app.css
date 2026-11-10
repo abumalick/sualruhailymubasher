@@ -134,3 +134,28 @@ button:disabled { cursor: default; }
 .tog::after { content: ""; position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); }
 .tog.on { background: var(--btn); }
 .tog.on::after { right: auto; left: 3px; background: var(--btn-fg); }
+
+.choose { display: flex; flex-direction: column; gap: 14px; }
+.choose .intro { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 18px 4px 4px; }
+.choose .intro small { font: 400 11px var(--ui); color: var(--soft); }
+.choose .intro h3 { font-family: var(--naskh); font-size: 24px; margin: 0; line-height: 1.35; color: var(--gold-hi); }
+.choose .intro p { font-family: var(--naskh); font-size: 15px; margin: 0; color: var(--soft); }
+.choose .intro svg.big { width: 44px; height: 44px; color: var(--gold-hi); }
+.picks { display: flex; flex-direction: column; gap: 10px; }
+.pick { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: var(--fg); text-align: start; font: inherit; width: 100%; }
+.pick.on { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.pick .box { width: 24px; height: 24px; border-radius: 7px; border: 1.5px solid var(--gold); display: grid; place-items: center; flex: none; }
+.pick.on .box { background: var(--btn); border-color: var(--btn); }
+.pick .box svg { width: 16px; height: 16px; fill: none; stroke: var(--btn-fg); stroke-width: 2.2; }
+.pick .t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pick b { font-family: var(--naskh); font-size: 20px; line-height: 1.3; color: var(--gold-hi); }
+.pick .b { font-family: var(--naskh); font-size: 15px; line-height: 1.35; }
+.pick .m { font: 400 11px var(--ui); color: var(--soft); }
+.chip.wide { justify-content: center; padding: 11px 14px; font-size: 14px; }
+.chip.pri:disabled { opacity: .45; }
+.chip.plain { border-color: transparent; color: var(--soft); }
+.followed { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 12px; border-radius: 10px; border: 1px dashed var(--line); font: 500 12px var(--ui); color: var(--soft); text-decoration: none; }
+.followed span { display: flex; flex-direction: column; gap: 2px; }
+.followed small { font: 400 11px var(--ui); }
+.followed u { text-decoration: none; color: var(--gold-hi); font-weight: 600; flex: none; }
+.notice .b { font-family: var(--naskh); font-size: 15px; }

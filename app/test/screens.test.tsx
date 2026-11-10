@@ -151,6 +151,7 @@ describe('App boot', () => {
   it('renders the cached state, shows the refresh error, and saves the read tick when tapped', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(MON_2110);
+    store.set('topics', '[]');
     vi.mocked(api.loadCachedState).mockResolvedValue(FIXTURE_STATE);
     vi.mocked(api.fetchState).mockRejectedValue(new Error('offline'));
     render(<App />);

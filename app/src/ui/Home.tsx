@@ -16,6 +16,7 @@ export interface HomeProps {
   onPlay: (lesson: LessonDTO, course: CourseDTO) => void;
   onLive: () => void;
   onRetry?: () => void;
+  notice?: ComponentChildren;
 }
 
 type Of<K extends Item['kind']> = Extract<Item, { kind: K }>;
@@ -36,6 +37,7 @@ export function Home(p: HomeProps) {
           {day}
         </div>
       </div>
+      {p.notice}
       {p.error && <p class="err">تعذّر التحديث</p>}
       {p.error && !p.state && p.onRetry && (
         <button class="chip retry" onClick={p.onRetry}>

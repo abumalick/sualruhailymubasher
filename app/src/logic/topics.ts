@@ -20,14 +20,45 @@ export function diffTopics(current: string[], wanted: string[]): { sub: string[]
   };
 }
 
+const topicCourse = (topic: string): string | null => topic.match(/^c-(.+)-(?:live|rec|prep)$/)?.[1] ?? null;
+
+// courseIds are the courses the listener follows: topics of any other course are dropped,
+// and a course coming back gets its defaults again.
 export function launchTopics(stored: StoredTopics | null, courseIds: string[]): string[] {
   if (!stored) return topicsFor(courseIds);
+  const kept = stored.topics.filter((t) => {
+    const id = topicCourse(t);
+    return id === null || courseIds.includes(id);
+  });
   const fresh = courseIds.filter((id) => !stored.courses.includes(id));
   const added = topicsFor(fresh).filter((t) => t !== LIVE_OTHER_TOPIC);
-  return [...stored.topics, ...added.filter((t) => !stored.topics.includes(t))];
+  return [...kept, ...added.filter((t) => !kept.includes(t))];
+}
+
+export interface SyncPlan {
+  sub: string[];
+  unsub: string[];
+  courses: string[];
+  coursesIfFailed: string[];
+}
+
+// Every wanted topic is re-subscribed (a restored backup has a fresh FCM instance); every other course topic is dropped.
+// After a partial failure, dropped courses leave the stored list so they get their defaults when followed again.
+export function syncPlan(stored: StoredTopics | null, allIds: string[], followed: string[]): SyncPlan {
+  const ids = allIds.filter((id) => followed.includes(id));
+  const wanted = launchTopics(stored, ids);
+  const current = stored?.topics ?? [];
+  return {
+    sub: wanted,
+    unsub: [...new Set([...current, ...topicsFor(allIds)])].filter((t) => !wanted.includes(t)),
+    courses: ids,
+    coursesIfFailed: (stored?.courses ?? []).filter((id) => ids.includes(id)),
+  };
 }
 
 export function routeForPush(data: PushData, state: StateDTO | null): string {
+  const hidden = !!state && !!data.courseId && !state.courses.some((c) => c.id === data.courseId);
+  if (hidden) return '#/';
   const courseHref = data.courseId ? `#/course/${data.courseId}` : '#/';
   switch (data.kind) {
     case 'rec':
