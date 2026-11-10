@@ -66,6 +66,17 @@ describe('fetchLessons', () => {
     vi.unstubAllGlobals();
   });
 
+  it('calls the production API host when no VITE_API_BASE is set', async () => {
+    const f = vi.fn((..._: unknown[]) => ok([])());
+    vi.stubGlobal('fetch', f);
+    await fetchLessons('kitab-tawhid');
+    expect(f.mock.calls[0][0]).toBe('https://api.albadrmubasher.com/api/courses/kitab-tawhid/lessons?limit=20');
+    const g = vi.fn((..._: unknown[]) => ok(FIXTURE_STATE)());
+    await fetchState(g as unknown as typeof fetch);
+    expect(g.mock.calls[0][0]).toBe('https://api.albadrmubasher.com/api/state');
+    vi.unstubAllGlobals();
+  });
+
   it('throws on a non-OK response', async () => {
     vi.stubGlobal('fetch', async () => new Response('x', { status: 500 }));
     await expect(fetchLessons('a')).rejects.toThrow();

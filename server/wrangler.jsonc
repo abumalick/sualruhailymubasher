@@ -1,7 +1,7 @@
 {
   "name": "albadr-lessons",
-  "account_id": "4a9e8181f68f28dff664f9752a6d83cd",
-  "routes": [{ "pattern": "api.albadr.h2.limited", "custom_domain": true }],
+  "account_id": "9ab550becc556ce60d4250bfdc48224c",
+  "routes": [{ "pattern": "api.albadrmubasher.com", "custom_domain": true }],
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "triggers": { "crons": ["* * * * *"] },
@@ -9,7 +9,7 @@
     {
       "binding": "DB",
       "database_name": "albadr-lessons",
-      "database_id": "e31685de-4bd7-4beb-ac28-19527ed54b8d",
+      "database_id": "11ae0749-3428-4993-ba2e-16d6aea40336",
       "migrations_dir": "migrations"
     }
   ]
