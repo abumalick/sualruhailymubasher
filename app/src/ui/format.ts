@@ -33,9 +33,21 @@ export function schedule(weekdays: number[]): string {
 
 export const startText = (next: { startPoint: string | null; number: number }) => (next.startPoint ? arText(next.startPoint) : `يتابع من حيث توقف الدرس ${ar(next.number - 1)}`);
 
-export function passageLine(next: NextPassageDTO): string {
+// Lesson pages are PDF page numbers; people read the number printed on the page.
+export function printedPage(course: Pick<CourseDTO, 'pageOffsets'>, pdfIndex: number | null, page: number | null): number | null {
+  if (page === null) return null;
+  const printed = page - (course.pageOffsets?.[pdfIndex ?? 0] ?? 0);
+  return printed >= 1 ? printed : null;
+}
+
+export const pageSuffix = (printed: number | null) => (printed === null ? '' : ` · ص ${ar(printed)}`);
+
+export const bookLabel = (action: string, printed: number | null) => (printed === null ? 'افتح الكتاب' : `${action} · ص ${ar(printed)}`);
+
+export function passageLine(course: Pick<CourseDTO, 'pageOffsets'>, next: NextPassageDTO): string {
   const start = startText(next);
-  return next.estEndPage === null ? start : `${start} · إلى نحو ص ${ar(next.estEndPage)}`;
+  const end = printedPage(course, next.pdfIndex, next.estEndPage);
+  return end === null ? start : `${start} · إلى نحو ص ${ar(end)}`;
 }
 
 export function editionPage(course: CourseDTO, page: number | null): string | null {

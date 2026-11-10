@@ -2,7 +2,7 @@ import type { CourseDTO, LessonDTO } from '@albadr/shared';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { fetchLessons } from '../api';
 import type { TickKind, Ticks } from '../logic/ticks';
-import { ar, arText, bookHref, clock12, editionPage, schedule, slotName, weekdayOf } from './format';
+import { ar, arText, bookHref, bookLabel, clock12, editionPage, pageSuffix, printedPage, schedule, slotName, weekdayOf } from './format';
 import { nativeUI } from '../platform';
 import { Icon, Tick } from './Star';
 
@@ -58,6 +58,7 @@ export function Course({ course, ticks, onTick, onPlay }: Props) {
   const page = next?.startPage ?? latest?.endPage ?? latest?.startPage ?? null;
   const pdfIndex = next?.startPage != null ? next.pdfIndex : (latest?.endPdfIndex ?? latest?.pdfIndex ?? null);
   const book = bookHref(course, pdfIndex, page, next?.startPage != null);
+  const printed = printedPage(course, pdfIndex, page);
 
   return (
     <>
@@ -77,9 +78,9 @@ export function Course({ course, ticks, onTick, onPlay }: Props) {
           <span class="k">وصلنا إلى</span>
           <span class="b">{latest ? `الدرس ${ar(latest.number)} · ${arText(latest.startPoint)}` : 'لم يبدأ الدرس بعد'}</span>
         </div>
-        {page !== null && (
+        {(editionPage(course, page) || printed !== null) && (
           <span class="m">
-            {editionPage(course, page) ?? `${course.pdfUrls.length > 1 ? `الجزء ${ar((pdfIndex ?? 0) + 1)} · ` : ''}ص ${ar(page)}`}
+            {editionPage(course, page) ?? `${course.pdfUrls.length > 1 ? `الجزء ${ar((pdfIndex ?? 0) + 1)} · ` : ''}ص ${ar(printed!)}`}
           </span>
         )}
         <span class="m">
@@ -98,7 +99,7 @@ export function Course({ course, ticks, onTick, onPlay }: Props) {
             : book && (
                 <a class="chip pri" href={book}>
                   <Icon id="i-pdf" />
-                  {page !== null ? `الكتاب · ص ${ar(page)}` : 'افتح الكتاب'}
+                  {bookLabel('الكتاب', printed)}
                 </a>
               )}
           {nativeUI() && (
@@ -128,7 +129,7 @@ export function Course({ course, ticks, onTick, onPlay }: Props) {
                   <span class="b">الدرس {ar(l.number)}</span>
                   <span class="m">
                     {arText(l.startPoint)}
-                    {l.startPage !== null && ` · ص ${ar(l.startPage)}`}
+                    {pageSuffix(printedPage(course, l.pdfIndex, l.startPage))}
                   </span>
                 </div>
                 <Tick

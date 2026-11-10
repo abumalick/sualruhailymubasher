@@ -3,3 +3,5 @@ android/app/google-services.json
 ios/App/App/GoogleService-Info.plist
 android/local.properties
 ios/App/CapApp-SPM/symlinks/
+.vitest-attachments/
+test/visual/__screenshots__/

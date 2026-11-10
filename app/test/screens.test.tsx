@@ -73,7 +73,7 @@ describe('Home hero', () => {
     const state: StateDTO = { ...liveState('kitab-tawhid'), courses: [TAFSIR, flipped] };
     home(state, new Date('2026-11-02T18:00:00Z'));
     expect(screen.getByText('الدرس ١٥ · من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
+    expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
     expect(screen.queryByText(/الدرس ١٦/)).toBeNull();
   });
 
@@ -144,6 +144,35 @@ describe('Home hero', () => {
   it('shows the Medina hijri date in the header', () => {
     home(FIXTURE_STATE, MON_0940);
     expect(document.querySelector('.head .date')?.textContent).toBe('الاثنين٢٢ جمادى الأولى');
+  });
+});
+
+describe('Kitab at-Tawhid page numbers (PDF page = printed page + 2)', () => {
+  const tawhidOnly: StateDTO = { ...FIXTURE_STATE, courses: [TAWHID], live: { ...FIXTURE_STATE.live, isLive: false } };
+
+  it('prepare hero shows the printed page and opens the matching PDF page', () => {
+    home(tawhidOnly, new Date('2026-11-02T10:00:00Z'), { ticks: { read: new Set(), reviewed: new Set(['kitab-tawhid:14']) } });
+    expect(screen.getByText('حضّر لدرس المغرب اليوم')).toBeTruthy();
+    expect(screen.getByText(/إلى نحو ص ٢٨٣$/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'اقرأ في الكتاب · ص ٢٧٨' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
+  });
+
+  it('review hero and list show the printed start page of the recorded lesson', () => {
+    home(tawhidOnly, new Date('2026-11-02T06:40:00Z'));
+    expect(screen.getByRole('link', { name: 'الكتاب · ص ٢٧٣' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/275');
+  });
+
+  it('course page shows printed numbers for the position, the book button and each lesson', () => {
+    render(<Course course={TAWHID} ticks={none()} onTick={noop} onPlay={noop} />);
+    expect(screen.getByText('الجزء ١ · ص ٢٧٨')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'الكتاب · ص ٢٧٨' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
+    expect(screen.getByText(/· ص ٢٧٣$/)).toBeTruthy();
+    expect(screen.getByText(/· ص ٢٦٨$/)).toBeTruthy();
+  });
+
+  it('Tafsir, with no offsets, keeps its edition page numbers', () => {
+    render(<Course course={TAFSIR} ticks={none()} onTick={noop} onPlay={noop} />);
+    expect(screen.getByText('ص ٦٣٦ · طبعة دار ابن الجوزي')).toBeTruthy();
   });
 });
 

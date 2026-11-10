@@ -3,7 +3,7 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { dropPdf, getPdf } from '../pdf/cache';
 import { nativeUI } from '../platform';
-import { ar, arText } from './format';
+import { ar, arText, printedPage } from './format';
 import { Icon, Tick } from './Star';
 import type { TickKind, Ticks } from '../logic/ticks';
 
@@ -119,7 +119,11 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
 
   const next = course.next;
   const showTick = next !== null;
-  const range = marker && next?.startPage != null && next.estEndPage != null ? `ص ${ar(next.startPage)} إلى نحو ${ar(next.estEndPage)}` : '';
+  const rangeStart = marker && next ? printedPage(course, next.pdfIndex, next.startPage) : null;
+  const rangeEnd = marker && next ? printedPage(course, next.pdfIndex, next.estEndPage) : null;
+  const range = rangeStart !== null && rangeEnd !== null ? `ص ${ar(rangeStart)} إلى نحو ${ar(rangeEnd)}` : '';
+  const shown = printedPage(course, pdfIndex, current);
+  const last = printedPage(course, pdfIndex, total) ?? total;
 
   return (
     <div class="book">
@@ -131,7 +135,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
           <b>{arText(course.title)}</b>
           {range && <span>{range}</span>}
         </div>
-        {pdf && <span class="pill o">ص {ar(current)}</span>}
+        {pdf && shown !== null && <span class="pill o">ص {ar(shown)}</span>}
       </div>
       <div
         class="pdfwrap"
@@ -173,7 +177,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
               ›
             </button>
             <span>
-              ص {ar(current)} / {ar(total)}
+              ص {shown === null ? '—' : ar(shown)} / {ar(last)}
             </span>
             <button class="chip" aria-label="الصفحة التالية" disabled={current >= total} onClick={() => go(1)}>
               ‹

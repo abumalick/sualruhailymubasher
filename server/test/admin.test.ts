@@ -90,6 +90,15 @@ describe('courses', () => {
     expect(await edition()).toBeNull();
   });
 
+  it('stores the per-volume page offsets and clears them when omitted', async () => {
+    const offsets = () =>
+      call('GET', '/api/admin/courses').then(async (r) => ((await r.json()) as any[]).find((c) => c.id === 'po').pageOffsets);
+    await call('PUT', '/api/admin/courses/po', { ...course, pdfUrls: ['a', 'b'], pageOffsets: [2, 0] });
+    expect(await offsets()).toEqual([2, 0]);
+    await call('PUT', '/api/admin/courses/po', course);
+    expect(await offsets()).toEqual([]);
+  });
+
   it('accepts a new book id', async () => {
     expect((await call('PUT', '/api/admin/courses/tafsir-saadi-2', course)).status).toBe(204);
   });
@@ -107,6 +116,10 @@ describe('courses', () => {
     { ...course, pdfUrls: [1] },
     { ...course, active: 'yes' },
     { ...course, edition: 5 },
+    { ...course, pageOffsets: [1.5] },
+    { ...course, pageOffsets: ['2'] },
+    { ...course, pageOffsets: 2 },
+    { ...course, pdfUrls: ['a'], pageOffsets: [2, 2] },
     'text',
   ])('rejects invalid course %#', async (body) => {
     const res = await call('PUT', '/api/admin/courses/x', body);

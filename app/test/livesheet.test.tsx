@@ -92,7 +92,7 @@ it('evening course: shows where the lesson starts and opens the book there, coll
   render(sheet({ course: TAWHID, onCollapse }));
   expect(screen.getByText('البث المباشر · الدرس ١٥')).toBeTruthy();
   expect(screen.getByText('من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…')).toBeTruthy();
-  const link = screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' });
+  const link = screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' });
   expect(link.getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
   fireEvent.click(link);
   expect(onCollapse).toHaveBeenCalled();
@@ -122,7 +122,7 @@ it('collapses into a bar with the course, lesson and book link while keeping the
   expect(container.querySelector('iframe')).toBe(frame);
   expect(container.querySelector('.sheet.min')).toBeTruthy();
   expect(screen.getByText('مباشر · الدرس ١٥')).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' }).textContent).toBe('تابع في الكتاب');
+  expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' }).textContent).toBe('تابع في الكتاب');
   fireEvent.click(screen.getByRole('button', { name: /مباشر · الدرس ١٥/ }));
   expect(onExpand).toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'إيقاف البث' }));

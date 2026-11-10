@@ -151,6 +151,20 @@ describe('Book', () => {
     expect(document.querySelector('canvas')!.getAttribute('dir')).toBe('ltr');
   });
 
+  it('shows the printed page number when the PDF has front matter, still opening the PDF page asked for', async () => {
+    render(book(10, true, { course: { ...course, pageOffsets: [2] } }));
+    await screen.findByText('ص ٨ / ١٨');
+    await waitFor(() => expect(rendered).toEqual([10]));
+    expect(document.querySelector('.pdfbar .pill')!.textContent).toBe('ص ٨');
+    expect(screen.getByText('ص ٣١٠ إلى نحو ٣١٢')).toBeTruthy();
+  });
+
+  it('a front-matter page has no printed number', async () => {
+    render(book(2, false, { course: { ...course, pageOffsets: [2] } }));
+    await screen.findByText('ص — / ١٨');
+    expect(document.querySelector('.pdfbar .pill')).toBeNull();
+  });
+
   it('clamps a page beyond the total to the last page', async () => {
     render(book(500));
     await screen.findByText('ص ٢٠ / ٢٠');

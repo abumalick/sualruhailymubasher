@@ -1,5 +1,5 @@
 import type { CourseDTO, LiveDTO } from '@albadr/shared';
-import { ar, bookHref, editionPage, startText } from '../ui/format';
+import { ar, bookHref, editionPage, pageSuffix, printedPage, startText } from '../ui/format';
 import { hijriToday, medinaDate } from './time';
 
 export type LiveView = 'closed' | 'expanded' | 'collapsed';
@@ -86,7 +86,7 @@ export function liveContext(course: CourseDTO | undefined, isLive: boolean, star
     start: lesson && start ? startText({ startPoint: start.startPoint, number: lesson.number }) : null,
     edition,
     book: course && start ? bookHref(course, start.pdfIndex, start.startPage, true) : null,
-    bookLabel: start?.startPage != null ? `تابع في الكتاب · ص ${ar(start.startPage)}` : 'تابع في الكتاب',
+    bookLabel: `تابع في الكتاب${course && start ? pageSuffix(printedPage(course, start.pdfIndex, start.startPage)) : ''}`,
     status: isLive ? { live: true, text: liveText } : { live: false, text: 'انتهى البث' },
   };
 }

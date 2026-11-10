@@ -4,7 +4,7 @@ import { buildHome, type HomeModel, type Item } from '../logic/home';
 import { liveContext } from '../logic/live';
 import type { TickKind, Ticks } from '../logic/ticks';
 import { hijriLabel } from '../logic/time';
-import { ar, arText, bookHref, clock12, dayWord, editionPage, passageLine, slotName, weekdayOf } from './format';
+import { ar, arText, bookHref, bookLabel, clock12, dayWord, editionPage, pageSuffix, passageLine, printedPage, slotName, weekdayOf } from './format';
 import { Disc, Icon, Tick } from './Star';
 
 export interface HomeProps {
@@ -85,7 +85,7 @@ function Body(p: HomeProps & { state: StateDTO; model: HomeModel }) {
                   </span>
                   <span class="m">
                     {arText(r.lesson.startPoint)}
-                    {r.lesson.startPage !== null && ` · ص ${ar(r.lesson.startPage)}`}
+                    {pageSuffix(printedPage(c, r.lesson.pdfIndex, r.lesson.startPage))}
                   </span>
                 </div>
                 {r.done ? (
@@ -111,10 +111,10 @@ function Body(p: HomeProps & { state: StateDTO; model: HomeModel }) {
                   <Icon id="i-pdf" />
                 </a>
                 <div class="t">
-                  <span class="b">{passageLine(i.next)}</span>
+                  <span class="b">{passageLine(c, i.next)}</span>
                   <span class="m">
                     درس {weekdayOf(i.next.date)} بعد {slotName(c.slot)}
-                    {i.next.startPage !== null && ` · ص ${ar(i.next.startPage)}`}
+                    {pageSuffix(printedPage(c, i.next.pdfIndex, i.next.startPage))}
                   </span>
                 </div>
                 <Tick label="قرأتُه" done={i.done} compact onClick={() => p.onTick('read', c.id, i.next.number)} />
@@ -212,13 +212,13 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
           حضّر لدرس {slot} {dayWord(item.next.date, p.now)}
         </span>
         <h3>{c.title}</h3>
-        <p>{passageLine(item.next)}</p>
+        <p>{passageLine(c, item.next)}</p>
         <div class="acts">
           {!book && editionPage(c, item.next.startPage) && <span class="pill o">{editionPage(c, item.next.startPage)}</span>}
           {book && (
             <a class="chip pri" href={book}>
               <Icon id="i-pdf" />
-              {item.next.startPage !== null ? `اقرأ في الكتاب · ص ${ar(item.next.startPage)}` : 'افتح الكتاب'}
+              {bookLabel('اقرأ في الكتاب', printedPage(c, item.next.pdfIndex, item.next.startPage))}
             </a>
           )}
           <Tick label="قرأتُه" done={item.done} onClick={() => p.onTick('read', c.id, item.next.number)} />
@@ -248,7 +248,7 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
           {book && (
             <a class="chip" href={book}>
               <Icon id="i-pdf" />
-              {lesson.startPage !== null ? `الكتاب · ص ${ar(lesson.startPage)}` : 'افتح الكتاب'}
+              {bookLabel('الكتاب', printedPage(c, lesson.pdfIndex, lesson.startPage))}
             </a>
           )}
           <Tick label="راجعتُه" done={item.done} onClick={() => p.onTick('reviewed', c.id, lesson.number)} />

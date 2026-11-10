@@ -32,8 +32,10 @@ describe('GET /api/state', () => {
     expect(body.courses.map((c: any) => c.id)).toEqual(['tafsir-saadi', 'kitab-tawhid']);
     const saadi = body.courses[0];
     expect(Object.keys(saadi).sort()).toEqual(
-      ['edition', 'exceptions', 'id', 'latest', 'next', 'pdfUrls', 'slot', 'time', 'title', 'weekdays'].sort(),
+      ['edition', 'exceptions', 'id', 'latest', 'next', 'pageOffsets', 'pdfUrls', 'slot', 'time', 'title', 'weekdays'].sort(),
     );
+    expect(saadi.pageOffsets).toEqual([]);
+    expect(body.courses[1].pageOffsets).toEqual([2, 2, 2]);
     expect(saadi.latest.map((l: any) => l.number)).toEqual([7, 6, 5, 4, 3]);
     expect(saadi.next.number).toBe(8);
     expect(saadi.time).toBe(saadi.next.time);

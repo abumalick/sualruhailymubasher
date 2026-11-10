@@ -116,7 +116,7 @@ describe('liveContext', () => {
     expect(ctx.start).toBe('من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…');
     expect(ctx.edition).toBeNull();
     expect(ctx.book).toBe('#/book/kitab-tawhid/0/280?marker=1');
-    expect(ctx.bookLabel).toBe('تابع في الكتاب · ص ٢٨٠');
+    expect(ctx.bookLabel).toBe('تابع في الكتاب · ص ٢٧٨');
     expect(ctx.status).toEqual({ live: true, text: 'مباشر · الدرس ١٥' });
   });
 
