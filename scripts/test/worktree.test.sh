@@ -204,6 +204,8 @@ check "wh_wait_any returns when a child was reaped before the call" \
 mkdir -p "$scratch/quiet"
 check "wh_procs_under skips a process that exited during the scan" \
   bash -c ". '$src/lib/worktree-common.sh'; true & gone=\$!; wait \$gone; _wh_pid_cwds() { echo \"\$gone $scratch/quiet\"; }; [ -z \"\$(wh_procs_under '$scratch/quiet')\" ]"
+check "wh_wait_any treats a live pid that is not its child as gone (pid reuse)" \
+  timeout 10 "$BASH" -c ". '$src/lib/worktree-common.sh'; sleep 300 & b=\$!; wh_wait_any \$b 1; s=\$?; kill \$b; exit \$s"
 # Without ss (macOS) lsof answers; without either the check is skipped, not failed.
 mkdir -p "$scratch/no-ss" "$scratch/no-tools"
 for t in lsof sort readlink; do ln -s "$(command -v "$t")" "$scratch/no-ss/$t"; done
@@ -211,6 +213,12 @@ libs="set -o pipefail; . '$src/lib/worktree-common.sh'; . '$src/lib/ports.sh'"
 check "wh_port_owned_by falls back to lsof without ss" env PATH="$scratch/no-ss" "$BASH" -c "$libs; wh_port_owned_by '$port' '$src'"
 check "the lsof fallback still ignores a listener working elsewhere" \
   env PATH="$scratch/no-ss" "$BASH" -c "$libs; wh_port_owned_by '$port' '$scratch'; [ \$? -eq 1 ]"
+mkdir -p "$scratch/bad-ss"
+printf '#!/bin/sh\nexit 255\n' > "$scratch/bad-ss/ss"
+chmod +x "$scratch/bad-ss/ss"
+for t in grep cut sort readlink; do ln -s "$(command -v "$t")" "$scratch/bad-ss/$t"; done
+check "a failing ss reads as no listeners, not as a missing tool" \
+  env PATH="$scratch/bad-ss" "$BASH" -c "$libs; wh_port_owned_by '$port' '$src'; [ \$? -eq 1 ]"
 check "wh_port_owned_by says it cannot tell without ss or lsof" \
   env PATH="$scratch/no-tools" "$BASH" -c "$libs; wh_port_owned_by '$port' '$src'; [ \$? -eq 2 ]"
 check "wh_wait_own_port skips the check with a note without ss or lsof" \

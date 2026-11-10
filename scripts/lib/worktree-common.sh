@@ -215,13 +215,16 @@ wh_kill_tree() {
   return 0
 }
 
-# wh_wait_any <pid>... — return once any of the given children has exited. Polled
-# rather than `wait -n`, which blocks on the survivors ("no such job") when a child
-# was already reaped before the call.
+# wh_wait_any <pid>... — return once any of the given children of this shell has exited.
+# Polled rather than `wait -n`, which blocks on the survivors ("no such job") when a
+# child was already reaped before the call. A pid that is alive but no longer our child
+# was reused by another process: ours is gone.
 wh_wait_any() {
   local pid
   while :; do
-    for pid in "$@"; do kill -0 "$pid" 2>/dev/null || return 0; done
+    for pid in "$@"; do
+      if ! kill -0 "$pid" 2>/dev/null || [ "$(_wh_ppid "$pid")" != "$$" ]; then return 0; fi
+    done
     sleep 1
   done
 }
