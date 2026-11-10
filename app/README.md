@@ -25,7 +25,7 @@ Everything goes through fastlane, from the repository root on the Mac (`fastlane
     fastlane ios beta        # web build + cap sync, archive, export, checks, upload to TestFlight
     fastlane ios build       # the same without the upload (IPA in .tmp/ios-build)
     fastlane ios metadata    # listing (fastlane/metadata/ios), age rating, review notes, screenshots
-    fastlane ios privacy     # App Privacy answers (fastlane/app_privacy_details.json), Apple ID login
+    fastlane ios privacy     # App Privacy answers (fastlane/app_privacy_details.json), Apple ID login, see below
     fastlane ios store_setup # once, for the first release: free, every territory
     fastlane ios build_status
 
@@ -45,6 +45,11 @@ Secrets stay outside the repository, in `~/.config/albadr-lessons/` on the Mac (
 | `AuthKey_<APP_STORE_KEY_ID>.p8` | that API key |
 | `GoogleService-Info.com.albadrmubasher.app.plist` | Firebase iOS app config; the lane copies it into `app/ios/App/App/` |
 | `review-contact.env` | `FIRST_NAME`, `LAST_NAME`, `PHONE_NUMBER`, `EMAIL_ADDRESS` for App Review |
+
+The App Privacy answers are entered by hand in App Store Connect (App Privacy, then Publish), from
+`fastlane/app_privacy_details.json`, which stays the source of truth: Apple has no API for them, and the
+`privacy` lane's Apple ID login is refused when Apple cannot send it a verification code. Change the JSON
+first, then the form, and keep both in line with the privacy page and Play's data-safety form.
 
 Push notifications use the APNs key `HW2PGQ6N8R`, uploaded to the Firebase project `albadr-lessons`.
 Submitting for review stays a manual decision: no lane submits.
