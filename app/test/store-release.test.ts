@@ -106,3 +106,28 @@ describe('repository ignore rules', () => {
     },
   );
 });
+
+describe('App Store submission', () => {
+  const fastfile = readFileSync(`${root}fastlane/Fastfile.ios`, 'utf8');
+  const submitLane = fastfile.slice(fastfile.indexOf('lane :submit do'), fastfile.indexOf('lane :build_status do'));
+
+  it('releases on approval, which deliver applies only while uploading the listing', () => {
+    expect(submitLane).toMatch(/automatic_release: true/);
+    expect(submitLane).not.toMatch(/skip_metadata: true/);
+  });
+
+  it('lets deliver wait for the newest processed build instead of naming one that may still be processing', () => {
+    expect(submitLane).not.toMatch(/build_number:/);
+    expect(submitLane).toMatch(/app_version: ios_marketing_version/);
+  });
+
+  it('declares the third-party content, the only content-rights answer deliver sends', () => {
+    expect(submitLane).toMatch(/submission_information: \{ content_rights_contains_third_party_content: true \}/);
+  });
+});
+
+describe('listing uploads', () => {
+  it('keep the version released on approval, so a later upload never turns it back to manual', () => {
+    expect(readFileSync(`${root}fastlane/Deliverfile`, 'utf8')).toMatch(/^automatic_release true$/m);
+  });
+});
