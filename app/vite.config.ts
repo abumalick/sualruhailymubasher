@@ -21,7 +21,7 @@ export default defineConfig({
         test: {
           name: 'visual',
           include: ['test/visual/**/*.test.{ts,tsx}'],
-          browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: 'chromium' }] },
+          browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: 'chromium' }, { browser: 'webkit' }] },
         },
       },
     ],
