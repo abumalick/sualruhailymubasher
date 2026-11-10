@@ -106,3 +106,19 @@ describe('repository ignore rules', () => {
     },
   );
 });
+
+describe('App Store submission', () => {
+  const fastfile = readFileSync(`${root}fastlane/Fastfile.ios`, 'utf8');
+  const submitLane = fastfile.slice(fastfile.indexOf('lane :submit do'), fastfile.indexOf('lane :build_status do'));
+
+  it('releases on approval, which deliver applies only while uploading the listing', () => {
+    expect(submitLane).toMatch(/automatic_release: true/);
+    expect(submitLane).not.toMatch(/skip_metadata: true/);
+    expect(readFileSync(`${root}fastlane/Deliverfile`, 'utf8')).toMatch(/^automatic_release true$/m);
+  });
+
+  it('answers the content-rights questions with the owner’s answer', () => {
+    expect(submitLane).toMatch(/content_rights_contains_third_party_content: true/);
+    expect(submitLane).toMatch(/content_rights_has_rights: true/);
+  });
+});

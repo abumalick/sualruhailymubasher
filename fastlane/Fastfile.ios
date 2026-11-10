@@ -190,8 +190,8 @@ platform :ios do
       app_identifier: ios_bundle_id,
       app_version: ios_marketing_version,
       build_number: number.to_s,
+      # deliver sets the release type only while uploading the listing, so the listing goes up again here
       skip_binary_upload: true,
-      skip_metadata: true,
       skip_screenshots: true,
       submit_for_review: true,
       automatic_release: true,
