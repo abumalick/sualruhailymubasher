@@ -67,9 +67,15 @@ export function LiveSheet({ live, course, expanded, inBook = false, onExpand, on
           <button class="t" aria-label="عرض البث المباشر" onClick={onExpand}>
             <span class="b">{ctx.title}</span>
             <span class="m">
-              <i class="dot" />
-              {ctx.lesson ? `مباشر · ${ctx.lesson}` : 'بث مباشر'}
-              {ctx.edition && ` · ${ctx.edition}`}
+              {live.isLive ? (
+                <>
+                  <i class="dot" />
+                  {ctx.lesson ? `مباشر · ${ctx.lesson}` : 'بث مباشر'}
+                  {ctx.edition && ` · ${ctx.edition}`}
+                </>
+              ) : (
+                'انتهى البث'
+              )}
             </span>
           </button>
           {!inBook && bookLink}

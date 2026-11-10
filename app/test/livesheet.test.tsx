@@ -134,3 +134,13 @@ it('the Tafsir bar shows the printed page instead of a book link', () => {
   expect(screen.getByText(/مباشر · الدرس ٤٦١ · ص ٦٢٨ · طبعة دار ابن الجوزي/)).toBeTruthy();
   expect(screen.queryByRole('link')).toBeNull();
 });
+
+it('the bar stops claiming live once the broadcast has ended, without cutting the player', () => {
+  const { container, rerender } = render(sheet({ course: TAWHID, expanded: false }));
+  const frame = container.querySelector('iframe')!;
+  rerender(sheet({ course: TAWHID, expanded: false, live: { ...live, isLive: false } }));
+  expect(screen.getByText('انتهى البث')).toBeTruthy();
+  expect(screen.queryByText(/مباشر · الدرس/)).toBeNull();
+  expect(container.querySelector('.lbar .dot')).toBeNull();
+  expect(container.querySelector('iframe')).toBe(frame);
+});
