@@ -1,7 +1,7 @@
 import type { CourseDTO, LessonDTO } from '@albadr/shared';
 import { useEffect, useState } from 'preact/hooks';
 import { startLive } from './audio/live';
-import { nextLiveView, type LiveEvent, type LiveView } from './logic/live';
+import { CLOSED, nextLivePlayer, type LiveEvent } from './logic/live';
 import { player } from './audio/player';
 import { useRoute } from './router';
 import { boot, nowOverride, refresh, toggleTick, useAppData } from './store';
@@ -22,17 +22,18 @@ export function App() {
   document.documentElement.lang = 'ar';
   const route = useRoute();
   const { state, ticks, error } = useAppData();
-  const [liveView, setLiveView] = useState<LiveView>('closed');
-  const send = (e: LiveEvent) => setLiveView((v) => nextLiveView(v, e));
+  const [livePlayer, setLivePlayer] = useState(CLOSED);
+  const send = (e: LiveEvent) => setLivePlayer((p) => nextLivePlayer(p, e));
   useEffect(() => void boot(), []);
-  useEffect(() => send('navigate'), [route]);
+  useEffect(() => send({ type: 'navigate' }), [route]);
+  useEffect(() => void (state && send({ type: 'state', live: state.live })), [state?.live]);
   const now = nowOverride() ?? new Date();
-  const onLive = () => state && startLive(state, () => send('open'));
+  const onLive = () => state && startLive(state, () => send({ type: 'open', live: state.live }));
   const onTick = (kind: 'read' | 'reviewed', courseId: string, n: number) => void toggleTick(kind, courseId, n);
   const onPlay = (lesson: LessonDTO, course: CourseDTO) => {
     if (!lesson.recordingUrl) return;
     player.endEmbed();
-    send('play-recording');
+    send({ type: 'play-recording' });
     void player.play({
       url: lesson.recordingUrl,
       title: `${course.title} · الدرس ${ar(lesson.number)}`,
@@ -80,7 +81,7 @@ export function App() {
   }
 
   // One tree for every route, so the live player keeps its place and its iframe is never re-mounted.
-  const live = liveView !== 'closed' && state;
+  const live = livePlayer.view !== 'closed' && state;
   return (
     <div class={route.name === 'home' ? 'shell lat' : 'shell'}>
       <Defs />
@@ -88,12 +89,13 @@ export function App() {
       {live ? (
         <LiveSheet
           live={state.live}
-          course={state.courses.find((c) => c.id === state.live.courseId)}
-          expanded={liveView === 'expanded'}
+          course={state.courses.find((c) => c.id === livePlayer.courseId)}
+          startedAt={livePlayer.startedAt}
+          expanded={livePlayer.view === 'expanded'}
           inBook={route.name === 'book'}
-          onExpand={() => send('expand')}
-          onCollapse={() => send('collapse')}
-          onClose={() => send('close')}
+          onExpand={() => send({ type: 'expand' })}
+          onCollapse={() => send({ type: 'collapse' })}
+          onClose={() => send({ type: 'close' })}
         />
       ) : (
         <MiniPlayer />

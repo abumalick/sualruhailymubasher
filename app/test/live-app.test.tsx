@@ -33,7 +33,8 @@ vi.stubGlobal('Audio', FakeAudio);
 import * as api from '../src/api';
 import { App } from '../src/App';
 import { player } from '../src/audio/player';
-import { liveState } from './live-state';
+import { endedState, liveState } from './live-state';
+import { refresh } from '../src/store';
 
 const go = (hash: string) =>
   act(() => {
@@ -41,10 +42,11 @@ const go = (hash: string) =>
     dispatchEvent(new HashChangeEvent('hashchange'));
   });
 
-// Records every time the iframe leaves or enters the DOM: either one reloads Mixlr and stops the audio.
-function watch(frame: HTMLIFrameElement) {
+// Records every time a watched node leaves or enters the DOM. For the iframe either one reloads Mixlr and stops the
+// audio; for the header it would mean the reading order changed around the player.
+function watch(...watched: Element[]) {
   const moves: string[] = [];
-  const touches = (nodes: NodeList) => [...nodes].some((n) => n === frame || n.contains(frame));
+  const touches = (nodes: NodeList) => [...nodes].some((n) => watched.some((w) => n === w || n.contains(w)));
   const mo = new MutationObserver((records) => {
     for (const r of records) {
       if (touches(r.removedNodes)) moves.push('removed');
@@ -82,8 +84,10 @@ async function openLive(courseId: string) {
 
 it('opening the book from the live sheet keeps the Mixlr iframe mounted and collapses it into a bar', async () => {
   const frame = await openLive('kitab-tawhid');
-  expect(screen.getByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
-  const w = watch(frame);
+  const sheetEl = screen.getByRole('dialog', { name: 'البث المباشر' });
+  const head = sheetEl.firstElementChild!;
+  expect([...sheetEl.children]).toEqual([head, frame]);
+  const w = watch(frame, head);
 
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' }));
   await go('#/book/kitab-tawhid/0/280?marker=1');
@@ -96,12 +100,13 @@ it('opening the book from the live sheet keeps the Mixlr iframe mounted and coll
 
   await go('#/courses');
   await go('#/');
-  fireEvent.click(screen.getByRole('button', { name: 'عرض البث المباشر' }));
+  fireEvent.click(screen.getByRole('button', { name: /مباشر · الدرس ١٥/ }));
   expect(screen.getByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
 
   w.flush();
   w.stop();
   expect(w.moves).toEqual([]);
+  expect([...sheetEl.children]).toEqual([head, frame]);
   expect(frame.isConnected).toBe(true);
   expect(session.setPlaybackState).not.toHaveBeenCalledWith({ playbackState: 'none' });
 });
@@ -132,4 +137,16 @@ it('playing a recording while the bar is up stops the live player first and keep
   expect(screen.queryByTitle('البث المباشر')).toBeNull();
   expect(player.state.src?.kind).toBe('recording');
   expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'playing' });
+});
+
+it('when the server reports the end with no course, the bar keeps its lesson and book link and says it ended', async () => {
+  const frame = await openLive('kitab-tawhid');
+  await go('#/courses');
+  vi.mocked(api.fetchState).mockResolvedValue({ state: endedState(), fresh: true });
+  await act(() => refresh());
+  expect(screen.queryByText('مباشر الآن')).toBeNull();
+  expect(screen.getByText('انتهى البث')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /التعليق على شرح كتاب التوحيد.*انتهى البث/ })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
+  expect(screen.getByTitle('البث المباشر')).toBe(frame);
 });

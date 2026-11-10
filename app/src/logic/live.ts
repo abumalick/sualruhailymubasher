@@ -1,23 +1,65 @@
-import type { CourseDTO } from '@albadr/shared';
+import type { CourseDTO, LiveDTO } from '@albadr/shared';
 import { ar, bookHref, editionPage, startText } from '../ui/format';
-import { liveLessonNumber } from './home';
+import { medinaDate } from './time';
 
 export type LiveView = 'closed' | 'expanded' | 'collapsed';
-export type LiveEvent = 'open' | 'expand' | 'collapse' | 'navigate' | 'close' | 'play-recording';
 
-export function nextLiveView(view: LiveView, event: LiveEvent): LiveView {
-  switch (event) {
+// The broadcast the open player belongs to. Kept after the server reports the end ({isLive:false, courseId:null})
+// so the bar still names the lesson and links the book while the listener is still on it.
+export interface LivePlayer {
+  view: LiveView;
+  courseId: string | null;
+  startedAt: string | null;
+}
+
+export type LiveEvent =
+  | { type: 'open'; live: LiveDTO }
+  | { type: 'state'; live: LiveDTO }
+  | { type: 'expand' | 'collapse' | 'navigate' | 'close' | 'play-recording' };
+
+export const CLOSED: LivePlayer = { view: 'closed', courseId: null, startedAt: null };
+
+export function nextLivePlayer(p: LivePlayer, e: LiveEvent): LivePlayer {
+  switch (e.type) {
     case 'open':
+      return { view: 'expanded', courseId: e.live.courseId, startedAt: e.live.startedAt };
+    case 'state':
+      return p.view !== 'closed' && e.live.isLive ? { ...p, courseId: e.live.courseId, startedAt: e.live.startedAt } : p;
     case 'expand':
-      return 'expanded';
+      return p.view === 'closed' ? p : { ...p, view: 'expanded' };
     case 'collapse':
-      return view === 'closed' ? 'closed' : 'collapsed';
+      return p.view === 'closed' ? p : { ...p, view: 'collapsed' };
     case 'navigate':
-      return view === 'expanded' ? 'collapsed' : view;
+      return p.view === 'expanded' ? { ...p, view: 'collapsed' } : p;
     case 'close':
     case 'play-recording':
-      return 'closed';
+      return CLOSED;
   }
+}
+
+export interface LiveLesson {
+  number: number;
+  start: { startPoint: string | null; pdfIndex: number | null; startPage: number | null } | null;
+}
+
+// course.next moves on to the following lesson some time after the scheduled start, while a long broadcast is
+// still running. The lesson on air is the one dated the broadcast's Medina day.
+export function liveLesson(course: CourseDTO, startedAt: string | null): LiveLesson {
+  const next = course.next;
+  const started = startedAt ? new Date(startedAt) : null;
+  const onAirDay = started && !Number.isNaN(started.getTime()) ? medinaDate(started) : null;
+  if (!next) return { number: (course.latest[0]?.number ?? 0) + 1, start: null };
+  if (!onAirDay || next.date === onAirDay) {
+    return { number: next.number, start: { startPoint: next.startPoint, pdfIndex: next.pdfIndex, startPage: next.startPage } };
+  }
+  const number = next.number - 1;
+  const own = course.latest.find((l) => l.number === number);
+  if (own) return { number, start: { startPoint: own.startPoint, pdfIndex: own.pdfIndex, startPage: own.startPage } };
+  const prev = course.latest.find((l) => l.number === number - 1);
+  if (prev && (prev.endPoint || prev.endPage !== null)) {
+    return { number, start: { startPoint: prev.endPoint, pdfIndex: prev.endPdfIndex ?? prev.pdfIndex, startPage: prev.endPage } };
+  }
+  return { number, start: null };
 }
 
 export interface LiveContext {
@@ -30,18 +72,19 @@ export interface LiveContext {
   status: { live: boolean; text: string };
 }
 
-export function liveContext(course: CourseDTO | undefined, isLive: boolean): LiveContext {
-  const next = course?.next ?? null;
-  const lesson = course ? `الدرس ${ar(liveLessonNumber(course))}` : null;
-  const edition = course && next ? editionPage(course, next.startPage) : null;
-  const liveText = [lesson ? `مباشر · ${lesson}` : 'بث مباشر', edition].filter(Boolean).join(' · ');
+export function liveContext(course: CourseDTO | undefined, isLive: boolean, startedAt: string | null): LiveContext {
+  const lesson = course ? liveLesson(course, startedAt) : null;
+  const start = lesson?.start ?? null;
+  const label = lesson ? `الدرس ${ar(lesson.number)}` : null;
+  const edition = course && start ? editionPage(course, start.startPage) : null;
+  const liveText = [label ? `مباشر · ${label}` : 'بث مباشر', edition].filter(Boolean).join(' · ');
   return {
     title: course?.title ?? 'البث المباشر',
-    header: lesson ? `البث المباشر · ${lesson}` : 'البث المباشر',
-    start: next ? startText(next) : null,
+    header: label ? `البث المباشر · ${label}` : 'البث المباشر',
+    start: lesson && start ? startText({ startPoint: start.startPoint, number: lesson.number }) : null,
     edition,
-    book: course && next ? bookHref(course, next.pdfIndex, next.startPage, true) : null,
-    bookLabel: next?.startPage != null ? `تابع في الكتاب · ص ${ar(next.startPage)}` : 'تابع في الكتاب',
+    book: course && start ? bookHref(course, start.pdfIndex, start.startPage, true) : null,
+    bookLabel: start?.startPage != null ? `تابع في الكتاب · ص ${ar(start.startPage)}` : 'تابع في الكتاب',
     status: isLive ? { live: true, text: liveText } : { live: false, text: 'انتهى البث' },
   };
 }

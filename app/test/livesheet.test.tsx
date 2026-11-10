@@ -34,7 +34,7 @@ import { TAFSIR, TAWHID } from './live-state';
 const live = { isLive: true, mode: 'embed' as const, embedUrl: 'about:blank#mixlr', streamUrl: null, courseId: null, startedAt: null };
 const noop = () => {};
 const sheet = (p: Partial<LiveSheetProps> = {}) => (
-  <LiveSheet live={live} course={undefined} expanded onExpand={noop} onCollapse={noop} onClose={noop} {...p} />
+  <LiveSheet live={live} course={undefined} startedAt={null} expanded onExpand={noop} onCollapse={noop} onClose={noop} {...p} />
 );
 
 beforeAll(() => {
@@ -99,7 +99,7 @@ it('evening course: shows where the lesson starts and opens the book there, coll
 });
 
 it('falls back when the start text, the page or the next lesson is unknown', () => {
-  const noStart: CourseDTO = { ...TAWHID, next: { ...TAWHID.next, startPoint: null, startPage: null } };
+  const noStart: CourseDTO = { ...TAWHID, next: { ...TAWHID.next!, startPoint: null, startPage: null } };
   const { rerender } = render(sheet({ course: noStart }));
   expect(screen.getByText('يتابع من حيث توقف الدرس ١٤')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'تابع في الكتاب' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/1');
@@ -122,8 +122,8 @@ it('collapses into a bar with the course, lesson and book link while keeping the
   expect(container.querySelector('iframe')).toBe(frame);
   expect(container.querySelector('.sheet.min')).toBeTruthy();
   expect(screen.getByText('مباشر · الدرس ١٥')).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' })).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'عرض البث المباشر' }));
+  expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' }).textContent).toBe('تابع في الكتاب');
+  fireEvent.click(screen.getByRole('button', { name: /مباشر · الدرس ١٥/ }));
   expect(onExpand).toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'إيقاف البث' }));
   expect(onClose).toHaveBeenCalled();
@@ -143,4 +143,30 @@ it('the bar stops claiming live once the broadcast has ended, without cutting th
   expect(screen.queryByText(/مباشر · الدرس/)).toBeNull();
   expect(container.querySelector('.lbar .dot')).toBeNull();
   expect(container.querySelector('iframe')).toBe(frame);
+});
+
+it('reads the title and «يبدأ الدرس من» before the player, in the same two elements whatever the state', () => {
+  const { container, rerender } = render(sheet({ course: TAWHID }));
+  const root = container.querySelector('.sheet')!;
+  const [head, frame] = [...root.children];
+  expect(head.className).toBe('lhead');
+  expect(frame.tagName).toBe('IFRAME');
+  expect(head.textContent).toContain('يبدأ الدرس من');
+  rerender(sheet({ course: TAWHID, expanded: false }));
+  expect([...root.children]).toEqual([head, frame]);
+  expect(head.className).toBe('lbar');
+});
+
+it('the expanded sheet can stop the broadcast too', () => {
+  const onClose = vi.fn();
+  render(sheet({ course: TAWHID, onClose }));
+  fireEvent.click(screen.getByRole('button', { name: 'إيقاف البث' }));
+  expect(onClose).toHaveBeenCalled();
+});
+
+it('the bar button is named by the course and lesson, and the status is announced politely', () => {
+  const { container } = render(sheet({ course: TAWHID, expanded: false }));
+  const button = screen.getByRole('button', { name: /التعليق على شرح كتاب التوحيد.*مباشر · الدرس ١٥/ });
+  expect(button.getAttribute('aria-label')).toBeNull();
+  expect(container.querySelector('.lbar .m')!.getAttribute('aria-live')).toBe('polite');
 });

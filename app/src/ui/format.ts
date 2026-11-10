@@ -31,7 +31,7 @@ export function schedule(weekdays: number[]): string {
   return [...weekdays].sort().map((d) => WEEKDAYS[d]).join('، ');
 }
 
-export const startText = (next: NextPassageDTO) => (next.startPoint ? arText(next.startPoint) : `يتابع من حيث توقف الدرس ${ar(next.number - 1)}`);
+export const startText = (next: { startPoint: string | null; number: number }) => (next.startPoint ? arText(next.startPoint) : `يتابع من حيث توقف الدرس ${ar(next.number - 1)}`);
 
 export function passageLine(next: NextPassageDTO): string {
   const start = startText(next);
