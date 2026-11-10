@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">دروس البدر</string>
-    <string name="title_activity_main">دروس البدر</string>
+    <string name="app_name">البدر مباشر</string>
+    <string name="title_activity_main">البدر مباشر</string>
     <string name="package_name">com.albadrmubasher.app</string>
     <string name="custom_url_scheme">com.albadrmubasher.app</string>
 </resources>

@@ -8,8 +8,10 @@ a 1024×500 feature graphic.
 ## Store listing
 
 **App name** (30 chars max)
-- ar: دروس الشيخ عبد الرزاق البدر
-- en-US: Abdur-Razzaq Al-Badr Lessons
+- ar: البدر مباشر | عبد الرزاق البدر
+- en-US: Al-Badr Live Lessons
+
+Home-screen label: البدر مباشر.
 
 **Short description** (80 chars max)
 - ar: بث مباشر وتسجيلات دروس الشيخ في المسجد النبوي مع موضع الدرس. تطبيق غير رسمي
@@ -49,7 +51,7 @@ a 1024×500 feature graphic.
 > This is an unofficial app made by students of knowledge. It is not affiliated with the Sheikh or his
 > website. The lessons come from the Sheikh's website al-badr.net and its live broadcast.
 
-**Category**: Education. **Tags**: chosen in the console. **Contact email**: owner's choice (public).
+**Category**: Education. **Tags**: chosen in the console. **Contact email**: contact@albadrmubasher.com.
 **Privacy policy**: https://albadrmubasher.com/privacy (must load before the app is submitted for review)
 
 ## App content answers
