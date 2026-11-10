@@ -32,7 +32,7 @@ git -C "$repo" config user.email t@t.t
 git -C "$repo" config user.name t
 mkdir -p "$repo/scripts/lib" "$repo/server"
 cp "$src/lib/worktree-common.sh" "$src/lib/ports.sh" "$repo/scripts/lib/"
-sed "s|^WH_INSTALL_CMD='pnpm install'|WH_INSTALL_CMD=''|" "$src/worktree.sh" > "$repo/scripts/worktree.sh"
+sed "s|^WH_INSTALL_CMD=.*|WH_INSTALL_CMD=''|" "$src/worktree.sh" > "$repo/scripts/worktree.sh"
 chmod +x "$repo/scripts/worktree.sh"
 # shellcheck disable=SC2016 # expands when the stub runs
 printf 'echo stub-log-line\n[ -z "${STUB_DIE:-}" ] || exit 3\nexec sleep 300\n' > "$repo/scripts/dev-server.sh"
@@ -41,6 +41,9 @@ printf 'ADMIN_TOKEN=local\n' > "$repo/server/.dev.vars"
 git -C "$repo" add -A
 git -C "$repo" commit -q -m init
 wt_sh="$repo/scripts/worktree.sh"
+check "the scratch harness installs nothing" grep -qx "WH_INSTALL_CMD=''" "$wt_sh"
+check "a new worktree generates the Android files its Gradle tests need" \
+  grep -q "^WH_INSTALL_CMD='pnpm install && pnpm --filter app build && pnpm --filter app exec cap sync android'$" "$src/worktree.sh"
 
 # create
 out="$(cd "$repo" && "$wt_sh" create feat/ui 2>/dev/null)"
