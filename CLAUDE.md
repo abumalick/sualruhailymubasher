@@ -32,18 +32,24 @@ Worktrees live beside the repo in `../lessons-radio-worktrees/<branch-slug>`.
 - **Start** — `wt="$(scripts/worktree.sh start <branch>)" && cd "$wt"`. One command:
   it creates the worktree from `main` (or resumes and rebases it), copies
   `server/.dev.vars`, runs `pnpm install`, then starts that worktree's own servers in
-  the background and waits until they answer. It prints only the worktree path
+  the background and waits until they answer. It exits non-zero, with the log's last
+  lines, if the servers die or don't answer within 90 s. It prints only the worktree path
   (folder names are slugified: never guess the path). If the current checkout has no
   `scripts/worktree.sh`, run the main checkout's copy by its absolute path.
   `create <branch>` does only the worktree part; `up <branch> --bg` only the servers.
+  A branch cut before the harness existed has no `scripts/dev-server.sh`: rebase it
+  onto `main` first. Branch names are capped at 49 characters (host-name limit).
 - **Servers** — each worktree runs its own `wrangler dev` with its own local D1
   (`server/.wrangler/state`, migrated and seeded from `server/seed/dev.sql` at every
   start) and its own Vite, which proxies `/api` to that Worker. App URL:
-  `https://lessons-radio-<branch-leaf>.dev.sageplex.com` (the API is under `/api`
+  `https://lessons-radio-<worktree-dir>.dev.sageplex.com` (the API is under `/api`
   at the same URL). Course titles end in "(محلي)" so local data can't be mistaken for
   production. The Worker's own port is in the log (`api: http://127.0.0.1:<port>`),
   under `../lessons-radio-worktrees/.logs/<slug>.log`; point the agent at it with
-  `API_BASE=http://127.0.0.1:<port>` and the `ADMIN_TOKEN` from `server/.dev.vars`.
+  `API_BASE=http://127.0.0.1:<port>`, the `ADMIN_TOKEN` from `server/.dev.vars` and
+  `ALBADR_AGENT_LOCK=$wt/.tmp/agent.lock` (the default lock is the production
+  agent's: sharing it makes one of the two runs skip). Audio, transcripts and verdicts
+  are still cached in the shared `~/.cache/albadr-agent/`, which production reads too.
   Cron jobs don't run in `wrangler dev`, so nothing is ingested or pushed on its own.
   Every D1 command must carry `--local`: `wrangler.jsonc` names the production database.
 - **Work** — edit, run and commit only inside that path.

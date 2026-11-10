@@ -39,7 +39,8 @@ g()   { git -C "$main_root" "$@"; }
 
 wt_path()  { printf '%s/%s' "$wt_root" "$(wh_slugify "$1")"; }
 wt_port()  { wh_hash_to_port "$(wh_slugify "$1")" "$WH_PORT_BAND_START" "$WH_PORT_BAND_SIZE"; }
-wt_url()   { wh_url "$WH_LABEL" "$(wh_leaf "$1")" "$WH_TLD"; }
+# One host per worktree dir, so feat/ui and fix/ui don't share one (dev-server.sh names it the same way).
+wt_url()   { wh_url "$WH_LABEL" "$(wh_slugify "$1")" "$WH_TLD"; }
 
 has_origin()   { g remote get-url origin >/dev/null 2>&1; }
 fetch_origin() { if has_origin; then g fetch --quiet origin >&2 || say "warning: git fetch origin failed; using local refs"; fi; }
@@ -191,6 +192,8 @@ _print_info() {
 
 cmd_create() {
   local branch="$1" wt base cur
+  # portless hashes host labels over 63 characters, so the URL would not be the predicted one.
+  [ $((${#WH_LABEL} + 1 + ${#branch})) -le 63 ] || die "branch name too long for a host name (max $((62 - ${#WH_LABEL})) characters)"
   wt="$(wt_path "$branch")"
   fetch_origin
   base="$(base_ref)"
@@ -224,12 +227,13 @@ cmd_up() {
   resolve "$arg"; wt="$R_WT"
   if [ -z "$wt" ] || [ ! -d "$wt" ]; then die "no worktree for '$arg' — create it first"; fi
   branch="${R_BRANCH:-$arg}"
-  if [ -n "$WH_LABEL" ]; then url="$(wt_url "$branch")"; fi
+  if [ -n "$WH_LABEL" ]; then url="$(wt_url "${wt##*/}")"; fi
   if [ "$WH_PORT_MODE" = hash ]; then port="$(wt_port "$branch")"; fi
   if [ -z "$WH_UP_CMD" ]; then
     say "Start the dev server from $wt${url:+ at $url}${port:+ (port $port)}."
     return 0
   fi
+  [ -f "$wt/scripts/dev-server.sh" ] || die "$wt has no scripts/dev-server.sh: its branch predates the harness — rebase it onto $ib first"
   # WH_SLUG/WH_PORT let the up-cmd namespace DB / COMPOSE_PROJECT_NAME per worktree.
   export WH_URL="$url" WH_PORT="$port" WH_SLUG="${wt##*/}"
   if [ -n "$port" ]; then export PORT="$port"; fi
@@ -239,7 +243,8 @@ cmd_up() {
     # The redirections apply to the whole subshell: redirecting only the inner command
     # leaves the subshell holding the caller's stdout, so `$(… up --bg)` never returns.
     ( cd "$wt" && eval "$WH_UP_CMD" ) </dev/null >"$log" 2>&1 &
-    printf 'log: %s\npid: %s\n' "$log" "$!"
+    UP_PID=$!; UP_LOG="$log"
+    printf 'log: %s\npid: %s\n' "$log" "$UP_PID"
     return 0
   fi
   say "starting: $WH_UP_CMD  (cwd=$wt${url:+, url=$url}${port:+, port=$port})"
@@ -495,14 +500,22 @@ cmd_start() {
   local branch="$1" wt url _i
   wt="$(cmd_create "$branch")"
   printf '%s\n' "$wt"
+  url="$(wt_url "${wt##*/}")"
+  if curl -sf -o /dev/null "$url/api/health"; then
+    [ -n "$(wh_procs_under "$wt")" ] || die "something else already answers at $url — not this worktree's servers"
+    say "already running: $url"
+    return 0
+  fi
   cmd_up "$branch" 1 >&2
-  url="$(wt_url "$branch")"
   say "waiting for $url/api/health …"
   for _i in $(seq 1 90); do
+    if ! kill -0 "$UP_PID" 2>/dev/null; then
+      say "the servers exited; last lines of $UP_LOG:"; tail -n 20 "$UP_LOG" >&2; exit 1
+    fi
     if curl -sf -o /dev/null "$url/api/health"; then say "ready: $url (app + its own API)"; return 0; fi
     sleep 1
   done
-  say "warning: $url did not answer within 90s; see the log under $wt_root/.logs/"
+  die "$url did not answer within 90s; see $UP_LOG"
 }
 
 usage() {
