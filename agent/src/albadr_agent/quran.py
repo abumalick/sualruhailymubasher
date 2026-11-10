@@ -9,6 +9,7 @@ from pathlib import Path
 
 DATA = Path(__file__).parent / "data"
 OPENING_MAX = 50
+MAX_AYAH_STEP = 40
 ARABIC_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 WESTERN_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
@@ -91,3 +92,22 @@ def matches(words: str, surah: int, number: int) -> bool:
 
 def ayah_count(surah: int) -> int:
     return max(n for s, n in _ayahs() if s == surah)
+
+
+def next_lesson_start(
+    start_point: str, surah_name: str | None, number: int | None, words: str | None
+) -> tuple[str | None, str | None]:
+    """The next Tafsir lesson's start as the channel announces it, from the ayah Claude named after a lesson
+    that started at `start_point`. Returns (start, None), (None, why it was rejected), or (None, None) when
+    the lesson is not a Tafsir lesson."""
+    own = parse_label(start_point)
+    if own is None:
+        return None, None
+    surah = surah_number(surah_name or "")
+    if surah is None or number is None or not matches(words or "", surah, number):
+        return None, f"claude's next ayah ({surah_name} {number} «{words}») is not a known ayah opening"
+    same_surah = surah == own[0] and own[1] < number <= own[1] + MAX_AYAH_STEP
+    next_surah = surah == own[0] + 1 and number == 1 and ayah_count(own[0]) - own[1] <= MAX_AYAH_STEP
+    if not (same_surah or next_surah):
+        return None, f"claude's next ayah {surah}:{number} does not follow the lesson's start {own[0]}:{own[1]}"
+    return label(surah, number), None

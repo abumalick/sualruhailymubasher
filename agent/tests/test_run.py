@@ -6,6 +6,7 @@ import pytest
 from albadr_agent import cli
 from albadr_agent.locate import ClaudeUnavailable, LocateResult, candidate_pages
 from albadr_agent.lock import run_lock
+from albadr_agent.quran import label
 
 PAGES = [f"صفحة {i}" for i in range(1, 6)]
 
@@ -360,7 +361,7 @@ def test_course_without_pdfs_uses_its_local_book(setup, monkeypatch):
 
 
 TAFSIR_START = "تفسير سورة التوبة: من الآية (٥) ﴿فَإِذَا انْسَلَخَ الْأَشْهُرُ الْحُرُمُ فَاقْتُلُوا الْمُشْرِكِينَ...﴾"
-AYAH_8 = cli.label(9, 8)
+AYAH_8 = label(9, 8)
 
 
 def tafsir(**extra):
@@ -426,13 +427,3 @@ def test_book_course_prompt_does_not_ask_for_an_ayah(recorded):
     assert "next_surah" not in prompts[0]
     assert json.loads(patches[0][1])["endPoint"] == "من قوله: كيف يكون للمشركين"
 
-
-ANNOUNCED = json.loads((cli.Path(__file__).parent / "fixtures" / "tafsir_announcements.json").read_text())["lessons"]
-
-
-@pytest.mark.parametrize("row", [r for r in ANNOUNCED if "claude" in r], ids=lambda r: str(r["lesson"]))
-def test_real_claude_replies_give_the_announced_next_ayah(row):
-    pending = cli.Pending(course_id="tafsir-saadi", number=row["lesson"], recording_url="", start_point=row["start_point"],
-                          pdf_urls=[])
-    got = cli._next_ayah(pending, good(**row["claude"]), "t")
-    assert got == cli.label(*cli.parse_label(row["next_announced"]))

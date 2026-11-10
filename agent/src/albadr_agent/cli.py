@@ -15,7 +15,7 @@ from .locate import (
     build_prompt, candidate_pages, find_page, locate, match_score, page_position,
 )
 from .lock import DEFAULT_LOCK, run_lock
-from .quran import ayah_count, label, matches, parse_label, surah_number
+from .quran import next_lesson_start
 from .transcribe import CACHE_ROOT, DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
 log = logging.getLogger("albadr_agent")
@@ -24,7 +24,6 @@ log = logging.getLogger("albadr_agent")
 EXTRA_WINDOW = 12
 DEFAULT_VERDICTS = CACHE_ROOT / "verdicts"
 VERDICT_SCHEMA = 2
-MAX_AYAH_STEP = 40
 
 
 def _local_books() -> dict[str, list[str]]:
@@ -110,23 +109,10 @@ def _ask(lesson: Pending, segments: list[Segment], candidates: list[Page], name:
 
 
 def _next_ayah(lesson: Pending, found: LocateResult, name: str) -> str | None:
-    """The next Tafsir lesson's start as the channel announces it: the ayah it opens with."""
-    own = parse_label(lesson.start_point)
-    if own is None:
-        return None
-    surah = surah_number(found.next_surah or "")
-    ayah = found.next_ayah
-    if surah is None or ayah is None or not matches(found.next_ayah_words or "", surah, ayah):
-        log.warning("%s: claude's next ayah (%s %s «%s») is not a known ayah opening, keeping the book sentence",
-                    name, found.next_surah, found.next_ayah, found.next_ayah_words)
-        return None
-    same_surah = surah == own[0] and own[1] < ayah <= own[1] + MAX_AYAH_STEP
-    next_surah = surah == own[0] + 1 and ayah == 1 and ayah_count(own[0]) - own[1] <= MAX_AYAH_STEP
-    if not (same_surah or next_surah):
-        log.warning("%s: claude's next ayah %d:%d does not follow the lesson's start %d:%d, keeping the book sentence",
-                    name, surah, ayah, *own)
-        return None
-    return label(surah, ayah)
+    point, problem = next_lesson_start(lesson.start_point, found.next_surah, found.next_ayah, found.next_ayah_words)
+    if problem:
+        log.warning("%s: %s, keeping the book sentence", name, problem)
+    return point
 
 
 def _patch_from_recording(api: Api, lesson: Pending, name: str) -> End | None:

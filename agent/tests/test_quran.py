@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from albadr_agent.quran import ayah, label, matches, normalize, opening, parse_label, surah_number
+from albadr_agent.quran import ayah, label, matches, next_lesson_start, normalize, opening, parse_label, surah_number
 
 ANNOUNCED = json.loads((Path(__file__).parent / "fixtures" / "tafsir_announcements.json").read_text())["lessons"]
 
@@ -75,3 +75,36 @@ def test_matches_rejects_another_ayah_and_too_few_letters():
     assert not matches("كيف يكون للمشركين عهد", 9, 8)
     assert not matches("كي", 9, 8)
     assert not matches("كيف وإن يظهروا", 9, 999)
+
+
+@pytest.mark.parametrize("row", [r for r in ANNOUNCED if "claude" in r], ids=lambda r: str(r["lesson"]))
+def test_real_claude_replies_give_the_announced_next_ayah(row):
+    c = row["claude"]
+    got = next_lesson_start(row["start_point"], c["next_surah"], c["next_ayah"], c["next_ayah_words"])
+    assert got == (label(*parse_label(row["next_announced"])), None)
+
+
+NINE_FIVE = "تفسير سورة التوبة: من الآية (٥) ﴿فَإِذَا انْسَلَخَ...﴾"
+
+
+@pytest.mark.parametrize("surah,number,words,why", [
+    (None, None, None, "not a known ayah opening"),
+    ("التوبة", 8, "كيف يكون للمشركين عهد", "not a known ayah opening"),
+    ("التوبة", 4, "إلا الذين عاهدتم من المشركين", "does not follow"),
+    ("التوبة", 60, "إنما الصدقات للفقراء", "does not follow"),
+    ("يونس", 1, "الر تلك آيات الكتاب", "does not follow"),
+])
+def test_next_lesson_start_rejects_with_a_reason(surah, number, words, why):
+    point, problem = next_lesson_start(NINE_FIVE, surah, number, words)
+    assert point is None and why in problem
+
+
+def test_next_lesson_start_is_silent_for_book_courses():
+    assert next_lesson_start("من قوله: باب فضل التوحيد", "التوبة", 8, "كيف وإن يظهروا") == (None, None)
+
+
+def test_next_lesson_start_may_open_the_next_surah_only_near_the_end():
+    near_end = "تفسير سورة الأنفال: من الآية (٧٣) ﴿وَالَّذِينَ كَفَرُوا...﴾"
+    assert next_lesson_start(near_end, "التوبة", 1, "براءة من الله ورسوله")[0].startswith("تفسير سورة التوبة: من الآية (١)")
+    early = "تفسير سورة الأنفال: من الآية (٥) ﴿كَمَا أَخْرَجَكَ...﴾"
+    assert "does not follow" in next_lesson_start(early, "التوبة", 1, "براءة من الله ورسوله")[1]
