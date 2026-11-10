@@ -80,3 +80,29 @@ describe('fastlane ignore rules', () => {
     expect(ignored(path)).toBe(false);
   });
 });
+
+describe('repository ignore rules', () => {
+  it.each([
+    'release.jks',
+    'app/android/release.jks',
+    'app/android/app/upload.keystore',
+    'app/android/key.properties',
+    'app/android/keystore.properties',
+    '.env',
+    '.env.production',
+    'app/.env.local',
+    'firebase-service-account.json',
+    'play-service-account.json',
+    'app/android/app/google-services.json',
+    'google-services.com.albadrmubasher.app.json',
+  ])('keeps %s out of git', (path) => {
+    expect(ignored(path)).toBe(true);
+  });
+
+  it.each(['app/android/app/build.gradle', 'app/capacitor.config.ts', 'app/package.json', 'server/wrangler.jsonc'])(
+    'tracks %s',
+    (path) => {
+      expect(ignored(path)).toBe(false);
+    },
+  );
+});
