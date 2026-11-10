@@ -211,3 +211,14 @@ wh_kill_tree() {
   kill "$pid" 2>/dev/null || true
   return 0
 }
+
+# wh_wait_any <pid>... — return once any of the given children has exited. Polled
+# rather than `wait -n`, which blocks on the survivors ("no such job") when a child
+# was already reaped before the call.
+wh_wait_any() {
+  local pid
+  while :; do
+    for pid in "$@"; do kill -0 "$pid" 2>/dev/null || return 0; done
+    sleep 1
+  done
+}
