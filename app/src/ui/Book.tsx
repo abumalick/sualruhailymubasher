@@ -21,6 +21,9 @@ const isPdf = (data: Uint8Array) => String.fromCharCode(...data.subarray(0, 5)) 
 
 const clamp = (n: number, total: number) => Math.min(Math.max(n, 1), total);
 
+// Matches .pdfwrap .pg max-width: wider canvases only cost memory on a desktop screen.
+const MAX_PAGE_WIDTH = 900;
+
 export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick }: Props) {
   const url = course.pdfUrls[pdfIndex] as string | undefined;
   const [doc, setDoc] = useState<Doc>({ status: 'loading' });
@@ -41,14 +44,15 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
         import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'),
       ]);
       GlobalWorkerOptions.workerSrc = workerSrc;
-      const data = await getPdf(url);
+      const file = { courseId: course.id, index: pdfIndex, url };
+      const data = await getPdf(file);
       if (cancelled) return;
       task = getDocument({ data });
       let loaded: PDFDocumentProxy;
       try {
         loaded = await task.promise;
       } catch (e) {
-        if (!cancelled && !isPdf(data)) await dropPdf(url);
+        if (!cancelled && !isPdf(data)) await dropPdf(file);
         throw e;
       }
       if (cancelled) return;
@@ -60,6 +64,15 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
       void task?.destroy();
     };
   }, [url, attempt]);
+
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => setPage(requested), [requested]);
 
@@ -75,7 +88,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
       const p = await pdf.getPage(current);
       if (cancelled) return;
       const base = p.getViewport({ scale: 1 });
-      const width = (wrap.current!.clientWidth || 360) - 28;
+      const width = Math.min((wrap.current!.clientWidth || 360) - 28, MAX_PAGE_WIDTH);
       const viewport = p.getViewport({ scale: (width / base.width) * (devicePixelRatio || 1) });
       const el = canvas.current!;
       el.width = Math.floor(viewport.width);
@@ -90,7 +103,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
       cancelled = true;
       task?.cancel();
     };
-  }, [pdf, current]);
+  }, [pdf, current, width]);
 
   const go = (delta: number) => pdf && setPage(clamp(current + delta, total));
   const onTouchEnd = (e: TouchEvent) => {

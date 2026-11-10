@@ -8,6 +8,8 @@ const fs = vi.hoisted(() => ({
   deleteFile: vi.fn(),
 }));
 vi.mock('@capacitor/filesystem', () => ({ Directory: { Data: 'DATA' }, Filesystem: fs }));
+const platform = vi.hoisted(() => ({ native: false }));
+vi.mock('../src/platform', () => ({ isNative: () => platform.native }));
 const http = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('@capacitor/core', async (orig) => ({
   ...(await orig<typeof import('@capacitor/core')>()),
@@ -27,11 +29,12 @@ vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({
 vi.mock('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url', () => ({ default: 'worker.js' }));
 
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { getPdf, dropPdf } from '../src/pdf/cache';
+import { getPdf, dropPdf, proxyUrl } from '../src/pdf/cache';
 import { Book } from '../src/ui/Book';
 
 const course = FIXTURE_STATE.courses[0];
 const url = course.pdfUrls[0];
+const file = { courseId: course.id, index: 0, url };
 const none = { read: new Set<string>(), reviewed: new Set<string>() };
 const bytes = new Uint8Array([37, 80, 68, 70, 45, 49]);
 const b64 = btoa(String.fromCharCode(...bytes));
@@ -42,6 +45,7 @@ const book = (page: number, marker = false, extra = {}) => (
 
 beforeEach(() => {
   files.clear();
+  platform.native = false;
   rendered.length = 0;
   Object.assign(parse, { reject: false, started: false, pending: null });
   Object.values(fs).forEach((f) => f.mockReset());
@@ -66,34 +70,66 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('getPdf', () => {
+describe('getPdf in the mobile app', () => {
+  beforeEach(() => {
+    platform.native = true;
+  });
+
   it('serves a cached file without touching the network', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     files.set(`pdf/${await sha(url)}.pdf`, b64);
-    const out = await getPdf(url);
+    const out = await getPdf(file);
     expect([...out]).toEqual([...bytes]);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(http.get).not.toHaveBeenCalled();
   });
 
-  it('downloads on a miss and stores it for the next open', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes)));
-    const out = await getPdf(url);
+  it('downloads al-badr.net directly on a miss and stores it for the next open', async () => {
+    http.get.mockResolvedValue({ status: 200, data: b64 });
+    const out = await getPdf(file);
     expect([...out]).toEqual([...bytes]);
+    expect(http.get).toHaveBeenCalledWith({ url, responseType: 'blob' });
     expect(fs.writeFile).toHaveBeenCalledTimes(1);
     expect(fs.writeFile.mock.calls[0][0]).toMatchObject({ data: b64, directory: 'DATA', recursive: true });
   });
 
   it('rejects on a non-200 response and caches nothing', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('x', { status: 404 })));
-    await expect(getPdf(url)).rejects.toThrow();
+    http.get.mockResolvedValue({ status: 404, data: '' });
+    await expect(getPdf(file)).rejects.toThrow();
     expect(fs.writeFile).not.toHaveBeenCalled();
   });
 
   it('dropPdf removes the cached copy', async () => {
-    await dropPdf(url);
+    await dropPdf(file);
     expect(fs.deleteFile).toHaveBeenCalledWith({ path: `pdf/${await sha(url)}.pdf`, directory: 'DATA' });
+  });
+});
+
+describe('getPdf in a browser', () => {
+  it('reads the book through the API proxy, never al-badr.net, and keeps no file copy', async () => {
+    const fetchMock = vi.fn(async (..._: unknown[]) => new Response(bytes));
+    vi.stubGlobal('fetch', fetchMock);
+    const out = await getPdf({ ...file, index: 2 });
+    expect([...out]).toEqual([...bytes]);
+    expect(fetchMock).toHaveBeenCalledWith(`https://api.albadrmubasher.com/api/courses/${course.id}/pdf/2`);
+    expect(http.get).not.toHaveBeenCalled();
+    expect(fs.readFile).not.toHaveBeenCalled();
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the proxy refuses', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('x', { status: 502 })));
+    await expect(getPdf(file)).rejects.toThrow();
+  });
+
+  it('builds the proxy URL from the course id and volume index', () => {
+    expect(proxyUrl({ courseId: 'a b', index: 1, url })).toBe('https://api.albadrmubasher.com/api/courses/a%20b/pdf/1');
+  });
+
+  it('dropPdf has nothing to remove', async () => {
+    await dropPdf(file);
+    expect(fs.deleteFile).not.toHaveBeenCalled();
   });
 });
 
@@ -156,6 +192,25 @@ describe('Book', () => {
     await screen.findByText('ص ١٥ / ٢٠');
   });
 
+  it('re-renders the page at the new width when the window resizes, capped for wide screens', async () => {
+    let resized: () => void = () => {};
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb: () => void) {
+        resized = cb;
+      }
+      observe() {}
+      disconnect() {}
+    });
+    render(book(10));
+    await waitFor(() => expect(rendered).toEqual([10]));
+    const wrap = document.querySelector('.pdfwrap') as HTMLElement;
+    Object.defineProperty(wrap, 'clientWidth', { configurable: true, value: 1600 });
+    act(() => resized());
+    await waitFor(() => expect(rendered).toEqual([10, 10]));
+    const canvas = document.querySelector('canvas')!;
+    expect(canvas.width / (devicePixelRatio || 1)).toBe(900);
+  });
+
   it('a render failure surfaces the error state', async () => {
     pdfDoc.getPage.mockRejectedValue(new Error('boom'));
     render(book(10));
@@ -170,7 +225,8 @@ describe('Book', () => {
   });
 
   it('parse failure on invalid bytes drops the cached copy and shows the error', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([60, 104, 116, 109, 108]))));
+    platform.native = true;
+    http.get.mockResolvedValue({ status: 200, data: btoa('<html') });
     parse.reject = true;
     render(book(10));
     await screen.findByText('تعذّر تحميل الكتاب');

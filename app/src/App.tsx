@@ -15,6 +15,8 @@ import { Home } from './ui/Home';
 import { LiveSheet } from './ui/LiveSheet';
 import { MiniPlayer } from './ui/MiniPlayer';
 import { Notifications } from './ui/Notifications';
+import { About } from './ui/About';
+import { isNative } from './platform';
 import { ar, arText } from './ui/format';
 import { NavBar } from './ui/NavBar';
 import { Defs } from './ui/Star';
@@ -50,6 +52,7 @@ export function App() {
       </div>
     );
   }
+  const native = isNative();
   const now = nowOverride() ?? new Date();
   const onLive = () => state && startLive(state, () => send({ type: 'open', live: state.live }));
   const onTick = (kind: 'read' | 'reviewed', courseId: string, n: number) => void toggleTick(kind, courseId, n);
@@ -76,7 +79,9 @@ export function App() {
     if (course) page = <Course key={course.id} course={course} ticks={ticks} onTick={onTick} onPlay={onPlay} />;
     else if (hidden(route.id)) page = <NotFollowed />;
   } else if (route.name === 'notifications') {
-    page = <Notifications state={state} notice={notice(true)} />;
+    page = native ? <Notifications state={state} notice={notice(true)} /> : <About native={false} />;
+  } else if (route.name === 'about') {
+    page = <About native={native} back={native ? '#/links' : undefined} />;
   } else if (route.name === 'follow') {
     if (follow) page = <Chooser key={follow.ids.join()} state={data.state} follow={follow} first={false} />;
   } else if (route.name === 'links') {

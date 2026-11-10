@@ -14,6 +14,7 @@ export function Defs() {
         <symbol id="i-pdf" viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7zM14 3v4h4" stroke-linejoin="round" /></symbol>
         <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round" /></symbol>
         <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6" /><path d="M12 11v5.5M12 7.6v.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></symbol>
         <symbol id="i-rev" viewBox="0 0 24 24"><path d="M4 12a8 8 0 108-8 8 8 0 00-6 2.7M4 4v4h4" stroke-linecap="round" stroke-linejoin="round" /></symbol>
       </defs>
     </svg>

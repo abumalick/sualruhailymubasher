@@ -1,4 +1,5 @@
 import type { StateDTO } from '@albadr/shared';
+import { isNative } from '../platform';
 import { Icon } from './Star';
 
 const host = (url: string) => {
@@ -31,6 +32,17 @@ export function Links({ state }: { state: StateDTO | null }) {
               <Icon id="i-back" class="fwd" />
             </a>
           ))}
+        </div>
+      )}
+      {isNative() && (
+        <div class="card">
+          <a class="lesson" href="#/about">
+            <div class="t">
+              <span class="b">عن التطبيق</span>
+              <span class="m">المصادر وسياسة الخصوصية</span>
+            </div>
+            <Icon id="i-back" class="fwd" />
+          </a>
         </div>
       )}
     </>
