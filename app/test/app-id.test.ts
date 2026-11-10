@@ -39,3 +39,12 @@ describe('application id', () => {
     expect(strings).toContain(`<string name="custom_url_scheme">${APP_ID}</string>`);
   });
 });
+
+describe('home-screen label', () => {
+  it('is the short name in the Capacitor config and both Android labels', () => {
+    const strings = read('android/app/src/main/res/values/strings.xml');
+    expect(config.appName).toBe('دروس البدر');
+    expect(strings).toContain(`<string name="app_name">${config.appName}</string>`);
+    expect(strings).toContain(`<string name="title_activity_main">${config.appName}</string>`);
+  });
+});
