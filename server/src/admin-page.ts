@@ -178,6 +178,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     var series = el('input', { type: 'number', min: 0, value: String(c.seriesId) });
     var pdfs = el('textarea', { value: c.pdfUrls.join('\n') });
     var edition = el('input', { value: c.edition || '', placeholder: 'طبعة دار ابن الجوزي' });
+    var offsets = el('input', { dir: 'ltr', value: (c.pageOffsets || []).join(', '), placeholder: '2, 2, 2' });
     var active = el('input', { type: 'checkbox', checked: c.active });
     var boxes = DAYS.map(function (d, i) {
       var cb = el('input', { type: 'checkbox', checked: c.weekdays.indexOf(i) >= 0 });
@@ -194,6 +195,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
         seriesId: Number(series.value),
         pdfUrls: pdfs.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
         edition: edition.value.trim() || null,
+        pageOffsets: offsets.value.replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x660); }).split(/[\s,،]+/).filter(Boolean).map(Number),
         active: active.checked
       };
       var id = isNew ? idInput.value.trim() : c.id;
@@ -214,6 +216,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
       field('رقم السلسلة في al-badr.net', series),
       field('روابط PDF (رابط في كل سطر)', pdfs),
       field('الطبعة (تظهر مع أرقام الصفحات حين لا يُربط الكتاب)', edition),
+      field('فرق الصفحات لكل جزء: رقم صفحة PDF ناقص الرقم المطبوع عليها، بترتيب الروابط', offsets),
       el('label', {}, [active, document.createTextNode(' الدورة فعّالة')]),
       save, msg
     ]);
@@ -223,7 +226,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     var box = $('courses');
     box.textContent = '';
     courses.forEach(function (c) { box.appendChild(courseCard(c, false)); });
-    box.appendChild(courseCard({ id: '', title: '', slot: 'fajr', weekdays: [], offsetMin: 25, seriesId: 0, pdfUrls: [], edition: null, active: true }, true));
+    box.appendChild(courseCard({ id: '', title: '', slot: 'fajr', weekdays: [], offsetMin: 25, seriesId: 0, pdfUrls: [], edition: null, pageOffsets: [], active: true }, true));
     var sel = $('exc-course');
     sel.textContent = '';
     sel.appendChild(el('option', { value: '', text: 'كل الدورات' }));
@@ -262,9 +265,9 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     var fields = [
       ['startPoint', 'نقطة البداية', 'text', l.startPoint],
       ['pdfIndex', 'رقم ملف PDF', 'number', l.pdfIndex],
-      ['startPage', 'صفحة البداية', 'number', l.startPage],
+      ['startPage', 'صفحة البداية (في ملف PDF)', 'number', l.startPage],
       ['endPoint', 'نقطة النهاية', 'text', l.endPoint],
-      ['endPage', 'صفحة النهاية', 'number', l.endPage],
+      ['endPage', 'صفحة النهاية (في ملف PDF)', 'number', l.endPage],
       ['endPdfIndex', 'رقم ملف PDF للنهاية (إن اختلف)', 'number', l.endPdfIndex]
     ];
     var inputs = fields.map(function (f) {

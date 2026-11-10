@@ -55,7 +55,9 @@ function parseCourse(b: unknown): CourseInput | null {
     Array.isArray(b.pdfUrls) &&
     b.pdfUrls.every(isString) &&
     typeof b.active === 'boolean' &&
-    (b.edition === undefined || b.edition === null || isString(b.edition));
+    (b.edition === undefined || b.edition === null || isString(b.edition)) &&
+    (b.pageOffsets === undefined ||
+      (Array.isArray(b.pageOffsets) && b.pageOffsets.length <= b.pdfUrls.length && b.pageOffsets.every(Number.isInteger)));
   return ok ? (b as unknown as CourseInput) : null;
 }
 

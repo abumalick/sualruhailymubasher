@@ -18,6 +18,7 @@ export interface CourseRow {
   seriesId: number;
   pdfUrls: string[];
   edition: string | null;
+  pageOffsets: number[];
   active: boolean;
   sort: number;
 }
@@ -41,6 +42,7 @@ const toCourse = (r: Row): CourseRow => ({
   seriesId: r.series_id as number,
   pdfUrls: JSON.parse(r.pdf_urls as string),
   edition: (r.edition as string | null) ?? null,
+  pageOffsets: JSON.parse((r.page_offsets as string | undefined) ?? '[]'),
   active: r.active === 1,
   sort: r.sort as number,
 });
@@ -77,10 +79,10 @@ export async function listCourses(db: D1Database, opts: { activeOnly?: boolean }
 export async function upsertCourse(db: D1Database, id: string, input: CourseInput): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO courses (id, title, slot, weekdays, offset_min, series_id, pdf_urls, active, edition, sort)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, (SELECT coalesce(max(sort), -1) + 1 FROM courses))
+      `INSERT INTO courses (id, title, slot, weekdays, offset_min, series_id, pdf_urls, active, edition, page_offsets, sort)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, coalesce(?10, '[]'), (SELECT coalesce(max(sort), -1) + 1 FROM courses))
        ON CONFLICT(id) DO UPDATE SET title = ?2, slot = ?3, weekdays = ?4, offset_min = ?5,
-         series_id = ?6, pdf_urls = ?7, active = ?8, edition = ?9`,
+         series_id = ?6, pdf_urls = ?7, active = ?8, edition = ?9, page_offsets = coalesce(?10, page_offsets)`,
     )
     .bind(
       id,
@@ -92,6 +94,7 @@ export async function upsertCourse(db: D1Database, id: string, input: CourseInpu
       JSON.stringify(input.pdfUrls),
       input.active ? 1 : 0,
       input.edition?.trim() || null,
+      input.pageOffsets === undefined ? null : JSON.stringify(input.pageOffsets),
     )
     .run();
 }

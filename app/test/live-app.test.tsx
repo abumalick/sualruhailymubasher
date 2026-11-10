@@ -98,13 +98,13 @@ it('opening the book from the live sheet keeps the Mixlr iframe mounted and coll
   expect([...sheetEl.children]).toEqual([head, frame]);
   const w = watch(frame, head);
 
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' }));
   await go('#/book/kitab-tawhid/0/280?marker=1');
   expect(screen.getByText('book page 280')).toBeTruthy();
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByRole('region', { name: 'البث المباشر' })).toBeTruthy();
   expect(screen.getByText('مباشر · الدرس ١٥')).toBeTruthy();
-  expect(screen.queryByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' })).toBeNull();
   expect(screen.getByTitle('البث المباشر')).toBe(frame);
 
   await go('#/courses');
@@ -156,7 +156,7 @@ it('when the server reports the end with no course, the bar keeps its lesson and
   expect(screen.queryByText('مباشر الآن')).toBeNull();
   expect(screen.getByText('انتهى البث')).toBeTruthy();
   expect(screen.getByRole('button', { name: /التعليق على شرح كتاب التوحيد.*انتهى البث/ })).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
+  expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
   expect(screen.getByTitle('البث المباشر')).toBe(frame);
 });
 
