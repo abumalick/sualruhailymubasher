@@ -31,7 +31,12 @@ describe('runReminders', () => {
       title: 'حضّر للدرس القادم',
       body: expect.stringContaining('يتابع من حيث توقف الدرس ٤'),
       data: { kind: 'prep', courseId: 'tafsir-saadi', number: '5' },
+      tag: 'notice',
+      ttlSec: expect.any(Number),
     });
+    const ttl = sendToTopic.mock.calls[0][1].ttlSec / 3600;
+    expect(ttl).toBeGreaterThan(7);
+    expect(ttl).toBeLessThan(10);
   });
 
   it('counts a lesson broadcast today but not yet published', async () => {
