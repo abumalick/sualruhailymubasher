@@ -1,4 +1,4 @@
-import { isNative } from '../platform';
+import { nativeUI } from '../platform';
 import type { Route } from '../router';
 
 const HOME = { label: 'الرئيسية', icon: 'i-home', href: '#/', names: ['home'] };
@@ -14,7 +14,7 @@ export const tabs = (native: boolean) => (native ? [HOME, COURSES, NOTIFICATIONS
 export function NavBar({ route }: { route: Route }) {
   return (
     <nav class="nav">
-      {tabs(isNative()).map((t) => (
+      {tabs(nativeUI()).map((t) => (
         <a href={t.href} class={t.names.includes(route.name) ? 'on' : ''}>
           <svg><use href={`#${t.icon}`} /></svg>
           {t.label}

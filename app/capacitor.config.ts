@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'net.h2.albadrlessons',
+  appId: 'com.albadrmubasher.app',
   appName: 'دروس الشيخ عبد الرزاق البدر',
   webDir: 'dist',
   experimental: {

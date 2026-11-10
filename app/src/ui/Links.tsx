@@ -1,5 +1,5 @@
 import type { StateDTO } from '@albadr/shared';
-import { isNative } from '../platform';
+import { nativeUI } from '../platform';
 import { Icon } from './Star';
 
 const host = (url: string) => {
@@ -34,7 +34,7 @@ export function Links({ state }: { state: StateDTO | null }) {
           ))}
         </div>
       )}
-      {isNative() && (
+      {nativeUI() && (
         <div class="card">
           <a class="lesson" href="#/about">
             <div class="t">

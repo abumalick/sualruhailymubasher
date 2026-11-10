@@ -9,7 +9,7 @@ const fs = vi.hoisted(() => ({
 }));
 vi.mock('@capacitor/filesystem', () => ({ Directory: { Data: 'DATA' }, Filesystem: fs }));
 const platform = vi.hoisted(() => ({ native: false }));
-vi.mock('../src/platform', () => ({ isNative: () => platform.native }));
+vi.mock('../src/platform', () => ({ isNative: () => platform.native, nativeUI: () => platform.native }));
 const http = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('@capacitor/core', async (orig) => ({
   ...(await orig<typeof import('@capacitor/core')>()),

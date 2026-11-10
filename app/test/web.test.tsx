@@ -12,7 +12,7 @@ vi.mock('@capacitor/preferences', () => ({
 }));
 vi.mock('../src/api', () => ({ API_BASE: '', loadCachedState: vi.fn(), fetchState: vi.fn(), fetchLessons: vi.fn(async () => []) }));
 const platform = vi.hoisted(() => ({ native: false }));
-vi.mock('../src/platform', () => ({ isNative: () => platform.native }));
+vi.mock('../src/platform', () => ({ isNative: () => platform.native, nativeUI: () => platform.native }));
 vi.mock('../src/push', () => ({
   askPermission: vi.fn(async () => 'granted'),
   pushPermission: vi.fn(async () => (platform.native ? 'prompt' : 'granted')),

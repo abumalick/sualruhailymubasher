@@ -2,7 +2,7 @@ import type { CourseDTO, StateDTO } from '@albadr/shared';
 import { useState } from 'preact/hooks';
 import { courseLabel, noticeFor, summary, type Follow } from '../logic/follow';
 import { askPermission, pushPermission } from '../push';
-import { isNative } from '../platform';
+import { nativeUI } from '../platform';
 import { navigate } from '../router';
 import { chooseCourses, dismissFollowHint, refresh } from '../store';
 import { clock12, schedule, slotName } from './format';
@@ -38,7 +38,7 @@ export function Chooser({ state, follow, first, onHold }: { state: StateDTO | nu
         <div class="intro">
           <small>عبد الرزاق البدر · الدروس العلمية</small>
           <h3>أيَّ الدروس تتابع؟</h3>
-          <p>{isNative() ? 'يعرض التطبيق الدروس التي تختارها فقط، ولا تصلك إلا تنبيهاتها. يمكنك تغيير اختيارك متى شئت.' : 'يعرض التطبيق الدروس التي تختارها فقط. يمكنك تغيير اختيارك متى شئت.'}</p>
+          <p>{nativeUI() ? 'يعرض التطبيق الدروس التي تختارها فقط، ولا تصلك إلا تنبيهاتها. يمكنك تغيير اختيارك متى شئت.' : 'يعرض التطبيق الدروس التي تختارها فقط. يمكنك تغيير اختيارك متى شئت.'}</p>
         </div>
       ) : (
         <div class="bar">
@@ -47,7 +47,7 @@ export function Chooser({ state, follow, first, onHold }: { state: StateDTO | nu
           </a>
           <div class="t">
             <b>الدروس التي تتابعها</b>
-            <span>{isNative() ? 'يتغيّر معها ما تراه وما يصلك من تنبيهات' : 'يتغيّر معها ما تراه'}</span>
+            <span>{nativeUI() ? 'يتغيّر معها ما تراه وما يصلك من تنبيهات' : 'يتغيّر معها ما تراه'}</span>
           </div>
         </div>
       )}
@@ -126,7 +126,7 @@ export function FollowNotice({ state, follow, always = false }: { state: StateDT
     return (
       <div class="card reach notice">
         <span class="b">جديد: يمكنك اختيار الدروس التي تتابعها</span>
-        <span class="m">{isNative() ? 'فيعرض التطبيق ما تختاره فقط، ولا تصلك إلا تنبيهاته.' : 'فيعرض التطبيق ما تختاره فقط.'}</span>
+        <span class="m">{nativeUI() ? 'فيعرض التطبيق ما تختاره فقط، ولا تصلك إلا تنبيهاته.' : 'فيعرض التطبيق ما تختاره فقط.'}</span>
         <div class="acts start">
           <a class="chip pri" href="#/follow">
             اختر الدروس

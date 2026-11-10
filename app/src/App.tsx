@@ -16,7 +16,7 @@ import { LiveSheet } from './ui/LiveSheet';
 import { MiniPlayer } from './ui/MiniPlayer';
 import { Notifications } from './ui/Notifications';
 import { About } from './ui/About';
-import { isNative } from './platform';
+import { nativeUI } from './platform';
 import { ar, arText } from './ui/format';
 import { NavBar } from './ui/NavBar';
 import { Defs } from './ui/Star';
@@ -24,7 +24,7 @@ import { Defs } from './ui/Star';
 export function App() {
   document.documentElement.dir = 'rtl';
   document.documentElement.lang = 'ar';
-  document.documentElement.classList.toggle('web', !isNative());
+  document.documentElement.classList.toggle('web', !nativeUI());
   const route = useRoute();
   const data = useAppData();
   const { ticks, error, follow } = data;
@@ -53,7 +53,7 @@ export function App() {
       </div>
     );
   }
-  const native = isNative();
+  const native = nativeUI();
   const now = nowOverride() ?? new Date();
   const onLive = () => state && startLive(state, () => send({ type: 'open', live: state.live }));
   const onTick = (kind: 'read' | 'reviewed', courseId: string, n: number) => void toggleTick(kind, courseId, n);
