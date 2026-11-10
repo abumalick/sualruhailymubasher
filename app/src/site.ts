@@ -1,5 +1,6 @@
-// The display name may still change: it also appears in index.html <title> and public/privacy.html.
-export const APP_NAME = 'دروس الشيخ عبد الرزاق البدر';
+// Display name (home screen, About). The full store title is in index.html <title>; public/privacy.html repeats both.
+export const APP_NAME = 'البدر مباشر';
+export const CONTACT_EMAIL = 'contact@albadrmubasher.com';
 export const SITE = 'https://albadrmubasher.com';
 export const PRIVACY_URL = `${SITE}/privacy`;
 export const MIXLR_URL = 'https://albadrnet.mixlr.com';

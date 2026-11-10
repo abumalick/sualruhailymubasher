@@ -1,4 +1,4 @@
-import { APP_NAME, MIXLR_URL, PRIVACY_URL, SHEIKH_SITE, STORES } from '../site';
+import { APP_NAME, CONTACT_EMAIL, MIXLR_URL, PRIVACY_URL, SHEIKH_SITE, STORES } from '../site';
 import { Icon } from './Star';
 
 function Row({ title, sub, href }: { title: string; sub: string; href: string }) {
@@ -65,9 +65,10 @@ export function About({ native, back }: { native: boolean; back?: string }) {
         <Row title="البث المباشر على Mixlr" sub="albadrnet.mixlr.com" href={MIXLR_URL} />
       </div>
 
-      <p class="sec">الخصوصية</p>
+      <p class="sec">الخصوصية والتواصل</p>
       <div class="card">
         <Row title="سياسة الخصوصية" sub="albadrmubasher.com/privacy" href={native ? PRIVACY_URL : '/privacy'} />
+        <Row title="تواصل معنا" sub={CONTACT_EMAIL} href={`mailto:${CONTACT_EMAIL}`} />
       </div>
     </>
   );

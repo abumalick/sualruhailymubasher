@@ -66,6 +66,8 @@ describe('About', () => {
     expect(href(/موقع الشيخ/)).toBe('https://al-badr.net');
     expect(href(/Mixlr/)).toBe('https://albadrnet.mixlr.com');
     expect(href(/سياسة الخصوصية/)).toBe('https://albadrmubasher.com/privacy');
+    expect(href(/تواصل معنا/)).toBe('mailto:contact@albadrmubasher.com');
+    expect(screen.getByText('البدر مباشر')).toBeTruthy();
   });
 
   it('never calls itself official', () => {
