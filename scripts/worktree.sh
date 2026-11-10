@@ -14,7 +14,9 @@ WH_ENV_FILES="server/.dev.vars"                    # space-separated gitignored 
 WH_SHARED_LINKS=""              # space-separated gitignored dirs symlinked main->worktree
 # The *_CMD vars below are SINGLE-quoted so any $WH_PORT/$WH_SLUG/... they contain
 # expand at eval time, not at assignment. Keep them free of literal single quotes.
-WH_INSTALL_CMD='pnpm install'                # run in a new/resumed worktree, e.g. pnpm install; empty = skip
+# Run in a new/resumed worktree (empty = skip). The Android Gradle tests need the files
+# `cap sync android` generates (gitignored), and the sync needs a web build.
+WH_INSTALL_CMD='pnpm install && pnpm --filter app build && pnpm --filter app exec cap sync android'
 WH_UP_CMD='bash scripts/dev-server.sh'                          # server-start cmd, run from the worktree (empty = print only)
 WH_FINISH_MODEL="merge-main"              # pr | merge-main | merge-branch | land
 WH_INTEGRATION_BRANCH="${WH_INTEGRATION_BRANCH:-main}" # branches start from it and finish into it (e.g. main, demo)
@@ -219,7 +221,7 @@ cmd_create() {
   _mise_trust "$wt"
   if [ -n "$WH_INSTALL_CMD" ]; then
     say "+ install: $WH_INSTALL_CMD"
-    ( cd "$wt" && eval "$WH_INSTALL_CMD" ) >&2 || say "warning: install failed; rerun it in $wt"
+    ( cd "$wt" && eval "$WH_INSTALL_CMD" ) >&2 || say "warning: install (pnpm install, app build, cap sync android) failed; rerun it in $wt"
   fi
   say "worktree: $wt"
   _print_info "$branch"

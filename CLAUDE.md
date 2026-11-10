@@ -32,7 +32,8 @@ Worktrees live beside the repo in `../lessons-radio-worktrees/<branch-slug>`.
 
 - **Start** — `wt="$(scripts/worktree.sh start <branch>)" && cd "$wt"`. One command:
   it creates the worktree from `main` (or resumes and rebases it), copies
-  `server/.dev.vars`, runs `pnpm install`, then starts that worktree's own servers in
+  `server/.dev.vars`, runs `pnpm install`, builds the app and runs `cap sync android` (the
+  Android Gradle tests need the files it generates), then starts that worktree's own servers in
   the background and waits until they answer. It exits non-zero, with the log's last
   lines, if the servers die or don't answer within about 90 s (`WH_START_TIMEOUT`). On a
   timeout the servers keep running and a second `start` refuses until they answer;
