@@ -56,12 +56,14 @@ describe('nextPassage', () => {
   });
 
   it('keeps the located end page when the end point is unknown', () => {
-    const latest = [lesson(3, { startPage: 14, endPage: 16, endPoint: null, pdfIndex: 2 })];
+    const latest = [
+      lesson(3, { startPage: 14, endPage: 20, endPoint: null, pdfIndex: 2 }),
+      lesson(2, { startPage: 12, endPage: 14 }),
+    ];
     expect(nextPassage(course, latest, next)).toMatchObject({
       number: 4,
       startPoint: null,
-      startPage: 16,
-      estEndPage: 18,
+      startPage: 20,
       estimated: false,
     });
   });

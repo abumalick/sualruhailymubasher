@@ -474,3 +474,14 @@ def test_verdict_cache_key_changes_with_the_start_point():
     tafsir_lesson = book.model_copy(update={"start_point": TAFSIR_START})
     assert cli._verdict_path(book, [], []) != cli._verdict_path(tafsir_lesson, [], [])
     assert cli._verdict_path(book, [], []) == cli._verdict_path(book.model_copy(), [], [])
+
+
+def test_an_auth_failure_while_correcting_stops_the_run(setup):
+    handler, patches, _ = setup
+    handler.state = copy.deepcopy(STATE)
+    plain = handler
+
+    def denied(request):
+        return httpx.Response(403) if request.method == "PATCH" else plain(request)
+
+    assert cli.main(["run"], transport=httpx.MockTransport(denied)) == 1

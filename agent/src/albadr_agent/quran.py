@@ -9,7 +9,7 @@ from pathlib import Path
 
 DATA = Path(__file__).parent / "data"
 OPENING_MAX = 50
-MIN_MATCH_LETTERS = 25
+MIN_MATCH_LETTERS = 20
 MAX_AYAH_STEP = 40
 ARABIC_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 WESTERN_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
@@ -86,7 +86,8 @@ def label(surah: int, number: int) -> str:
 
 def matches(words: str, surah: int, number: int) -> bool:
     """Whether words someone wrote are the opening of that ayah. Every letter they wrote must agree, and there must
-    be enough of them, since many ayahs share an opening such as «يا أيها الذين آمنوا» (18 letters)."""
+    be enough of them, since many ayahs share an opening such as «يا أيها الذين آمنوا» (18 letters). With the
+    eight words the prompt asks for, 20 letters rejects no real ayah opening."""
     text = ayah(surah, number)
     if text is None:
         return False

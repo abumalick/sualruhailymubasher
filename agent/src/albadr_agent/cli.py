@@ -23,7 +23,7 @@ log = logging.getLogger("albadr_agent")
 
 EXTRA_WINDOW = 12
 DEFAULT_VERDICTS = CACHE_ROOT / "verdicts"
-VERDICT_SCHEMA = 2
+VERDICT_SCHEMA = 3
 
 
 def _local_books() -> dict[str, list[str]]:

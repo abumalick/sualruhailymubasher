@@ -126,3 +126,19 @@ def test_next_lesson_start_may_open_the_next_surah_only_near_the_end():
     assert next_lesson_start(near_end, "التوبة", 1, ayah(9, 1))[0].startswith("تفسير سورة التوبة: من الآية (١)")
     early = "تفسير سورة الأنفال: من الآية (٥) ﴿كَمَا أَخْرَجَكَ...﴾"
     assert "does not follow" in next_lesson_start(early, "التوبة", 1, ayah(9, 1))[1]
+
+
+PROMPT_MIN_WORDS = 8
+
+
+@pytest.mark.parametrize("surah", [8, 9])
+def test_the_minimum_answer_the_prompt_asks_for_passes_for_every_ayah(surah):
+    number = 1
+    while (text := ayah(surah, number)) is not None:
+        assert matches(" ".join(text.split()[:PROMPT_MIN_WORDS]), surah, number), (surah, number)
+        number += 1
+
+
+def test_the_prompt_asks_for_the_minimum_the_check_needs():
+    from albadr_agent.locate import NEXT_AYAH_STEP
+    assert "ثماني كلمات" in NEXT_AYAH_STEP and "الآية كاملة" in NEXT_AYAH_STEP
