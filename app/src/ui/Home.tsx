@@ -1,6 +1,7 @@
 import type { CourseDTO, LessonDTO, StateDTO } from '@albadr/shared';
 import type { ComponentChildren } from 'preact';
 import { buildHome, type HomeModel, type Item } from '../logic/home';
+import { liveContext } from '../logic/live';
 import type { TickKind, Ticks } from '../logic/ticks';
 import { hijriLabel } from '../logic/time';
 import { ar, arText, bookHref, clock12, dayWord, editionPage, passageLine, slotName, weekdayOf } from './format';
@@ -165,7 +166,7 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
   const { item } = p;
   if (item.kind === 'live') {
     const c = item.courseId ? p.state.courses.find((x) => x.id === item.courseId) : undefined;
-    const book = c?.next ? bookHref(c, c.next.pdfIndex, c.next.startPage, true) : null;
+    const ctx = c ? liveContext(c, true, p.state.live.startedAt) : null;
     return (
       <div class="hero">
         <Disc icon="play" label="استمع إلى البث" onClick={p.onLive} />
@@ -177,19 +178,19 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
         {c && item.lessonNumber !== null && (
           <p>
             الدرس {ar(item.lessonNumber)}
-            {c.next && ` · ${passageLine(c.next)}`}
+            {ctx?.start && ` · ${ctx.start}`}
           </p>
         )}
-        {!book && c?.next && editionPage(c, c.next.startPage) && (
+        {ctx?.edition && (
           <div class="acts">
-            <span class="pill o">{editionPage(c, c.next.startPage)}</span>
+            <span class="pill o">{ctx.edition}</span>
           </div>
         )}
-        {book && (
+        {ctx?.book && (
           <div class="acts">
-            <a class="chip" href={book}>
+            <a class="chip" href={ctx.book}>
               <Icon id="i-pdf" />
-              {c?.next?.startPage != null ? `تابع في الكتاب · ص ${ar(c.next.startPage)}` : 'افتح الكتاب'}
+              {ctx.bookLabel}
             </a>
           </div>
         )}

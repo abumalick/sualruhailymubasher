@@ -1,6 +1,7 @@
 import type { CourseDTO, LessonDTO } from '@albadr/shared';
 import { useEffect, useState } from 'preact/hooks';
 import { startLive } from './audio/live';
+import { CLOSED, nextLivePlayer, type LiveEvent } from './logic/live';
 import { player } from './audio/player';
 import { useRoute } from './router';
 import { boot, nowOverride, refresh, toggleTick, useAppData } from './store';
@@ -16,26 +17,30 @@ import { ar, arText } from './ui/format';
 import { NavBar } from './ui/NavBar';
 import { Defs } from './ui/Star';
 
-const onPlay = (lesson: LessonDTO, course: CourseDTO) => {
-  if (!lesson.recordingUrl) return;
-  void player.play({
-    url: lesson.recordingUrl,
-    title: `${course.title} · الدرس ${ar(lesson.number)}`,
-    subtitle: arText(lesson.startPoint),
-    kind: 'recording',
-  });
-};
-
 export function App() {
   document.documentElement.dir = 'rtl';
   document.documentElement.lang = 'ar';
   const route = useRoute();
   const { state, ticks, error } = useAppData();
-  const [sheet, setSheet] = useState(false);
+  const [livePlayer, setLivePlayer] = useState(CLOSED);
+  const send = (e: LiveEvent) => setLivePlayer((p) => nextLivePlayer(p, e));
   useEffect(() => void boot(), []);
+  useEffect(() => send({ type: 'navigate' }), [route]);
+  useEffect(() => void (state && send({ type: 'state', live: state.live })), [state?.live]);
   const now = nowOverride() ?? new Date();
-  const onLive = () => state && startLive(state, () => setSheet(true));
+  const onLive = () => state && startLive(state, () => send({ type: 'open', live: state.live }));
   const onTick = (kind: 'read' | 'reviewed', courseId: string, n: number) => void toggleTick(kind, courseId, n);
+  const onPlay = (lesson: LessonDTO, course: CourseDTO) => {
+    if (!lesson.recordingUrl) return;
+    player.endEmbed();
+    send({ type: 'play-recording' });
+    void player.play({
+      url: lesson.recordingUrl,
+      title: `${course.title} · الدرس ${ar(lesson.number)}`,
+      subtitle: arText(lesson.startPoint),
+      kind: 'recording',
+    });
+  };
 
   let page = null;
   if (route.name === 'home') {
@@ -51,44 +56,51 @@ export function App() {
     page = <Links state={state} />;
   }
 
+  let body;
   if (route.name === 'book') {
     const course = state?.courses.find((c) => c.id === route.id);
-    return (
-      <div class="shell">
-        <Defs />
-        {course ? (
-          <Book key={`${course.id}/${route.pdfIndex}`} course={course} pdfIndex={route.pdfIndex} page={route.page} marker={route.marker} ticks={ticks} onTick={onTick} />
-        ) : state ? (
-          <div class="booker">
-            <p class="quiet">تعذّر تحميل الكتاب</p>
-            <a class="chip" href="#/courses">
-              الدروس
-            </a>
-          </div>
-        ) : (
-          <p class="quiet">{error ? 'تعذّر التحديث' : '…'}</p>
-        )}
-        <MiniPlayer />
+    body = course ? (
+      <Book key={`${course.id}/${route.pdfIndex}`} course={course} pdfIndex={route.pdfIndex} page={route.page} marker={route.marker} ticks={ticks} onTick={onTick} />
+    ) : state ? (
+      <div class="booker">
+        <p class="quiet">تعذّر تحميل الكتاب</p>
+        <a class="chip" href="#/courses">
+          الدروس
+        </a>
       </div>
+    ) : (
+      <p class="quiet">{error ? 'تعذّر التحديث' : '…'}</p>
     );
-  }
-
-  return (
-    <div class={route.name === 'home' ? 'shell lat' : 'shell'}>
-      <Defs />
+  } else {
+    body = (
       <div class="scroll">
         {route.name !== 'home' && error && !state && <p class="err">تعذّر التحديث</p>}
         {page}
       </div>
-      <MiniPlayer />
-      <NavBar route={route} />
-      {sheet && state && (
+    );
+  }
+
+  // One tree for every route, so the live player keeps its place and its iframe is never re-mounted.
+  const live = livePlayer.view !== 'closed' && state;
+  return (
+    <div class={route.name === 'home' ? 'shell lat' : 'shell'}>
+      <Defs />
+      {body}
+      {live ? (
         <LiveSheet
           live={state.live}
-          title={state.courses.find((c) => c.id === state.live.courseId)?.title ?? 'البث المباشر'}
-          onClose={() => setSheet(false)}
+          course={state.courses.find((c) => c.id === livePlayer.courseId)}
+          startedAt={livePlayer.startedAt}
+          expanded={livePlayer.view === 'expanded'}
+          inBook={route.name === 'book'}
+          onExpand={() => send({ type: 'expand' })}
+          onCollapse={() => send({ type: 'collapse' })}
+          onClose={() => send({ type: 'close' })}
         />
+      ) : (
+        <MiniPlayer />
       )}
+      {route.name !== 'book' && <NavBar route={route} />}
     </div>
   );
 }

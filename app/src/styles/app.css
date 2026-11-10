@@ -94,6 +94,21 @@ button:disabled { cursor: default; }
 .mp .mini svg { margin-left: 0; }
 .sheet { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; gap: 10px; padding: calc(16px + env(safe-area-inset-top, 0px)) 18px max(16px, env(safe-area-inset-bottom, 0px)); background: linear-gradient(var(--bg), var(--bg2)); }
 .sheet iframe { flex: 1; width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--bg2); }
+.lhead { display: flex; flex-direction: column; gap: 10px; }
+.lhead .bar .t { flex: 1; }
+.lstart { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.lstart .k { font: 600 11.5px var(--ui); color: var(--soft); }
+.lstart p { margin: 0; font-family: var(--naskh); font-size: 16px; line-height: 1.6; }
+.sheet.min { position: relative; inset: auto; z-index: auto; flex-direction: row; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--bg2); }
+.sheet.min iframe { flex: none; width: 64px; height: 48px; border-radius: 8px; }
+.lbar { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.lbar .t { flex: 1; min-width: 0; display: flex; flex-direction: column; text-align: start; }
+.lbar .b { font-family: var(--naskh); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbar .m { font: 400 11px var(--ui); color: var(--soft); display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbar .dot { width: 6px; height: 6px; flex: none; }
+.lbar .chip { flex: none; }
+.lbar .x, .lhead .x { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--gold); display: grid; place-items: center; flex: none; }
+.lbar .x svg, .lhead .x svg { width: 13px; height: 13px; fill: var(--gold-hi); }
 
 .book { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .pdfbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 14px 10px; border-bottom: 1px solid var(--line); }
@@ -109,7 +124,7 @@ button:disabled { cursor: default; }
 .booker { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .pdffoot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px 18px; border-top: 1px solid var(--line); font: 500 12px var(--ui); }
 .book:last-child .pdffoot { padding-bottom: max(18px, env(safe-area-inset-bottom, 0px)); }
-.book + .mp { padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
+.book ~ .mp:last-child, .book ~ .sheet.min:last-child { padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
 .pager { display: flex; align-items: center; gap: 10px; }
 .pager .chip { font-size: 16px; padding: 2px 12px; }
 .pager .chip:disabled { opacity: .35; }

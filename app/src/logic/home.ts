@@ -1,5 +1,6 @@
 import type { CourseDTO, LessonDTO, NextPassageDTO, StateDTO } from '@albadr/shared';
 import type { Ticks } from './ticks';
+import { liveLesson } from './live';
 import { hijriToday, lessonInstant, medinaDate, medinaWeekday, previousDate } from './time';
 
 export type Item =
@@ -94,7 +95,7 @@ export function buildHome(state: StateDTO, ticks: Ticks, now: Date): HomeModel {
 
   if (live.isLive) {
     const course = state.courses.find((c) => c.id === live.courseId);
-    const lessonNumber = course ? (course.next?.number ?? (course.latest[0]?.number ?? 0) + 1) : null;
+    const lessonNumber = course ? liveLesson(course, live.startedAt).number : null;
     const hero: Item = { kind: 'live', courseId: live.courseId, lessonNumber };
     const steps = course
       ? {

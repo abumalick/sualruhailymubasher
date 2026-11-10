@@ -22,9 +22,9 @@ const withCourse = (id: string, patch: Partial<CourseDTO>): StateDTO => ({
   ...FIXTURE_STATE,
   courses: FIXTURE_STATE.courses.map((c) => (c.id === id ? { ...c, ...patch } : c)),
 });
-const live = (courseId: string | null): StateDTO => ({
+const live = (courseId: string | null, startedAt = '2026-11-03T02:25:00Z'): StateDTO => ({
   ...FIXTURE_STATE,
-  live: { ...FIXTURE_STATE.live, isLive: true, courseId, startedAt: '2026-11-02T02:25:00Z' },
+  live: { ...FIXTURE_STATE.live, isLive: true, courseId, startedAt },
 });
 
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
@@ -79,6 +79,14 @@ describe('buildHome', () => {
     const h = buildHome(state, ticks, MON_0940);
     expect(h.hero).toMatchObject({ kind: 'live', lessonNumber: 450 });
     expect(h.steps?.prepare).toBe('done');
+  });
+
+  it('live hero names the lesson held on the broadcast day, even once it is published or next has moved on', () => {
+    // Lesson 443 was recorded on Monday 22-05-1448: a Monday broadcast is 443 although next is 444.
+    expect(buildHome(live('tafsir-saadi', '2026-11-02T02:25:00Z'), none, MON_0940).hero).toMatchObject({ lessonNumber: 443 });
+    const base = FIXTURE_STATE.courses[0];
+    const moved = { ...live('tafsir-saadi'), courses: [{ ...base, next: { ...base.next!, date: '2026-11-04', number: 445 } }] };
+    expect(buildHome(moved, none, MON_0940).hero).toMatchObject({ lessonNumber: 444 });
   });
 
   it('live without a course: hero live with null course, all items as cards', () => {
