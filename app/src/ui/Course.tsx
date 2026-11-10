@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { fetchLessons } from '../api';
 import type { TickKind, Ticks } from '../logic/ticks';
 import { ar, arText, bookHref, clock12, editionPage, schedule, slotName, weekdayOf } from './format';
+import { isNative } from '../platform';
 import { Icon, Tick } from './Star';
 
 const PAGE = 20;
@@ -100,10 +101,12 @@ export function Course({ course, ticks, onTick, onPlay }: Props) {
                   {page !== null ? `الكتاب · ص ${ar(page)}` : 'افتح الكتاب'}
                 </a>
               )}
-          <a class="chip" href="#/notifications">
-            <Icon id="i-bell" />
-            التنبيهات
-          </a>
+          {isNative() && (
+            <a class="chip" href="#/notifications">
+              <Icon id="i-bell" />
+              التنبيهات
+            </a>
+          )}
         </div>
       </div>
       {lessons.length > 0 && (

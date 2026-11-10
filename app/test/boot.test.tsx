@@ -12,12 +12,12 @@ vi.mock('../src/api', () => ({
 import { App } from '../src/App';
 
 describe('boot', () => {
-  it('renders the RTL shell with the name and four tabs', () => {
+  it('renders the RTL shell with the name and the four web tabs', () => {
     render(<App />);
     expect(document.documentElement.dir).toBe('rtl');
     expect(document.documentElement.lang).toBe('ar');
     expect(screen.getByRole('heading', { name: 'عبد الرزاق البدر' })).toBeTruthy();
-    for (const label of ['الرئيسية', 'الدروس', 'التنبيهات', 'روابط']) {
+    for (const label of ['الرئيسية', 'الدروس', 'عن التطبيق', 'روابط']) {
       expect(screen.getByText(label)).toBeTruthy();
     }
   });

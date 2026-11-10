@@ -65,6 +65,8 @@ button:disabled { cursor: default; }
 .sec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 2px 14px; }
 .card.reach { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.card.about { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.card.about p { margin: 0; font-family: var(--naskh); font-size: 15px; line-height: 1.7; }
 .card.reach .t { display: flex; flex-direction: column; gap: 1px; }
 .card .k, .lesson .k { font: 600 11.5px var(--ui); color: var(--soft); }
 .card .b, .lesson .b { font-family: var(--naskh); font-size: 15px; line-height: 1.35; }
@@ -159,3 +161,10 @@ button:disabled { cursor: default; }
 .followed small { font: 400 11px var(--ui); }
 .followed u { text-decoration: none; color: var(--gold-hi); font-weight: 600; flex: none; }
 .notice .b { font-family: var(--naskh); font-size: 15px; }
+
+/* Desktop browsers (not the native tablet app): a phone-like reading column; the scrollbar stays at the window edge. */
+.web .pdfwrap .pg { max-width: 900px; margin-inline: auto; }
+@media (min-width: 800px) {
+  .web .scroll { padding-inline: calc((100% - 720px) / 2); }
+  .web .nav { padding-inline: calc((100% - 560px) / 2); }
+}
