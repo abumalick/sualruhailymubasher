@@ -34,7 +34,7 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
     );
   const stop = (
     <button class="x" aria-label="إيقاف البث" onClick={onClose}>
-      <Icon id="i-pause" />
+      <Icon id="i-stop" />
     </button>
   );
   return (

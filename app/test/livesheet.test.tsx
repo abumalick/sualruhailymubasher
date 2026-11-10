@@ -201,3 +201,11 @@ it('offers the reload even when the lesson start is unknown', () => {
   render(sheet({ course: undefined }));
   expect(screen.getByRole('button', { name: 'إعادة تحميل البث' })).toBeTruthy();
 });
+
+it('the stop button shows a stop square, in the sheet and in the bar, since it ends the broadcast rather than pausing it', () => {
+  const { container, rerender } = render(sheet({ course: TAWHID }));
+  const icon = () => container.querySelector('.x use')!.getAttribute('href');
+  expect(icon()).toBe('#i-stop');
+  rerender(sheet({ course: TAWHID, expanded: false }));
+  expect(icon()).toBe('#i-stop');
+});

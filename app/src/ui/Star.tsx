@@ -7,6 +7,7 @@ export function Defs() {
         </symbol>
         <symbol id="play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" /></symbol>
         <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 4.5h3.5v15H7zM13.5 4.5H17v15h-3.5z" /></symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" /></symbol>
         <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8h-5v-5H9v5H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></symbol>
         <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5zM12 6v13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></symbol>
         <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15zM10 20a2 2 0 004 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></symbol>
