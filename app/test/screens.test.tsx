@@ -20,6 +20,7 @@ import type { Ticks } from '../src/logic/ticks';
 import { Course } from '../src/ui/Course';
 import { Courses } from '../src/ui/Courses';
 import { Home } from '../src/ui/Home';
+import { liveState, TAFSIR, TAWHID } from './live-state';
 
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
 const MON_0940 = new Date('2026-11-02T06:40:00Z');
@@ -65,6 +66,22 @@ describe('Home hero', () => {
     expect(screen.getByRole('button', { name: 'راجعتُه' })).toBeTruthy();
     fireEvent.click(screen.getByText('استمع'));
     expect(onPlay.mock.calls[0][0].number).toBe(443);
+  });
+
+  it('live hero follows the lesson on air after next has moved on to the following lesson', () => {
+    const flipped = { ...TAWHID, next: { ...TAWHID.next!, date: '2026-11-03', number: 16, startPoint: null, startPage: 285, estEndPage: 290, estimated: true } };
+    const state: StateDTO = { ...liveState('kitab-tawhid'), courses: [TAFSIR, flipped] };
+    home(state, new Date('2026-11-02T18:00:00Z'));
+    expect(screen.getByText('الدرس ١٥ · من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
+    expect(screen.queryByText(/الدرس ١٦/)).toBeNull();
+  });
+
+  it('Tafsir live hero shows the printed page and edition instead of a book button', () => {
+    home(liveState('tafsir-saadi'), new Date('2026-11-03T03:00:00Z'));
+    expect(screen.getByText(/^الدرس ٤٦٠ · تفسير سورة التوبة/)).toBeTruthy();
+    expect(screen.getByText('ص ٦٣٦ · طبعة دار ابن الجوزي')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /تابع في الكتاب/ })).toBeNull();
   });
 
   it('live with a course names the slot; live without a course says only مباشر الآن', () => {
