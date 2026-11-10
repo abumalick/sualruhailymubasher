@@ -13,7 +13,6 @@ import {
   setLive,
   setSetting,
   unmarkSent,
-  type LiveRow,
 } from '../repo';
 import { medinaDate } from '../time';
 
@@ -36,7 +35,7 @@ const liveTopic = (courseId: string | null) => (courseId ? courseTopic(courseId,
 const sentKey = (courseId: string | null, uid: string | null, at: Date) =>
   courseId ? `live:${courseId}:${medinaDate(at)}` : `live:${uid}`;
 
-interface PendingEnd {
+export interface PendingEnd {
   topic: string;
   at: string;
   sentKey: string;
@@ -51,19 +50,30 @@ function readPending(value: string | null): PendingEnd | null {
   }
 }
 
-async function dismissEndedLive(db: D1Database, fcm: Fcm, now: Date, prev: LiveRow): Promise<void> {
-  if (prev.isLive) {
+export type OfflineStep = 'idle' | 'start' | 'wait' | 'end';
+
+// While the end is pending the broadcast is still reported live, so a short Mixlr gap neither
+// flickers the app nor makes it clear the live notification.
+export function offlineStep(isLive: boolean, pending: PendingEnd | null, now: Date): OfflineStep {
+  if (!isLive) return 'idle';
+  if (!pending) return 'start';
+  return now.getTime() - Date.parse(pending.at) >= END_GRACE_MS ? 'end' : 'wait';
+}
+
+async function handleOffline(db: D1Database, fcm: Fcm, now: Date): Promise<void> {
+  const [prev, pending] = await Promise.all([getLive(db), getSetting(db, END_KEY).then(readPending)]);
+  const step = offlineStep(prev.isLive, pending, now);
+  if (step === 'start') {
     const started = Date.parse(prev.startedAt ?? '');
-    const pending: PendingEnd = {
+    const next: PendingEnd = {
       topic: liveTopic(prev.courseId),
       at: now.toISOString(),
       sentKey: sentKey(prev.courseId, prev.broadcastUid, Number.isNaN(started) ? now : new Date(started)),
     };
-    await setSetting(db, END_KEY, JSON.stringify(pending));
-    return;
+    await setSetting(db, END_KEY, JSON.stringify(next));
   }
-  const pending = readPending(await getSetting(db, END_KEY));
-  if (!pending || now.getTime() - Date.parse(pending.at) < END_GRACE_MS) return;
+  if (step !== 'end' || !pending) return;
+  await setLive(db, { isLive: false, broadcastUid: null, streamUrl: null, courseId: null, startedAt: null });
   await setSetting(db, END_KEY, '');
   try {
     await fcm.sendDataToTopic(pending.topic, DISMISS_LIVE, LIVE_TTL_SEC);
@@ -89,12 +99,11 @@ export async function runLivePoll({ db, fetch: f, fcm, now }: LiveDeps): Promise
   if (!view) return;
 
   if (!view.live) {
-    const prev = await getLive(db);
-    await setLive(db, { isLive: false, broadcastUid: null, streamUrl: null, courseId: null, startedAt: null });
-    await dismissEndedLive(db, fcm, now, prev);
+    await handleOffline(db, fcm, now);
     return;
   }
   if (!view.uid) return;
+  if (readPending(await getSetting(db, END_KEY))) await setSetting(db, END_KEY, '');
 
   const at = view.startedAt ? new Date(view.startedAt) : now;
   const [courses, exceptions] = await Promise.all([

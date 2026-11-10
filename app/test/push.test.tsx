@@ -23,8 +23,12 @@ const fm = vi.hoisted(() => ({
 }));
 
 vi.mock('@capacitor-firebase/messaging', () => ({ FirebaseMessaging: fm, Importance: { High: 4 } }));
-const st = vi.hoisted(() => ({ state: null as unknown, listeners: [] as ((s: unknown) => void)[] }));
+const st = vi.hoisted(() => ({ state: null as unknown, listeners: [] as ((s: unknown) => void)[], fresh: [] as ((s: unknown) => void)[] }));
 vi.mock('../src/store', () => ({
+  watchFreshState: (cb: (s: unknown) => void) => {
+    st.fresh.push(cb);
+    return () => {};
+  },
   currentState: () => st.state,
   watchState: (cb: (s: unknown) => void) => {
     cb(st.state);
@@ -34,6 +38,10 @@ vi.mock('../src/store', () => ({
 const setState = (s: unknown) => {
   st.state = s;
   st.listeners.forEach((cb) => cb(s));
+};
+const fetched = (s: unknown) => {
+  setState(s);
+  st.fresh.forEach((cb) => cb(s));
 };
 
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
@@ -46,6 +54,7 @@ const subscribed = () => fm.subscribeToTopic.mock.calls.map((c) => c[0].topic);
 beforeEach(() => {
   st.state = null;
   st.listeners = [];
+  st.fresh = [];
   store.clear();
   vi.clearAllMocks();
 });
@@ -167,31 +176,34 @@ describe('initPush', () => {
     { id: 'live' },
   ];
   const withLive = (isLive: boolean) => ({ ...FIXTURE_STATE, live: { ...FIXTURE_STATE.live, isLive } });
+  const settle = () => new Promise((r) => setTimeout(r, 0));
 
-  it('removes only the live notification once the state says nothing is live', async () => {
+  it('removes only the live notification when a fresh state says nothing is live', async () => {
     fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered });
-    setState(withLive(false));
     await initPush();
+    fetched(withLive(false));
     await waitFor(() => expect(fm.removeDeliveredNotifications).toHaveBeenCalledOnce());
     expect(fm.removeDeliveredNotifications).toHaveBeenCalledWith({ notifications: [delivered[0], delivered[3]] });
   });
 
-  it('keeps the live notification while the broadcast is live, and clears it when it ends', async () => {
+  it('ignores a cached not-live state and keeps the notification when the fresh state is live', async () => {
     fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered });
-    setState(withLive(true));
+    st.state = withLive(false);
     await initPush();
-    await new Promise((r) => setTimeout(r, 0));
-    expect(fm.getDeliveredNotifications).not.toHaveBeenCalled();
     setState(withLive(false));
-    await waitFor(() => expect(fm.removeDeliveredNotifications).toHaveBeenCalled());
+    fetched(withLive(true));
+    await settle();
+    expect(fm.getDeliveredNotifications).not.toHaveBeenCalled();
+    fetched(withLive(false));
+    await waitFor(() => expect(fm.removeDeliveredNotifications).toHaveBeenCalledOnce());
   });
 
   it('leaves the tray alone when no live notification is shown', async () => {
     fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered.slice(1, 3) });
-    setState(withLive(false));
     await initPush();
+    fetched(withLive(false));
     await waitFor(() => expect(fm.getDeliveredNotifications).toHaveBeenCalled());
-    await new Promise((r) => setTimeout(r, 0));
+    await settle();
     expect(fm.removeDeliveredNotifications).not.toHaveBeenCalled();
   });
 });

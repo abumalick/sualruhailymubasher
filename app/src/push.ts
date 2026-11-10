@@ -4,7 +4,7 @@ import { FirebaseMessaging, Importance } from '@capacitor-firebase/messaging';
 import { LIVE_TAG, type PushData, type StateDTO } from '@albadr/shared';
 import { diffTopics, launchTopics, routeForPush, topicsFor, type StoredTopics } from './logic/topics';
 import { navigate } from './router';
-import { currentState, watchState } from './store';
+import { currentState, watchFreshState, watchState } from './store';
 import { loadCachedState } from './api';
 
 const TOPICS_KEY = 'topics';
@@ -147,8 +147,10 @@ export async function initPush(): Promise<void> {
     navigate(routeForPush(data, currentState() ?? (await loadCachedState())));
   });
   let synced = false;
+  watchFreshState((state) => {
+    if (!state.live.isLive) void clearLiveNotification();
+  });
   watchState((state) => {
-    if (state && !state.live.isLive) void clearLiveNotification();
     if (synced || !state) return;
     synced = true;
     void syncTopics(state);

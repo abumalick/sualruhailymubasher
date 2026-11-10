@@ -24,6 +24,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Background push sent when a broadcast ends: the live notification's identifier is its apns-collapse-id.
         if userInfo["dismiss"] as? String == "live" {
             UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["live"])
+            NotificationCenter.default.post(name: Notification.Name.init("didReceiveRemoteNotification"), object: nil, userInfo: userInfo)
+            completionHandler(.noData)
+            return
         }
         NotificationCenter.default.post(name: Notification.Name.init("didReceiveRemoteNotification"), object: completionHandler, userInfo: userInfo)
     }

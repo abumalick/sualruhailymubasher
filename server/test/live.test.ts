@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import liveJson from './fixtures/channel-view-live.json';
 import offlineJson from './fixtures/channel-view-offline.json';
-import { runLivePoll } from '../src/jobs/live';
+import { offlineStep, runLivePoll } from '../src/jobs/live';
 import { parseChannelView } from '../src/sources/mixlr';
 import { getLive, insertLessonIfNew, recordBroadcast, setLive } from '../src/repo';
 import type { Fcm } from '../src/fcm';
@@ -147,10 +147,14 @@ describe('runLivePoll', () => {
     expect(await getLive(env.DB)).toEqual(before);
   });
 
-  it('clears live state when the channel goes offline', async () => {
-    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' });
+  it('keeps reporting live through the grace period, then clears live state', async () => {
+    const live = { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' };
+    await setLive(env.DB, live);
     const { deps, sendToTopic } = setup(respond(offlineJson) as typeof fetch);
     await runLivePoll(deps);
+    await runLivePoll({ ...deps, now: new Date(deps.now.getTime() + 2 * 60_000) });
+    expect(await getLive(env.DB)).toEqual(live);
+    await runLivePoll({ ...deps, now: new Date(deps.now.getTime() + 3 * 60_000) });
     expect(sendToTopic).not.toHaveBeenCalled();
     expect(await getLive(env.DB)).toEqual({ isLive: false, broadcastUid: null, streamUrl: null, courseId: null, startedAt: null });
   });
@@ -247,5 +251,24 @@ describe('live dismiss', () => {
     await poll(offline, 0, deps.fcm);
     await poll(offline, 10, deps.fcm);
     expect(sendDataToTopic).not.toHaveBeenCalled();
+  });
+});
+
+describe('offlineStep', () => {
+  const pending = { topic: 't', at: '2026-10-19T17:00:00.000Z', sentKey: 'k' };
+  const at = (min: number) => new Date(Date.parse(pending.at) + min * 60_000);
+
+  it('does nothing when nothing was live', () => {
+    expect(offlineStep(false, null, at(0))).toBe('idle');
+    expect(offlineStep(false, pending, at(10))).toBe('idle');
+  });
+
+  it('starts the grace period on the first offline poll', () => {
+    expect(offlineStep(true, null, at(0))).toBe('start');
+  });
+
+  it('waits inside the grace period and ends at three minutes', () => {
+    expect(offlineStep(true, pending, at(2.9))).toBe('wait');
+    expect(offlineStep(true, pending, at(3))).toBe('end');
   });
 });
