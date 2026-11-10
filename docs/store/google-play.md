@@ -50,7 +50,7 @@ a 1024×500 feature graphic.
 > website. The lessons come from the Sheikh's website al-badr.net and its live broadcast.
 
 **Category**: Education. **Tags**: chosen in the console. **Contact email**: owner's choice (public).
-**Privacy policy**: https://albadrmubasher.com/privacy
+**Privacy policy**: https://albadrmubasher.com/privacy (must load before the app is submitted for review)
 
 ## App content answers
 

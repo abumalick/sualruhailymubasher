@@ -18,6 +18,10 @@ Signing reads `ALBADR_KEYSTORE`, `ALBADR_KEYSTORE_PASSWORD`, `ALBADR_KEY_ALIAS`,
     apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
     adb install -r app/build/outputs/apk/release/app-release.apk
 
+`google-services.json` must contain a client for `com.albadrmubasher.app`: without one the google-services
+plugin fails the build, and without the file it is skipped and push silently stops working. The current
+file is `~/.config/albadr-lessons/google-services.com.albadrmubasher.app.json`.
+
 For Google Play, build the bundle instead (upload key; Play App Signing re-signs it). Raise `versionCode`
 in `android/app/build.gradle` first: Play refuses a code it has already seen.
 
