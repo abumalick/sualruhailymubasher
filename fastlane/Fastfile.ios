@@ -184,4 +184,39 @@ platform :ios do
     n = latest_testflight_build_number(api_key: api_key, app_identifier: bundle_id, version: marketing_version, initial_build_number: 0)
     UI.important("LATEST_BUILD=#{n}")
   end
+
+  # deliver no longer sets price or availability (Apple retired those attributes), so this lane calls
+  # the appPriceSchedules and v2 appAvailabilities endpoints directly. Run it once, for the first release.
+  desc "Make the app free and available in every territory (first release)"
+  lane :store_setup do
+    api_key
+    api = Spaceship::ConnectAPI.client.tunes_request_client
+    app = Spaceship::ConnectAPI::App.find(bundle_id) || UI.user_error!("no App Store Connect app for #{bundle_id}")
+
+    free = api.get("v1/apps/#{app.id}/appPricePoints", { "filter[territory]" => "USA", "limit" => 200 })
+              .body["data"].find { |p| p["attributes"]["customerPrice"] == "0.0" } || UI.user_error!("no free price point")
+    api.post("v1/appPriceSchedules", {
+      data: { type: "appPriceSchedules", relationships: {
+        app: { data: { type: "apps", id: app.id } },
+        baseTerritory: { data: { type: "territories", id: "USA" } },
+        manualPrices: { data: [{ type: "appPrices", id: "${free}" }] }
+      } },
+      included: [{ type: "appPrices", id: "${free}", attributes: { startDate: nil },
+                   relationships: { appPricePoint: { data: { type: "appPricePoints", id: free["id"] } } } }]
+    })
+    UI.success("price: free")
+
+    territories = api.get("v1/territories", { "limit" => 200 }).body["data"].map { |t| t["id"] }
+    api.post("v2/appAvailabilities", {
+      data: { type: "appAvailabilities", attributes: { availableInNewTerritories: true }, relationships: {
+        app: { data: { type: "apps", id: app.id } },
+        territoryAvailabilities: { data: territories.map { |t| { type: "territoryAvailabilities", id: "${#{t}}" } } }
+      } },
+      included: territories.map do |t|
+        { type: "territoryAvailabilities", id: "${#{t}}", attributes: { available: true },
+          relationships: { territory: { data: { type: "territories", id: t } } } }
+      end
+    })
+    UI.success("available in #{territories.length} territories and new ones")
+  end
 end

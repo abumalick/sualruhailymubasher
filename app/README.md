@@ -26,7 +26,12 @@ Everything goes through fastlane, from the repository root on the Mac (`fastlane
     fastlane ios build       # the same without the upload (IPA in .tmp/ios-build)
     fastlane ios metadata    # listing (fastlane/metadata/ios), age rating, review notes, screenshots
     fastlane ios privacy     # App Privacy answers (fastlane/app_privacy_details.json), Apple ID login
+    fastlane ios store_setup # once, for the first release: free, every territory
     fastlane ios build_status
+
+Screenshots come from the web build with real lessons from the production API:
+`scripts/store-screenshots.sh ios` writes `fastlane/screenshots/ios/ar-SA/` (1320x2868, the 6.9-inch
+iPhone); `android` writes Play's `fastlane/metadata/android/ar/images/phoneScreenshots/` (1080x1920).
 
 The build number is the latest TestFlight build of `MARKETING_VERSION` plus one, so only
 `MARKETING_VERSION` is bumped by hand. The lane refuses an IPA whose bundle id or version differ from
