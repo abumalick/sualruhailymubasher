@@ -1,4 +1,4 @@
-# Used by `fastlane ios metadata` (deliver); the app identifier and API key come from Fastfile.ios
+# Defaults for every deliver call (`fastlane ios metadata` and `submit`); the app identifier and API key come from Fastfile.ios
 metadata_path "./fastlane/metadata/ios"
 screenshots_path "./fastlane/screenshots/ios"
 app_rating_config_path "./fastlane/age_rating.json"
@@ -6,6 +6,7 @@ skip_binary_upload true
 overwrite_screenshots true
 force true
 submit_for_review false
+# The owner wants each approved version released at once, also when it is submitted by hand
 automatic_release true
 run_precheck_before_submit false
 precheck_include_in_app_purchases false

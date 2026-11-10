@@ -78,5 +78,5 @@ The App Privacy answers are entered by hand in App Store Connect (App Privacy, t
 first, then the form, and keep both in line with the privacy page and Play's data-safety form.
 
 Push notifications use the APNs key `HW2PGQ6N8R`, uploaded to the Firebase project `albadr-lessons`.
-Submitting for review is a decision for the owner: run `submit` only on their go. It answers that the
-app shows third-party content and that the owner holds the rights to it.
+Submitting for review is a decision for the owner: run `submit` only on their go. It declares that the
+app shows third-party content, which states that the owner holds the rights to it.

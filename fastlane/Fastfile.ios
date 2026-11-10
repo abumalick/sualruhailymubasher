@@ -179,27 +179,21 @@ platform :ios do
     )
   end
 
-  # The owner states they hold the rights to the third-party content (the Sheikh's recordings, books
-  # and broadcast). Approval releases the version at once.
+  # Declaring third-party content (the Sheikh's recordings, books and broadcast) states that the owner
+  # holds the rights to it, which the owner confirmed. Approval releases the version at once.
   desc "Submit the latest TestFlight build of the current version for App Review, released when approved"
   lane :submit do
-    key = ios_api_key
-    number = latest_testflight_build_number(api_key: key, app_identifier: ios_bundle_id, version: ios_marketing_version)
+    # Without build_number, deliver waits for the newest build of app_version to finish processing
     deliver(
-      api_key: key,
+      api_key: ios_api_key,
       app_identifier: ios_bundle_id,
       app_version: ios_marketing_version,
-      build_number: number.to_s,
       # deliver sets the release type only while uploading the listing, so the listing goes up again here
       skip_binary_upload: true,
       skip_screenshots: true,
       submit_for_review: true,
       automatic_release: true,
-      submission_information: {
-        add_id_info_uses_idfa: false,
-        content_rights_contains_third_party_content: true,
-        content_rights_has_rights: true
-      }
+      submission_information: { content_rights_contains_third_party_content: true }
     )
   end
 
