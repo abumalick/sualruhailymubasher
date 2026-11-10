@@ -18,17 +18,43 @@ const fm = vi.hoisted(() => ({
   subscribeToTopic: vi.fn(async (_: { topic: string }) => {}),
   unsubscribeFromTopic: vi.fn(async (_: { topic: string }) => {}),
   addListener: vi.fn(async () => ({ remove: async () => {} })),
+  getDeliveredNotifications: vi.fn(async () => ({ notifications: [] as { id: string; tag?: string }[] })),
+  removeDeliveredNotifications: vi.fn(async (_: { notifications: unknown[] }) => {}),
 }));
+
 vi.mock('@capacitor-firebase/messaging', () => ({ FirebaseMessaging: fm, Importance: { High: 4 } }));
+const st = vi.hoisted(() => ({ state: null as unknown, listeners: [] as ((s: unknown) => void)[], fresh: [] as ((s: unknown) => void)[] }));
+vi.mock('../src/store', () => ({
+  watchFreshState: (cb: (s: unknown) => void) => {
+    st.fresh.push(cb);
+    return () => {};
+  },
+  currentState: () => st.state,
+  watchState: (cb: (s: unknown) => void) => {
+    cb(st.state);
+    st.listeners.push(cb);
+  },
+}));
+const setState = (s: unknown) => {
+  st.state = s;
+  st.listeners.forEach((cb) => cb(s));
+};
+const fetched = (s: unknown) => {
+  setState(s);
+  st.fresh.forEach((cb) => cb(s));
+};
 
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { setTopic, syncTopics } from '../src/push';
+import { initPush, setTopic, syncTopics } from '../src/push';
 import { Notifications } from '../src/ui/Notifications';
 
 const ids = FIXTURE_STATE.courses.map((c) => c.id);
 const subscribed = () => fm.subscribeToTopic.mock.calls.map((c) => c[0].topic);
 
 beforeEach(() => {
+  st.state = null;
+  st.listeners = [];
+  st.fresh = [];
   store.clear();
   vi.clearAllMocks();
 });
@@ -139,5 +165,45 @@ describe('setTopic without any state', () => {
     expect(await setTopic('live-other', false)).toBeNull();
     expect(fm.subscribeToTopic).not.toHaveBeenCalled();
     expect(store.has('topics')).toBe(false);
+  });
+});
+
+describe('initPush', () => {
+  const delivered = [
+    { id: '0', tag: 'live' },
+    { id: '0', tag: 'notice' },
+    { id: '7', tag: 'media' },
+    { id: 'live' },
+  ];
+  const withLive = (isLive: boolean) => ({ ...FIXTURE_STATE, live: { ...FIXTURE_STATE.live, isLive } });
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  it('removes only the live notification when a fresh state says nothing is live', async () => {
+    fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered });
+    await initPush();
+    fetched(withLive(false));
+    await waitFor(() => expect(fm.removeDeliveredNotifications).toHaveBeenCalledOnce());
+    expect(fm.removeDeliveredNotifications).toHaveBeenCalledWith({ notifications: [delivered[0], delivered[3]] });
+  });
+
+  it('ignores a cached not-live state and keeps the notification when the fresh state is live', async () => {
+    fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered });
+    st.state = withLive(false);
+    await initPush();
+    setState(withLive(false));
+    fetched(withLive(true));
+    await settle();
+    expect(fm.getDeliveredNotifications).not.toHaveBeenCalled();
+    fetched(withLive(false));
+    await waitFor(() => expect(fm.removeDeliveredNotifications).toHaveBeenCalledOnce());
+  });
+
+  it('leaves the tray alone when no live notification is shown', async () => {
+    fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered.slice(1, 3) });
+    await initPush();
+    fetched(withLive(false));
+    await waitFor(() => expect(fm.getDeliveredNotifications).toHaveBeenCalled());
+    await settle();
+    expect(fm.removeDeliveredNotifications).not.toHaveBeenCalled();
   });
 });

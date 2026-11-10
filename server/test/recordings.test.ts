@@ -68,6 +68,8 @@ describe('runRecordingIngest', () => {
       title: 'التسجيل متاح · راجع الدرس',
       body: `${TAWHID_TITLE} · الدرس ${String(newNumber).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)])}`,
       data: { kind: 'rec', courseId: TAWHID, number: String(newNumber) },
+      tag: 'notice',
+      ttlSec: 86400,
     });
 
     const third = setup({ ...base, [SERIES_481]: sub481.replace('</body>', `${newEntryHtml}</body>`) });

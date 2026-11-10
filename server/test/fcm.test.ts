@@ -31,7 +31,7 @@ function mockFetch(sendStatus = 200) {
   });
 }
 
-const note = { title: 't', body: 'b', data: { kind: 'live' as const, number: '' } };
+const note = { title: 't', body: 'b', data: { kind: 'live' as const, number: '' }, tag: 'live', ttlSec: 7200 };
 
 describe('fcm', () => {
   afterEach(() => vi.useRealTimers());
@@ -87,9 +87,11 @@ describe('fcm', () => {
     expect(f.mock.calls.filter(([u]) => String(u) === 'https://oauth2.googleapis.com/token')).toHaveLength(2);
   });
 
-  it('posts the message to the project topic', async () => {
+  it('posts the message to the project topic with its tray tag and lifespan', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
     const f = mockFetch();
-    await createFcm(account(), f).sendToTopic('c-tafsir-saadi-live', note);
+    await createFcm(account(), f).sendToTopic('c-tafsir-saadi-live', { ...note, ttlSec: 7200.9 });
     const [url, init] = f.mock.calls[1]!;
     expect(String(url)).toBe('https://fcm.googleapis.com/v1/projects/proj-123/messages:send');
     expect((init!.headers as Record<string, string>).authorization).toBe('Bearer tok-1');
@@ -98,8 +100,39 @@ describe('fcm', () => {
         topic: 'c-tafsir-saadi-live',
         notification: { title: 't', body: 'b' },
         data: { kind: 'live', number: '' },
-        android: { priority: 'high', notification: { channel_id: 'lessons' } },
-        apns: { payload: { aps: { sound: 'default' } } },
+        android: { priority: 'high', ttl: '7200s', notification: { channel_id: 'lessons', tag: 'live' } },
+        apns: {
+          headers: { 'apns-expiration': String(Date.parse('2026-01-01T02:00:00Z') / 1000), 'apns-collapse-id': 'live' },
+          payload: { aps: { sound: 'default' } },
+        },
+      },
+    });
+  });
+
+  it('clamps a lifespan already in the past to zero', async () => {
+    const f = mockFetch();
+    await createFcm(account(), f).sendToTopic('x', { ...note, ttlSec: -30 });
+    expect(JSON.parse(String(f.mock.calls[1]![1]!.body)).message.android.ttl).toBe('0s');
+  });
+
+  it('sends a silent message: data-only on Android, a background push on iOS', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+    const f = mockFetch();
+    await createFcm(account(), f).sendDataToTopic('live-other', { dismiss: 'live' }, 3600);
+    expect(JSON.parse(String(f.mock.calls[1]![1]!.body))).toEqual({
+      message: {
+        topic: 'live-other',
+        data: { dismiss: 'live' },
+        android: { priority: 'normal', ttl: '3600s' },
+        apns: {
+          headers: {
+            'apns-push-type': 'background',
+            'apns-priority': '5',
+            'apns-expiration': String(Date.parse('2026-01-01T01:00:00Z') / 1000),
+          },
+          payload: { aps: { 'content-available': 1 } },
+        },
       },
     });
   });

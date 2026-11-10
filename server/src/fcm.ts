@@ -13,6 +13,8 @@ export interface Notification {
   title: string;
   body: string;
   data?: PushData;
+  tag: string;
+  ttlSec: number;
 }
 
 const encoder = new TextEncoder();
@@ -90,27 +92,55 @@ export function createFcm(serviceAccountJson: string, f: typeof fetch) {
     }
   }
 
+  async function send(message: Record<string, unknown>): Promise<void> {
+    if (!serviceAccountJson) {
+      console.warn('FCM disabled: no service account configured');
+      return;
+    }
+    const { sa } = loadAccount();
+    const res = await f(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${await accessToken(sa.client_email)}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    if (!res.ok) throw new Error(`FCM send failed: ${res.status} ${await res.text()}`);
+  }
+
+  const lifespan = (ttlSec: number) => {
+    const ttl = Math.max(0, Math.floor(ttlSec));
+    return { ttl: `${ttl}s`, expiration: String(Math.floor(Date.now() / 1000) + ttl) };
+  };
+
   return {
     async sendToTopic(topic: string, n: Notification): Promise<void> {
-      if (!serviceAccountJson) {
-        console.warn('FCM disabled: no service account configured');
-        return;
-      }
-      const { sa } = loadAccount();
-      const res = await f(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${await accessToken(sa.client_email)}`, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          message: {
-            topic,
-            notification: { title: n.title, body: n.body },
-            data: n.data,
-            android: { priority: 'high', notification: { channel_id: 'lessons' } },
-            apns: { payload: { aps: { sound: 'default' } } },
-          },
-        }),
+      const { ttl, expiration } = lifespan(n.ttlSec);
+      await send({
+        topic,
+        notification: { title: n.title, body: n.body },
+        data: n.data,
+        android: { priority: 'high', ttl, notification: { channel_id: 'lessons', tag: n.tag } },
+        apns: {
+          headers: { 'apns-expiration': expiration, 'apns-collapse-id': n.tag },
+          payload: { aps: { sound: 'default' } },
+        },
       });
-      if (!res.ok) throw new Error(`FCM send failed: ${res.status} ${await res.text()}`);
+    },
+
+    // Shows nothing. Android: the app's MessagingService handles it even when the app is killed; normal
+    // priority, because FCM deprioritises apps whose high-priority messages show nothing, and that
+    // would delay the live push. iOS: a background push, which iOS may throttle or delay and never
+    // delivers to an app the user force-quit.
+    async sendDataToTopic(topic: string, data: Record<string, string>, ttlSec: number): Promise<void> {
+      const { ttl, expiration } = lifespan(ttlSec);
+      await send({
+        topic,
+        data,
+        android: { priority: 'normal', ttl },
+        apns: {
+          headers: { 'apns-push-type': 'background', 'apns-priority': '5', 'apns-expiration': expiration },
+          payload: { aps: { 'content-available': 1 } },
+        },
+      });
     },
   };
 }

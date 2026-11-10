@@ -1,9 +1,9 @@
-import { courseTopic, toArabicDigits } from '@albadr/shared';
+import { courseTopic, NOTICE_TAG, toArabicDigits } from '@albadr/shared';
 import { nextPassage } from '../estimate';
 import type { Fcm } from '../fcm';
 import { expectedNextNumber, latestLessons, listCourses, listExceptions, markSent, type CourseRow } from '../repo';
 import { nextLessonDate } from '../schedule';
-import { addDays, medinaDate } from '../time';
+import { addDays, medinaDate, medinaInstant } from '../time';
 
 export interface RemindersDeps {
   db: D1Database;
@@ -40,6 +40,8 @@ async function remind(course: CourseRow, { db, fcm, now }: RemindersDeps, except
     title: 'حضّر للدرس القادم',
     body: detail ? `${course.title} · ${detail}` : course.title,
     data: { kind: 'prep', courseId: course.id, number: String(passage.number) },
+    tag: NOTICE_TAG,
+    ttlSec: (medinaInstant(next.date, next.time).getTime() - now.getTime()) / 1000,
   });
 }
 

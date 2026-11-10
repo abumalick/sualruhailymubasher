@@ -1,4 +1,5 @@
 import UIKit
+import UserNotifications
 import Capacitor
 
 @UIApplicationMain
@@ -20,6 +21,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        // Background push sent when a broadcast ends: the live notification's identifier is its apns-collapse-id.
+        if userInfo["dismiss"] as? String == "live" {
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["live"])
+            NotificationCenter.default.post(name: Notification.Name.init("didReceiveRemoteNotification"), object: nil, userInfo: userInfo)
+            completionHandler(.noData)
+            return
+        }
         NotificationCenter.default.post(name: Notification.Name.init("didReceiveRemoteNotification"), object: completionHandler, userInfo: userInfo)
     }
 

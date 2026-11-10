@@ -1,4 +1,4 @@
-import { courseTopic, toArabicDigits } from '@albadr/shared';
+import { courseTopic, NOTICE_TAG, toArabicDigits } from '@albadr/shared';
 import type { Fcm } from '../fcm';
 import { insertLessonIfNew, latestLessons, listCourses, markSent, setRecordingUrl } from '../repo';
 import type { CourseRow } from '../repo';
@@ -6,6 +6,7 @@ import { fetchLatestLessons, parseDetailMp3 } from '../sources/albadr';
 
 const MAX_DETAIL_FETCHES = 8;
 const LESSON_WINDOW = 60;
+const REC_TTL_SEC = 24 * 3600;
 
 export interface RecordingDeps {
   db: D1Database;
@@ -40,6 +41,8 @@ async function ingestCourse(course: CourseRow, { db, fetch: f, fcm }: RecordingD
         title: 'التسجيل متاح · راجع الدرس',
         body: `${course.title} · الدرس ${toArabicDigits(lesson.number)}`,
         data: { kind: 'rec', courseId: course.id, number: String(lesson.number) },
+        tag: NOTICE_TAG,
+        ttlSec: REC_TTL_SEC,
       });
     } catch (e) {
       console.error('recording push failed', e);

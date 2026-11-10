@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import liveJson from './fixtures/channel-view-live.json';
 import offlineJson from './fixtures/channel-view-offline.json';
-import { runLivePoll } from '../src/jobs/live';
+import { offlineStep, runLivePoll } from '../src/jobs/live';
 import { parseChannelView } from '../src/sources/mixlr';
 import { getLive, insertLessonIfNew, recordBroadcast, setLive } from '../src/repo';
 import type { Fcm } from '../src/fcm';
@@ -12,8 +12,9 @@ const respond = (body: unknown, status = 200) => async () => new Response(JSON.s
 
 function setup(fetchImpl: typeof fetch, now = new Date('2026-10-19T15:20:30Z')) {
   const sendToTopic = vi.fn().mockResolvedValue(undefined);
-  const deps = { db: env.DB, fetch: fetchImpl, fcm: { sendToTopic } as unknown as Fcm, now };
-  return { deps, sendToTopic };
+  const sendDataToTopic = vi.fn().mockResolvedValue(undefined);
+  const deps = { db: env.DB, fetch: fetchImpl, fcm: { sendToTopic, sendDataToTopic } as unknown as Fcm, now };
+  return { deps, sendToTopic, sendDataToTopic };
 }
 
 const withStart = (startedAt: string, uid = UID) => ({
@@ -27,6 +28,7 @@ beforeEach(async () => {
   await env.DB.exec('DELETE FROM sent_notifications');
   await env.DB.exec('DELETE FROM lessons');
   await env.DB.exec('DELETE FROM broadcasts');
+  await env.DB.exec("DELETE FROM settings WHERE key = 'live-end-pending'");
 });
 
 describe('parseChannelView', () => {
@@ -69,6 +71,8 @@ describe('runLivePoll', () => {
       title: '🔴 بدأ البث المباشر',
       body: expect.stringMatching(/ · الدرس ٨$/),
       data: { kind: 'live', courseId: 'kitab-tawhid', number: '8' },
+      tag: 'live',
+      ttlSec: 7200,
     });
   });
 
@@ -112,6 +116,8 @@ describe('runLivePoll', () => {
       title: '🔴 بث مباشر الآن',
       body: 'دروس الشيخ عبد الرزاق البدر',
       data: { kind: 'live-other', number: '' },
+      tag: 'live',
+      ttlSec: 7200,
     });
     expect((await getLive(env.DB)).courseId).toBeNull();
   });
@@ -141,10 +147,14 @@ describe('runLivePoll', () => {
     expect(await getLive(env.DB)).toEqual(before);
   });
 
-  it('clears live state when the channel goes offline', async () => {
-    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' });
+  it('keeps reporting live through the grace period, then clears live state', async () => {
+    const live = { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' };
+    await setLive(env.DB, live);
     const { deps, sendToTopic } = setup(respond(offlineJson) as typeof fetch);
     await runLivePoll(deps);
+    await runLivePoll({ ...deps, now: new Date(deps.now.getTime() + 2 * 60_000) });
+    expect(await getLive(env.DB)).toEqual(live);
+    await runLivePoll({ ...deps, now: new Date(deps.now.getTime() + 3 * 60_000) });
     expect(sendToTopic).not.toHaveBeenCalled();
     expect(await getLive(env.DB)).toEqual({ isLive: false, broadcastUid: null, streamUrl: null, courseId: null, startedAt: null });
   });
@@ -157,5 +167,108 @@ describe('runLivePoll', () => {
     expect(err).toHaveBeenCalled();
     expect((await getLive(env.DB)).isLive).toBe(true);
     err.mockRestore();
+  });
+});
+
+describe('live dismiss', () => {
+  const offline = respond(offlineJson) as typeof fetch;
+  const at = (min: number) => new Date(Date.parse('2026-10-19T17:00:00Z') + min * 60_000);
+  const poll = (fetchImpl: typeof fetch, min: number, fcm: Fcm) =>
+    runLivePoll({ db: env.DB, fetch: fetchImpl, fcm, now: at(min) });
+
+  it('dismisses the live notification once the broadcast has stayed off past the grace period', async () => {
+    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' });
+    const { deps, sendDataToTopic } = setup(offline);
+    await poll(offline, 0, deps.fcm);
+    await poll(offline, 2, deps.fcm);
+    expect(sendDataToTopic).not.toHaveBeenCalled();
+    await poll(offline, 3, deps.fcm);
+    await poll(offline, 4, deps.fcm);
+    expect(sendDataToTopic).toHaveBeenCalledTimes(1);
+    expect(sendDataToTopic).toHaveBeenCalledWith('c-kitab-tawhid-live', { dismiss: 'live' }, 7200);
+  });
+
+  it('sends the dismiss to live-other for a broadcast outside every course', async () => {
+    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: null, startedAt: 'x' });
+    const { deps, sendDataToTopic } = setup(offline);
+    await poll(offline, 0, deps.fcm);
+    await poll(offline, 5, deps.fcm);
+    expect(sendDataToTopic).toHaveBeenCalledWith('live-other', { dismiss: 'live' }, 7200);
+  });
+
+  it('does not dismiss when the broadcaster reconnects within the grace period', async () => {
+    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' });
+    const { deps, sendDataToTopic } = setup(offline);
+    await poll(offline, 0, deps.fcm);
+    await poll(respond(withStart('2026-10-19T17:01:00Z', 'again')) as typeof fetch, 1, deps.fcm);
+    await poll(offline, 3, deps.fcm);
+    expect(sendDataToTopic).not.toHaveBeenCalled();
+    await poll(offline, 6, deps.fcm);
+    expect(sendDataToTopic).toHaveBeenCalledTimes(1);
+  });
+
+  it('pushes again, once, when the broadcast resumes the same day after a dismiss', async () => {
+    const { sendToTopic, sendDataToTopic } = setup(offline);
+    const fcm = { sendToTopic, sendDataToTopic } as unknown as Fcm;
+    const pollAt = (fetchImpl: typeof fetch, iso: string) => runLivePoll({ db: env.DB, fetch: fetchImpl, fcm, now: new Date(iso) });
+    const resumed = respond(withStart('2026-10-19T15:36:00Z', 'again')) as typeof fetch;
+    await pollAt(respond(liveJson) as typeof fetch, '2026-10-19T15:20:30Z');
+    await pollAt(offline, '2026-10-19T15:30:00Z');
+    await pollAt(offline, '2026-10-19T15:34:00Z');
+    expect(sendDataToTopic).toHaveBeenCalledTimes(1);
+    await pollAt(resumed, '2026-10-19T15:36:30Z');
+    await pollAt(resumed, '2026-10-19T15:37:30Z');
+    expect(sendToTopic).toHaveBeenCalledTimes(2);
+    expect(sendToTopic.mock.calls[1][0]).toBe('c-kitab-tawhid-live');
+  });
+
+  it('does not push again after a reconnect within the grace period', async () => {
+    const { sendToTopic, sendDataToTopic } = setup(offline);
+    const fcm = { sendToTopic, sendDataToTopic } as unknown as Fcm;
+    const pollAt = (fetchImpl: typeof fetch, iso: string) => runLivePoll({ db: env.DB, fetch: fetchImpl, fcm, now: new Date(iso) });
+    await pollAt(respond(liveJson) as typeof fetch, '2026-10-19T15:20:30Z');
+    await pollAt(offline, '2026-10-19T15:30:00Z');
+    await pollAt(respond(withStart('2026-10-19T15:31:00Z', 'again')) as typeof fetch, '2026-10-19T15:31:30Z');
+    expect(sendDataToTopic).not.toHaveBeenCalled();
+    expect(sendToTopic).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs a failed dismiss and does not resend it', async () => {
+    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' });
+    const { deps, sendDataToTopic } = setup(offline);
+    sendDataToTopic.mockRejectedValue(new Error('fcm down'));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await poll(offline, 0, deps.fcm);
+    await poll(offline, 3, deps.fcm);
+    await poll(offline, 4, deps.fcm);
+    expect(sendDataToTopic).toHaveBeenCalledTimes(1);
+    expect(err).toHaveBeenCalledWith('live dismiss push failed', expect.any(Error));
+    err.mockRestore();
+  });
+
+  it('sends nothing on an offline poll without a broadcast that just ended', async () => {
+    const { deps, sendDataToTopic } = setup(offline);
+    await poll(offline, 0, deps.fcm);
+    await poll(offline, 10, deps.fcm);
+    expect(sendDataToTopic).not.toHaveBeenCalled();
+  });
+});
+
+describe('offlineStep', () => {
+  const pending = { topic: 't', at: '2026-10-19T17:00:00.000Z', sentKey: 'k' };
+  const at = (min: number) => new Date(Date.parse(pending.at) + min * 60_000);
+
+  it('does nothing when nothing was live', () => {
+    expect(offlineStep(false, null, at(0))).toBe('idle');
+    expect(offlineStep(false, pending, at(10))).toBe('idle');
+  });
+
+  it('starts the grace period on the first offline poll', () => {
+    expect(offlineStep(true, null, at(0))).toBe('start');
+  });
+
+  it('waits inside the grace period and ends at three minutes', () => {
+    expect(offlineStep(true, pending, at(2.9))).toBe('wait');
+    expect(offlineStep(true, pending, at(3))).toBe('end');
   });
 });

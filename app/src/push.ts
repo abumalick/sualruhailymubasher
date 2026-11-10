@@ -1,10 +1,10 @@
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { FirebaseMessaging, Importance } from '@capacitor-firebase/messaging';
-import type { PushData, StateDTO } from '@albadr/shared';
+import { LIVE_TAG, type PushData, type StateDTO } from '@albadr/shared';
 import { diffTopics, launchTopics, routeForPush, topicsFor, type StoredTopics } from './logic/topics';
 import { navigate } from './router';
-import { currentState, watchState } from './store';
+import { currentState, watchFreshState, watchState } from './store';
 import { loadCachedState } from './api';
 
 const TOPICS_KEY = 'topics';
@@ -129,6 +129,16 @@ export async function pushPermission(): Promise<string> {
 const isPushData = (d: unknown): d is PushData =>
   typeof d === 'object' && d !== null && KINDS.includes((d as PushData).kind);
 
+// Fallback for a dismiss push that was delayed or never arrived (iOS throttles background pushes).
+// Android tags it; iOS uses the collapse id as the notification's identifier.
+async function clearLiveNotification(): Promise<void> {
+  try {
+    const { notifications } = await FirebaseMessaging.getDeliveredNotifications();
+    const live = notifications.filter((n) => n.tag === LIVE_TAG || n.id === LIVE_TAG);
+    if (live.length) await FirebaseMessaging.removeDeliveredNotifications({ notifications: live });
+  } catch {}
+}
+
 export async function initPush(): Promise<void> {
   if (!native()) return;
   await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
@@ -137,6 +147,9 @@ export async function initPush(): Promise<void> {
     navigate(routeForPush(data, currentState() ?? (await loadCachedState())));
   });
   let synced = false;
+  watchFreshState((state) => {
+    if (!state.live.isLive) void clearLiveNotification();
+  });
   watchState((state) => {
     if (synced || !state) return;
     synced = true;

@@ -239,6 +239,10 @@ export async function markSent(db: D1Database, key: string): Promise<boolean> {
   return res.meta.changes > 0;
 }
 
+export async function unmarkSent(db: D1Database, key: string): Promise<void> {
+  await db.prepare('DELETE FROM sent_notifications WHERE key = ?').bind(key).run();
+}
+
 export async function recordBroadcast(
   db: D1Database,
   uid: string,

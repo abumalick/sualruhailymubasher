@@ -12,6 +12,7 @@ export interface AppData {
 
 let data: AppData = { state: null, ticks: { read: new Set(), reviewed: new Set() }, error: false };
 const listeners = new Set<(d: AppData) => void>();
+const freshListeners = new Set<(state: StateDTO) => void>();
 
 function update(patch: Partial<AppData>) {
   data = { ...data, ...patch };
@@ -41,6 +42,7 @@ export function refresh(): Promise<void> {
     try {
       const { state, fresh } = await fetchState();
       update({ state, error: !fresh });
+      if (fresh) freshListeners.forEach((l) => l(state));
     } catch {
       update({ error: true });
     } finally {
@@ -73,6 +75,12 @@ export function useAppData(): AppData {
 export function watchData(cb: (d: AppData) => void): () => void {
   listeners.add(cb);
   return () => void listeners.delete(cb);
+}
+
+// Only states just fetched from the server, never the cached copy shown at boot or offline.
+export function watchFreshState(cb: (state: StateDTO) => void): () => void {
+  freshListeners.add(cb);
+  return () => void freshListeners.delete(cb);
 }
 
 export const currentState = (): StateDTO | null => data.state;
