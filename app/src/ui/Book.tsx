@@ -156,7 +156,8 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
         {pdf && (
           <div class="pg">
             {marker && current === clamp(requested, total) && <span class="mkbanner">بداية الدرس القادم تقريبًا</span>}
-            <canvas ref={canvas} />
+            {/* pdf.js draws glyph by glyph from the left; an inherited RTL direction right-anchors each one and garbles Arabic. */}
+            <canvas ref={canvas} dir="ltr" />
           </div>
         )}
       </div>

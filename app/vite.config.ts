@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import preact from '@preact/preset-vite';
+import { playwright } from '@vitest/browser-playwright';
 
 export default defineConfig({
   plugins: [preact()],
@@ -12,5 +13,17 @@ export default defineConfig({
       },
     },
   },
-  test: { environment: 'happy-dom', include: ['test/**/*.test.{ts,tsx}'] },
+  test: {
+    projects: [
+      { extends: true, test: { name: 'unit', environment: 'happy-dom', include: ['test/**/*.test.{ts,tsx}'], exclude: ['test/visual/**'] } },
+      {
+        extends: true,
+        test: {
+          name: 'visual',
+          include: ['test/visual/**/*.test.{ts,tsx}'],
+          browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: 'chromium' }] },
+        },
+      },
+    ],
+  },
 });

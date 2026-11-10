@@ -145,6 +145,12 @@ describe('Book', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('draws the page on a left-to-right canvas, since pdf.js positions every glyph from its left edge', async () => {
+    render(book(10));
+    await waitFor(() => expect(rendered).toEqual([10]));
+    expect(document.querySelector('canvas')!.getAttribute('dir')).toBe('ltr');
+  });
+
   it('clamps a page beyond the total to the last page', async () => {
     render(book(500));
     await screen.findByText('ص ٢٠ / ٢٠');
