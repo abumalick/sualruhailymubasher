@@ -39,8 +39,10 @@ and add `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt`.
     fastlane android production validate_only:true   # check the promotion without sending it
     fastlane android production            # promote the internal release to production review
 
-While the app has never been published, Play accepts only draft releases: `fastlane android internal
-status:draft`, then roll it out in the console. Content rating, target audience, data safety, ads and app
+`production` promotes the internal release whose versionCode is in `build.gradle`. While the app has never
+been published, Play accepts only draft releases (`fastlane android internal status:draft`, `fastlane
+android production status:draft`); finish those in the console (roll out, or Publishing overview → send
+for review). Store settings (category, contact details) and countries are set in the console too. Content rating, target audience, data safety, ads and app
 access have no API: they are answered in the console (answers in `docs/store/google-play.md`).
 
 ## iOS release (macOS, fastlane)
