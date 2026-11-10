@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Store screenshots from the web build, with real lessons from the production API.
-# Usage: scripts/store-screenshots.sh [ios] [android]   (default: ios android)
+# Usage: scripts/store-screenshots.sh ios|android...
+# The Android output belongs to the Play listing branch: commit it only from there.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 targets=("$@")
-[ ${#targets[@]} -gt 0 ] || targets=(ios android)
+[ ${#targets[@]} -gt 0 ] || { echo "usage: $0 ios|android..." >&2; exit 2; }
 
 port="$(node -e 'const s=require("net").createServer();s.listen(0,"127.0.0.1",()=>{const p=s.address().port;s.close(()=>console.log(p))})')"
 base="http://127.0.0.1:${port}"

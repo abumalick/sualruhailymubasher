@@ -1,2 +1,4 @@
-# Lanes live per platform in Fastfile.<platform>: Fastfile.ios (ios-release), Fastfile.android (play-release)
-Dir[File.join(FastlaneCore::FastlaneFolder.path, "Fastfile.*")].sort.each { |f| import(File.basename(f)) }
+# Lanes live per platform: Fastfile.ios (ios-release), Fastfile.android (play-release)
+%w[ios android].each do |platform|
+  import("Fastfile.#{platform}") if File.exist?(File.join(FastlaneCore::FastlaneFolder.path, "Fastfile.#{platform}"))
+end

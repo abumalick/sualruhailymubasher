@@ -3,73 +3,73 @@ require "fileutils"
 require "json"
 
 # Run from the repository root on macOS: `fastlane ios <lane>`.
-FASTLANE_DIR = File.expand_path(FastlaneCore::FastlaneFolder.path)
-ROOT = File.expand_path("..", FASTLANE_DIR)
-IOS = "#{ROOT}/app/ios/App"
-PBXPROJ = "#{IOS}/App.xcodeproj/project.pbxproj"
-SECRETS = File.expand_path(ENV.fetch("ALBADR_SECRETS", "~/.config/albadr-lessons"))
-TEAM_ID = "H8JDJQSJ7M"
+IOS_FASTLANE_DIR = File.expand_path(FastlaneCore::FastlaneFolder.path)
+IOS_ROOT = File.expand_path("..", IOS_FASTLANE_DIR)
+IOS_APP = "#{IOS_ROOT}/app/ios/App"
+IOS_PBXPROJ = "#{IOS_APP}/App.xcodeproj/project.pbxproj"
+IOS_SECRETS = File.expand_path(ENV.fetch("ALBADR_SECRETS", "~/.config/albadr-lessons"))
+IOS_TEAM_ID = "H8JDJQSJ7M"
 
-def plist_value(path, key)
+def ios_plist_value(path, key)
   out, status = Open3.capture2("/usr/libexec/PlistBuddy", "-c", "Print :#{key}", path)
   status.success? ? out.strip : nil
 end
 
-def secret_env(name)
-  path = "#{SECRETS}/#{name}"
+def ios_secret_env(name)
+  path = "#{IOS_SECRETS}/#{name}"
   UI.user_error!("#{path} not found (see README, iOS release)") unless File.exist?(path)
   File.readlines(path, chomp: true).grep(/\A[A-Z_]+=/).to_h { |line| line.split("=", 2) }
 end
 
-def bundle_id
-  ids = File.read(PBXPROJ).scan(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/).flatten.uniq
+def ios_bundle_id
+  ids = File.read(IOS_PBXPROJ).scan(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/).flatten.uniq
   UI.user_error!("project.pbxproj has #{ids.length} bundle ids: #{ids.join(', ')}") unless ids.length == 1
   ids.first
 end
 
-def marketing_version
-  File.read(PBXPROJ)[/MARKETING_VERSION = ([^;]+);/, 1] || UI.user_error!("MARKETING_VERSION not found")
+def ios_marketing_version
+  File.read(IOS_PBXPROJ)[/MARKETING_VERSION = ([^;]+);/, 1] || UI.user_error!("MARKETING_VERSION not found")
 end
 
 # ios.env holds APP_STORE_KEY_ID and APP_STORE_ISSUER_ID; the key sits beside it as AuthKey_<id>.p8
-def asc_key
-  @asc ||= begin
-    env = secret_env("ios.env")
+def ios_asc_key
+  @ios_asc ||= begin
+    env = ios_secret_env("ios.env")
     {
       key_id: env.fetch("APP_STORE_KEY_ID"),
       issuer_id: env.fetch("APP_STORE_ISSUER_ID"),
-      key_filepath: "#{SECRETS}/AuthKey_#{env.fetch('APP_STORE_KEY_ID')}.p8"
+      key_filepath: "#{IOS_SECRETS}/AuthKey_#{env.fetch('APP_STORE_KEY_ID')}.p8"
     }
   end
 end
 
-def api_key
-  app_store_connect_api_key(**asc_key)
+def ios_api_key
+  app_store_connect_api_key(**ios_asc_key)
 end
 
 # Each bundle id has its own Firebase iOS app, so its plist is kept as GoogleService-Info.<bundle id>.plist
-def install_google_service_plist
-  source = "#{SECRETS}/GoogleService-Info.#{bundle_id}.plist"
-  UI.user_error!("#{source} not found: download it from the Firebase iOS app for #{bundle_id}") unless File.exist?(source)
-  target = "#{IOS}/App/GoogleService-Info.plist"
+def ios_install_google_service_plist
+  source = "#{IOS_SECRETS}/GoogleService-Info.#{ios_bundle_id}.plist"
+  UI.user_error!("#{source} not found: download it from the Firebase iOS app for #{ios_bundle_id}") unless File.exist?(source)
+  target = "#{IOS_APP}/App/GoogleService-Info.plist"
   FileUtils.cp(source, target)
-  found = plist_value(target, "BUNDLE_ID")
-  UI.user_error!("GoogleService-Info.plist is for #{found}, the project is #{bundle_id}") unless found == bundle_id
+  found = ios_plist_value(target, "BUNDLE_ID")
+  UI.user_error!("GoogleService-Info.plist is for #{found}, the project is #{ios_bundle_id}") unless found == ios_bundle_id
 end
 
-def build_web_and_sync
-  sh("cd #{ROOT} && pnpm install --frozen-lockfile && pnpm --filter app build && pnpm --filter app exec cap sync ios")
+def ios_build_web_and_sync
+  sh("cd #{IOS_ROOT} && pnpm install --frozen-lockfile && pnpm --filter app build && pnpm --filter app exec cap sync ios")
 end
 
 # Without aps-environment the app never gets an APNs token, and nothing else would catch it before a device does
-def verify_ipa(ipa, build_number)
+def ios_verify_ipa(ipa, build_number)
   payload = "#{File.dirname(ipa)}/unzipped"
   FileUtils.rm_rf(payload)
   sh("unzip", "-q", ipa, "-d", payload)
   app = Dir["#{payload}/Payload/*.app"].first || UI.user_error!("no .app in #{ipa}")
   info = "#{app}/Info.plist"
-  built = [plist_value(info, "CFBundleIdentifier"), plist_value(info, "CFBundleShortVersionString"), plist_value(info, "CFBundleVersion")]
-  expected = [bundle_id, marketing_version, build_number.to_s]
+  built = [ios_plist_value(info, "CFBundleIdentifier"), ios_plist_value(info, "CFBundleShortVersionString"), ios_plist_value(info, "CFBundleVersion")]
+  expected = [ios_bundle_id, ios_marketing_version, build_number.to_s]
   UI.user_error!("IPA is #{built.join(' ')}, expected #{expected.join(' ')}") unless built == expected
   entitlements, = Open3.capture2e("codesign", "-d", "--entitlements", ":-", app)
   UI.user_error!("the IPA is not signed for production APNs:\n#{entitlements}") unless entitlements =~ %r{<key>aps-environment</key>\s*<string>production</string>}
@@ -80,14 +80,14 @@ end
 # entitlements it finds in the archive, and an unsigned one has none (no aps-environment). The export
 # re-signs with Apple's cloud-managed distribution certificate through the API key, so no signing
 # identity is needed in the (SSH-locked) keychain.
-def build_store_ipa(build_number)
+def ios_build_store_ipa(build_number)
   # Xcode's IPA export calls /usr/bin/rsync through PATH; Homebrew's rsync 3.x rejects openrsync's flags
-  shim = "#{ROOT}/.tmp/fastlane-bin"
+  shim = "#{IOS_ROOT}/.tmp/fastlane-bin"
   FileUtils.mkdir_p(shim)
   FileUtils.ln_sf("/usr/bin/rsync", "#{shim}/rsync")
   ENV["PATH"] = "#{shim}:#{ENV.fetch('PATH', '')}"
 
-  build_dir = "#{ROOT}/.tmp/ios-build"
+  build_dir = "#{IOS_ROOT}/.tmp/ios-build"
   archive = "#{build_dir}/App.xcarchive"
   FileUtils.rm_rf(build_dir)
   FileUtils.mkdir_p(build_dir)
@@ -98,32 +98,32 @@ def build_store_ipa(build_number)
       <key>method</key><string>app-store-connect</string>
       <key>destination</key><string>export</string>
       <key>signingStyle</key><string>automatic</string>
-      <key>teamID</key><string>#{TEAM_ID}</string>
+      <key>teamID</key><string>#{IOS_TEAM_ID}</string>
       <key>uploadSymbols</key><true/>
       <key>manageAppVersionAndBuildNumber</key><false/>
     </dict></plist>
   PLIST
-  sh("xcodebuild", "-project", "#{IOS}/App.xcodeproj", "-scheme", "App",
+  sh("xcodebuild", "-project", "#{IOS_APP}/App.xcodeproj", "-scheme", "App",
      "-configuration", "Release", "-destination", "generic/platform=iOS",
      "-archivePath", archive, "archive",
-     "CURRENT_PROJECT_VERSION=#{build_number}", "DEVELOPMENT_TEAM=#{TEAM_ID}",
+     "CURRENT_PROJECT_VERSION=#{build_number}", "DEVELOPMENT_TEAM=#{IOS_TEAM_ID}",
      "CODE_SIGNING_ALLOWED=NO", "CODE_SIGNING_REQUIRED=NO", "CODE_SIGN_IDENTITY=")
-  sh("codesign", "--force", "--sign", "-", "--entitlements", "#{IOS}/App/AppRelease.entitlements",
+  sh("codesign", "--force", "--sign", "-", "--entitlements", "#{IOS_APP}/App/AppRelease.entitlements",
      "#{archive}/Products/Applications/App.app")
   sh("xcodebuild", "-exportArchive", "-archivePath", archive,
      "-exportOptionsPlist", "#{build_dir}/ExportOptions.plist", "-exportPath", build_dir,
      "-allowProvisioningUpdates",
-     "-authenticationKeyPath", asc_key[:key_filepath],
-     "-authenticationKeyID", asc_key[:key_id],
-     "-authenticationKeyIssuerID", asc_key[:issuer_id])
+     "-authenticationKeyPath", ios_asc_key[:key_filepath],
+     "-authenticationKeyID", ios_asc_key[:key_id],
+     "-authenticationKeyIssuerID", ios_asc_key[:issuer_id])
   ipa = Dir["#{build_dir}/*.ipa"].first || UI.user_error!("the export produced no IPA")
-  verify_ipa(ipa, build_number)
+  ios_verify_ipa(ipa, build_number)
   ipa
 end
 
 # The reviewer contact (name, phone, email) stays out of git in review-contact.env; the notes are committed
-def app_review_information
-  contact = secret_env("review-contact.env")
+def ios_app_review_information
+  contact = ios_secret_env("review-contact.env")
   {
     first_name: contact.fetch("FIRST_NAME"),
     last_name: contact.fetch("LAST_NAME"),
@@ -131,7 +131,7 @@ def app_review_information
     email_address: contact.fetch("EMAIL_ADDRESS"),
     demo_user: "",
     demo_password: "",
-    notes: File.read("#{FASTLANE_DIR}/app-review-notes.txt").strip
+    notes: File.read("#{IOS_FASTLANE_DIR}/app-review-notes.txt").strip
   }
 end
 
@@ -144,27 +144,27 @@ platform :ios do
 
   desc "Build a signed App Store IPA in .tmp/ios-build without uploading it"
   lane :build do
-    key = api_key
-    install_google_service_plist
-    build_web_and_sync
-    number = latest_testflight_build_number(api_key: key, app_identifier: bundle_id, version: marketing_version, initial_build_number: 0) + 1
-    build_store_ipa(number)
+    key = ios_api_key
+    ios_install_google_service_plist
+    ios_build_web_and_sync
+    number = latest_testflight_build_number(api_key: key, app_identifier: ios_bundle_id, version: ios_marketing_version, initial_build_number: 0) + 1
+    ios_build_store_ipa(number)
   end
 
   desc "Build and upload to TestFlight"
   lane :beta do
     ipa = build
-    upload_to_testflight(api_key: api_key, ipa: ipa, skip_waiting_for_build_processing: true)
+    upload_to_testflight(api_key: ios_api_key, ipa: ipa, skip_waiting_for_build_processing: true)
   end
 
   desc "Upload the listing, age rating, review notes and screenshots (no binary, no submission)"
   lane :metadata do
     deliver(
-      api_key: api_key,
-      app_identifier: bundle_id,
-      app_version: marketing_version,
-      app_review_information: app_review_information,
-      skip_screenshots: Dir["#{FASTLANE_DIR}/screenshots/ios/*/*.png"].empty?
+      api_key: ios_api_key,
+      app_identifier: ios_bundle_id,
+      app_version: ios_marketing_version,
+      app_review_information: ios_app_review_information,
+      skip_screenshots: Dir["#{IOS_FASTLANE_DIR}/screenshots/ios/*/*.png"].empty?
     )
   end
 
@@ -173,15 +173,15 @@ platform :ios do
   desc "Publish the App Privacy answers from app_privacy_details.json (Apple ID login)"
   lane :privacy do
     upload_app_privacy_details_to_app_store(
-      app_identifier: bundle_id,
-      team_id: TEAM_ID,
-      json_path: "#{FASTLANE_DIR}/app_privacy_details.json"
+      app_identifier: ios_bundle_id,
+      team_id: IOS_TEAM_ID,
+      json_path: "#{IOS_FASTLANE_DIR}/app_privacy_details.json"
     )
   end
 
   desc "Print the latest TestFlight build number of the current version"
   lane :build_status do
-    n = latest_testflight_build_number(api_key: api_key, app_identifier: bundle_id, version: marketing_version, initial_build_number: 0)
+    n = latest_testflight_build_number(api_key: ios_api_key, app_identifier: ios_bundle_id, version: ios_marketing_version, initial_build_number: 0)
     UI.important("LATEST_BUILD=#{n}")
   end
 
@@ -189,9 +189,9 @@ platform :ios do
   # the appPriceSchedules and v2 appAvailabilities endpoints directly. Run it once, for the first release.
   desc "Make the app free and available in every territory (first release)"
   lane :store_setup do
-    api_key
+    ios_api_key
     api = Spaceship::ConnectAPI.client.tunes_request_client
-    app = Spaceship::ConnectAPI::App.find(bundle_id) || UI.user_error!("no App Store Connect app for #{bundle_id}")
+    app = Spaceship::ConnectAPI::App.find(ios_bundle_id) || UI.user_error!("no App Store Connect app for #{ios_bundle_id}")
 
     free = api.get("v1/apps/#{app.id}/appPricePoints", { "filter[territory]" => "USA", "limit" => 200 })
               .body["data"].find { |p| p["attributes"]["customerPrice"] == "0.0" } || UI.user_error!("no free price point")

@@ -1,6 +1,6 @@
 # app
 
-Capacitor 8 + Preact. iOS bundle id `com.albadrmubasher.app` (Apple team H8JDJQSJ7M).
+Capacitor 8 + Preact. iOS bundle id `com.albadrmubasher.app` (Apple team H8JDJQSJ7M); Android application id: see `applicationId` in `android/app/build.gradle`.
 
 ## Web build
 

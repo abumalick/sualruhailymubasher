@@ -9,6 +9,9 @@ test_output/
 .env.*
 *.p8
 *.p12
+*.pem
+GoogleService-Info*.plist
+google-services*.json
 *.mobileprovision
 *.jks
 *.keystore

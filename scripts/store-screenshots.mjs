@@ -2,7 +2,7 @@
 // Usage: node scripts/store-screenshots.mjs <base url> <ios|android>...
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -45,14 +45,17 @@ async function capture(browser, base, target) {
   await context.close();
 }
 
-const [base, ...targets] = process.argv.slice(2);
-if (!base || targets.length === 0 || targets.some((t) => !TARGETS[t])) {
-  console.error('usage: store-screenshots.mjs <base url> <ios|android>...');
-  process.exit(2);
+async function main([base, ...targets]) {
+  if (!base || targets.length === 0 || targets.some((t) => !TARGETS[t])) {
+    console.error('usage: store-screenshots.mjs <base url> <ios|android>...');
+    process.exit(2);
+  }
+  const browser = await chromium.launch();
+  try {
+    for (const target of targets) await capture(browser, base, target);
+  } finally {
+    await browser.close();
+  }
 }
-const browser = await chromium.launch();
-try {
-  for (const target of targets) await capture(browser, base, target);
-} finally {
-  await browser.close();
-}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) await main(process.argv.slice(2));
