@@ -2,7 +2,9 @@ import fcntl
 from contextlib import contextmanager
 from pathlib import Path
 
-DEFAULT_LOCK = Path.home() / ".cache" / "albadr-agent" / "run.lock"
+from .paths import CACHE_ROOT
+
+DEFAULT_LOCK = CACHE_ROOT / "run.lock"
 
 
 @contextmanager

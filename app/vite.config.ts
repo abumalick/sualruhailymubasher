@@ -3,6 +3,7 @@ import preact from '@preact/preset-vite';
 
 export default defineConfig({
   plugins: [preact()],
+  server: { proxy: { '/api': process.env.API_ORIGIN ?? 'http://127.0.0.1:8787' } },
   build: {
     rollupOptions: {
       output: {

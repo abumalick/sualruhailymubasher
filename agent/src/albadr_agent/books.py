@@ -9,8 +9,10 @@ from pathlib import Path
 
 import httpx
 
+from .paths import CACHE_ROOT
+
 log = logging.getLogger("albadr_agent")
-DEFAULT_CACHE = Path.home() / ".cache" / "albadr-agent" / "books"
+DEFAULT_CACHE = CACHE_ROOT / "books"
 MIN_ARABIC_LETTERS = 20
 ARABIC_LETTER = re.compile(r"[\u0621-\u064A]")
 WORKERS = 4
