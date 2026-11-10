@@ -1,55 +1,14 @@
 # Google Play listing
 
 Package `com.albadrmubasher.app`, developer account "H2 Alliance" (organisation account). Default language
-Arabic (ar), with an English (en-US) translation. Assets are generated outside the repo: screenshots from a
-phone (status bar cropped, padded to Play's 2:1 limit), the 512 px icon from `app/resources/icon.png`, and
-a 1024×500 feature graphic.
+Arabic (ar), with an English (en-US) translation.
 
 ## Store listing
 
-**App name** (30 chars max)
-- ar: البدر مباشر | عبد الرزاق البدر
-- en-US: Al-Badr Live Lessons
-
-Home-screen label: البدر مباشر.
-
-**Short description** (80 chars max)
-- ar: بث مباشر وتسجيلات دروس الشيخ في المسجد النبوي مع موضع الدرس. تطبيق غير رسمي
-- en-US: Live and recorded lessons from the Prophet's Mosque, Madinah. Unofficial app.
-
-**Full description, ar**
-
-> استمع إلى دروس الشيخ عبد الرزاق البدر في المسجد النبوي: البث المباشر وقت الدرس، وتسجيلات الدروس السابقة، مع
-> موضع كل درس من الكتاب المشروح.
->
-> • البث المباشر: تنبيه عند بدء الدرس، والاستماع من داخل التطبيق.
-> • التسجيلات: كل درس بعنوانه وموضعه من الكتاب ورقم صفحته، لتراجعه متى شئت.
-> • التحضير: يعرض لك من أين يبدأ الدرس القادم تقريبًا، لتقرأه قبل حضوره.
-> • التنبيهات: تختار الدروس التي تتابعها، وتختار ما يصلك من كل درس: بدء البث، توفر التسجيل، تذكير بالتحضير.
-> • الدروس الحالية: شرح تفسير السعدي بعد الفجر، والتعليق على شرح كتاب التوحيد بعد المغرب.
->
-> لا يحتاج التطبيق إلى حساب، ولا يعرض إعلانات.
->
-> هذا تطبيق غير رسمي من إعداد طلاب العلم، ولا يتبع الشيخ ولا موقعه. الدروس من موقع الشيخ al-badr.net وبثه
-> المباشر.
-
-**Full description, en-US**
-
-> Listen to Sheikh Abdur-Razzaq Al-Badr's lessons in the Prophet's Mosque in Madinah: the live broadcast
-> during the lesson, and recordings of past lessons, each with its place in the book being explained.
->
-> • Live: a notification when the lesson starts, and listening inside the app.
-> • Recordings: every lesson with its title, its place in the book and its page number, to review any time.
-> • Preparation: roughly where the next lesson will start, so you can read it beforehand.
-> • Notifications: choose the lessons you follow, and what each one sends you: broadcast start, recording
->   available, preparation reminder.
-> • Current lessons: the explanation of Tafsir as-Sa'di after Fajr, and the commentary on the explanation of
->   Kitab at-Tawhid after Maghrib.
->
-> No account needed, no ads.
->
-> This is an unofficial app made by students of knowledge. It is not affiliated with the Sheikh or his
-> website. The lessons come from the Sheikh's website al-badr.net and its live broadcast.
+The listing lives in `fastlane/metadata/android/` and is uploaded by fastlane (see `app/README.md`):
+titles, short and full descriptions per locale, changelogs per versionCode, and the images under
+`ar/images/` (icon, feature graphic, phone screenshots). Screenshots come from a phone with real lessons,
+status bar cropped and padded to Play's 2:1 limit. Home-screen label: البدر مباشر.
 
 **Category**: Education. **Tags**: chosen in the console. **Contact email**: contact@albadrmubasher.com.
 **Privacy policy**: https://albadrmubasher.com/privacy (must load before the app is submitted for review)

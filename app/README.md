@@ -22,11 +22,26 @@ Signing reads `ALBADR_KEYSTORE`, `ALBADR_KEYSTORE_PASSWORD`, `ALBADR_KEY_ALIAS`,
 plugin fails the build, and without the file it is skipped and push silently stops working. The current
 file is `~/.config/albadr-lessons/google-services.com.albadrmubasher.app.json`.
 
-For Google Play, build the bundle instead (upload key; Play App Signing re-signs it). Raise `versionCode`
-in `android/app/build.gradle` first: Play refuses a code it has already seen.
+## Google Play (fastlane)
 
-    cd app/android && ./gradlew bundleRelease
-    keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab
+Everything Play-side goes through fastlane, run from the repo root. The listing (texts, icon, feature
+graphic, screenshots, changelogs) is in `fastlane/metadata/android/`. Secrets stay in
+`~/.config/albadr-lessons/`: `env` (upload key, read by the `build` lane) and `play-service-account.json`
+(Play API key; override with `ALBADR_PLAY_JSON_KEY`). Play App Signing re-signs the bundle.
+
+Before each release, raise `versionCode` in `android/app/build.gradle` (Play refuses a code it has seen)
+and add `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt`.
+
+    fastlane android build                 # signed bundle only
+    fastlane android validate_credentials  # the key reaches the Play Console
+    fastlane android upload_metadata       # listing and images, no release
+    fastlane android internal              # build + upload to internal testing with the listing
+    fastlane android production validate_only:true   # check the promotion without sending it
+    fastlane android production            # promote the internal release to production review
+
+While the app has never been published, Play accepts only draft releases: `fastlane android internal
+status:draft`, then roll it out in the console. Content rating, target audience, data safety, ads and app
+access have no API: they are answered in the console (answers in `docs/store/google-play.md`).
 
 ## iOS release (macOS, fastlane)
 

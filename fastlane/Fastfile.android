@@ -1,0 +1,76 @@
+# Run from the repo root: `fastlane android <lane>`.
+ANDROID_DIR = "app/android"
+AAB = "app/android/app/build/outputs/bundle/release/app-release.aab"
+SECRETS_DIR = File.expand_path("~/.config/albadr-lessons")
+SIGNING_VARS = %w[ALBADR_KEYSTORE ALBADR_KEYSTORE_PASSWORD ALBADR_KEY_ALIAS ALBADR_KEY_PASSWORD].freeze
+
+platform :android do
+  before_all do
+    # fastlane garbles Arabic metadata unless the locale is UTF-8
+    ENV["LANG"] = "en_US.UTF-8" if ENV["LANG"].to_s.empty?
+    ENV["LC_ALL"] = "en_US.UTF-8" if ENV["LC_ALL"].to_s.empty?
+  end
+
+  # build.gradle signs only when these are set; an unsigned bundle would be refused by Play
+  private_lane :load_signing_env do
+    env_file = ENV.fetch("ALBADR_SIGNING_ENV", File.join(SECRETS_DIR, "env"))
+    if File.exist?(env_file)
+      File.readlines(env_file, chomp: true).each do |line|
+        key, value = line.sub(/\Aexport\s+/, "").split("=", 2)
+        next unless SIGNING_VARS.include?(key)
+        ENV[key] ||= value.to_s.delete_prefix('"').delete_suffix('"')
+      end
+    end
+    missing = SIGNING_VARS.select { |k| ENV[k].to_s.empty? }
+    UI.user_error!("Upload-key settings missing (#{missing.join(', ')}): see #{env_file}") unless missing.empty?
+  end
+
+  private_lane :check_google_services do
+    path = File.expand_path("../#{ANDROID_DIR}/app/google-services.json", __dir__)
+    UI.user_error!("#{path} is missing: push would silently stop working") unless File.exist?(path)
+    packages = JSON.parse(File.read(path))["client"].map { |c| c.dig("client_info", "android_client_info", "package_name") }
+    UI.user_error!("#{path} has no client for com.albadrmubasher.app") unless packages.include?("com.albadrmubasher.app")
+  end
+
+  desc "Build the web app, sync it into Android and build the signed release bundle"
+  lane :build do
+    load_signing_env
+    check_google_services
+    sh("cd .. && pnpm --filter app build && cd app && npx cap sync android")
+    gradle(task: "bundle", build_type: "Release", project_dir: ANDROID_DIR)
+  end
+
+  desc "Check that the service-account key reaches the Play Console"
+  lane :validate_credentials do
+    validate_play_store_json_key(json_key: CredentialsManager::AppfileConfig.try_fetch_value(:json_key_file))
+  end
+
+  desc "Upload the listing texts, icon, feature graphic and screenshots, without a release"
+  lane :upload_metadata do
+    upload_to_play_store(skip_upload_aab: true, skip_upload_apk: true, skip_upload_changelogs: true, sync_image_upload: true)
+  end
+
+  desc "Build and upload to internal testing with the listing. status:draft while the app has never been published"
+  lane :internal do |options|
+    build
+    upload_to_play_store(
+      track: "internal",
+      aab: AAB,
+      release_status: options[:status] || "completed",
+      sync_image_upload: true
+    )
+  end
+
+  desc "Promote the current internal-testing release to production (sent to review). validate_only:true checks without sending"
+  lane :production do |options|
+    upload_to_play_store(
+      track: "internal",
+      track_promote_to: "production",
+      release_status: "completed",
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      sync_image_upload: true,
+      validate_only: options[:validate_only] || false
+    )
+  end
+end
