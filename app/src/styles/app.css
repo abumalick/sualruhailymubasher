@@ -115,6 +115,7 @@ button:disabled { cursor: default; }
 .lstart { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
 .lstart .k { font: 600 11.5px var(--ui); color: var(--soft); }
 .lstart p { margin: 0; font-family: var(--naskh); font-size: 16px; line-height: 1.6; }
+.lreload { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 400 11.5px var(--ui); color: var(--soft); }
 .sheet.min { position: relative; inset: auto; z-index: auto; flex-direction: row; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--bg2); }
 .sheet.min iframe { flex: none; width: 64px; height: 48px; border-radius: 8px; }
 .lbar { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }

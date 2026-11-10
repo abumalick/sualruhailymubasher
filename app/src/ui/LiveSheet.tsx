@@ -1,5 +1,5 @@
 import type { CourseDTO, LiveDTO } from '@albadr/shared';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { player } from '../audio/player';
 import { liveContext } from '../logic/live';
 import { Icon } from './Star';
@@ -16,9 +16,11 @@ export interface LiveSheetProps {
 }
 
 // The sheet always has exactly two children, the header/bar div then the iframe, and only their contents and
-// classes change: moving or re-inserting the iframe reloads Mixlr and cuts the audio.
+// classes change: moving or re-inserting the iframe reloads Mixlr and cuts the audio. Only the reload button
+// re-inserts it on purpose, by changing its key, when the Mixlr page gets stuck.
 export function LiveSheet({ live, course, startedAt, expanded, inBook = false, onExpand, onCollapse, onClose }: LiveSheetProps) {
   const ctx = liveContext(course, live.isLive, startedAt);
+  const [loads, setLoads] = useState(0);
   useEffect(() => {
     player.startEmbed(ctx.title, onClose);
     return () => player.endEmbed();
@@ -56,6 +58,13 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
               {(ctx.edition || ctx.book) && <div class="acts start">{ctx.edition ? <span class="pill o">{ctx.edition}</span> : bookLink(false)}</div>}
             </div>
           )}
+          <div class="lreload">
+            <span>توقّف البث أو لم يظهر؟</span>
+            <button class="chip" aria-label="إعادة تحميل البث" onClick={() => setLoads((n) => n + 1)}>
+              <Icon id="i-rev" />
+              إعادة التحميل
+            </button>
+          </div>
         </div>
       ) : (
         <div class="lbar">
@@ -70,7 +79,7 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
           {stop}
         </div>
       )}
-      <iframe src={live.embedUrl} allow="autoplay" title="البث المباشر" />
+      <iframe key={loads} src={live.embedUrl} allow="autoplay" title="البث المباشر" />
     </div>
   );
 }

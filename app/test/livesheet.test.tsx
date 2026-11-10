@@ -170,3 +170,31 @@ it('the bar button is named by the course and lesson, and the status is announce
   expect(button.getAttribute('aria-label')).toBeNull();
   expect(container.querySelector('.lbar .m')!.getAttribute('aria-live')).toBe('polite');
 });
+
+it('reloads a stuck Mixlr page in place, without closing the broadcast or its media session', () => {
+  const onClose = vi.fn();
+  const { container, rerender } = render(sheet({ course: TAWHID, onClose }));
+  const root = container.querySelector('.sheet')!;
+  const [head, frame] = [...root.children];
+  vi.clearAllMocks();
+
+  fireEvent.click(screen.getByRole('button', { name: 'إعادة تحميل البث' }));
+
+  const reloaded = container.querySelector('iframe')!;
+  expect(reloaded).not.toBe(frame);
+  expect(reloaded.getAttribute('src')).toBe(live.embedUrl);
+  expect(reloaded.getAttribute('allow')).toBe('autoplay');
+  expect([...root.children]).toEqual([head, reloaded]);
+  expect(onClose).not.toHaveBeenCalled();
+  expect(session.setMetadata).not.toHaveBeenCalled();
+  expect(session.setPlaybackState).not.toHaveBeenCalled();
+
+  rerender(sheet({ course: TAWHID, onClose, expanded: false }));
+  rerender(sheet({ course: TAWHID, onClose }));
+  expect(container.querySelector('iframe')).toBe(reloaded);
+});
+
+it('offers the reload even when the lesson start is unknown', () => {
+  render(sheet({ course: undefined }));
+  expect(screen.getByRole('button', { name: 'إعادة تحميل البث' }).textContent).toContain('إعادة التحميل');
+});
