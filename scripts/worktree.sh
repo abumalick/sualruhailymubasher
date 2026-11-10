@@ -30,6 +30,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 main_root="$(git rev-parse --path-format=absolute --git-common-dir)"
 main_root="$(cd "$main_root/.." && pwd)"
 wt_root="$(dirname "$main_root")/$(basename "$main_root")-worktrees"
+export WH_WT_ROOT="$wt_root"   # the lib refuses to stop processes across this whole dir
 ib="$WH_INTEGRATION_BRANCH"
 
 # Only `create`'s worktree path goes to stdout; every message goes to stderr.
@@ -37,7 +38,9 @@ say() { printf '%s\n' "$*" >&2; }
 die() { say "$*"; exit 1; }
 g()   { git -C "$main_root" "$@"; }
 
-wt_path()  { printf '%s/%s' "$wt_root" "$(wh_slugify "$1")"; }
+# An empty slug (a name with no a-z or digit, e.g. Arabic) would point at $wt_root itself.
+wt_path()  { local s; s="$(wh_slugify "$1")"; [ -n "$s" ] || return 1; printf '%s/%s' "$wt_root" "$s"; }
+need_slug() { [ -n "$(wh_slugify "$1")" ] || die "'$1' gives an empty folder name: use a branch name with letters a-z or digits"; }
 wt_port()  { wh_hash_to_port "$(wh_slugify "$1")" "$WH_PORT_BAND_START" "$WH_PORT_BAND_SIZE"; }
 # One host per worktree dir, so feat/ui and fix/ui don't share one (dev-server.sh names it the same way).
 wt_url()   { wh_url "$WH_LABEL" "$(wh_slugify "$1")" "$WH_TLD"; }
@@ -192,6 +195,7 @@ _print_info() {
 
 cmd_create() {
   local branch="$1" wt base cur
+  need_slug "$branch"
   # portless hashes host labels over 63 characters, so the URL would not be the predicted one.
   [ $((${#WH_LABEL} + 1 + ${#branch})) -le 63 ] || die "branch name too long for a host name (max $((62 - ${#WH_LABEL})) characters)"
   wt="$(wt_path "$branch")"
@@ -224,6 +228,7 @@ cmd_create() {
 
 cmd_up() {
   local arg="$1" bg="$2" wt branch url="" port="" log
+  need_slug "$arg"
   resolve "$arg"; wt="$R_WT"
   if [ -z "$wt" ] || [ ! -d "$wt" ]; then die "no worktree for '$arg' — create it first"; fi
   branch="${R_BRANCH:-$arg}"
@@ -273,7 +278,7 @@ cmd_list() {
   done < <(_worktrees)
 
   # Processes still running in a worktree directory that is no longer registered.
-  procs="$(wh_procs_under "$wt_root")"
+  procs="$(wh_procs_under "$wt_root" --whole-root)"
   orphans="$(printf '%s\n' "$procs" | while IFS=$'\t' read -r pid rel cmd; do
     [ -n "$pid" ] || continue
     dir="${rel%%/*}"
@@ -290,6 +295,7 @@ cmd_list() {
 
 cmd_remove() {
   local arg="$1" force="$2" branch wt dirty sha
+  need_slug "$arg"
   resolve "$arg"; branch="$R_BRANCH"; wt="$R_WT"
   if [ -n "$branch" ] && [ "$branch" = "$ib" ]; then die "refusing to remove the integration branch $ib"; fi
   if [ "$force" != 1 ]; then
@@ -442,6 +448,7 @@ _finish_land() {
 
 cmd_finish() {
   local arg="$1" branch wt dirty existing
+  need_slug "$arg"
   resolve "$arg"; branch="$R_BRANCH"; wt="$R_WT"
   if [ -z "$branch" ] || ! g show-ref --verify --quiet "refs/heads/$branch"; then die "no such branch: $arg"; fi
   if [ -n "$wt" ] && [ -d "$wt" ]; then
@@ -499,7 +506,7 @@ cmd_post_merge() {
 _healthy() { curl -sf --max-time 2 -o /dev/null "$1/api/health"; }
 
 cmd_start() {
-  local branch="$1" wt url running _i
+  local branch="$1" wt url running limit="${WH_START_TIMEOUT:-90}" deadline
   wt="$(cmd_create "$branch")"
   printf '%s\n' "$wt"
   url="$(wt_url "${wt##*/}")"
@@ -509,26 +516,38 @@ cmd_start() {
     say "already running: $url"
     return 0
   fi
-  [ -z "$running" ] || die "processes already run in $wt (pids: $running) but $url does not answer yet — wait, or stop them with: scripts/worktree.sh remove $branch"
+  [ -z "$running" ] || die "processes already run in $wt (pids: $running) but $url does not answer yet — wait, or stop them with: scripts/worktree.sh down $branch"
   # Not `cmd_up … >&2`: bash would park a copy of stdout on a spare fd, the background
   # servers would inherit it, and a caller's `$(… start)` would never return.
   exec 1>&2
   cmd_up "$branch" 1
   say "waiting for $url/api/health …"
-  for _i in $(seq 1 "${WH_START_TIMEOUT:-90}"); do
+  deadline=$((SECONDS + limit))
+  while [ "$SECONDS" -lt "$deadline" ]; do
     if ! kill -0 "$UP_PID" 2>/dev/null; then
       say "the servers exited; last lines of $UP_LOG:"; tail -n 20 "$UP_LOG" >&2; exit 1
     fi
     if _healthy "$url"; then say "ready: $url (app + its own API)"; return 0; fi
     sleep 1
   done
-  say "$url did not answer within ${WH_START_TIMEOUT:-90}s (servers left running); last lines of $UP_LOG:"
+  say "$url did not answer within ${limit}s; the servers are left running (stop them with: scripts/worktree.sh down $branch). Last lines of $UP_LOG:"
   tail -n 20 "$UP_LOG" >&2
   exit 1
 }
 
+# down: stop the worktree's servers (every process working in it), keep the worktree.
+cmd_down() {
+  local arg="$1" wt
+  need_slug "$arg"
+  resolve "$arg"; wt="$R_WT"
+  if [ -z "$wt" ] || [ ! -d "$wt" ]; then die "no worktree for '$arg'"; fi
+  if [ -z "$(wh_procs_under "$wt")" ]; then say "nothing is running in $wt"; return 0; fi
+  wh_stop_procs_in "$wt"
+  say "stopped the servers in $wt"
+}
+
 usage() {
-  say "usage: worktree.sh start <branch> | create <branch> | up <branch|slug> [--bg] | list"
+  say "usage: worktree.sh start <branch> | create <branch> | up <branch|slug> [--bg] | down <branch|slug> | list"
   say "                   | remove <branch|slug> [--force] | finish <branch|slug>"
   exit 2
 }
@@ -548,6 +567,7 @@ case "$cmd" in
   start)  cmd_start  "${arg:?branch required}" ;;
   create) cmd_create "${arg:?branch required}" ;;
   up)     cmd_up     "${arg:?branch required}" "$bg" ;;
+  down)   cmd_down   "${arg:?branch required}" ;;
   remove) cmd_remove "${arg:?branch required}" "$force" ;;
   list)   cmd_list ;;
   finish) cmd_finish "${arg:?branch required}" ;;

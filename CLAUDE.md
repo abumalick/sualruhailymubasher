@@ -33,30 +33,36 @@ Worktrees live beside the repo in `../lessons-radio-worktrees/<branch-slug>`.
   it creates the worktree from `main` (or resumes and rebases it), copies
   `server/.dev.vars`, runs `pnpm install`, then starts that worktree's own servers in
   the background and waits until they answer. It exits non-zero, with the log's last
-  lines, if the servers die or don't answer within 90 s (on a timeout they keep running,
-  and a second `start` refuses until they answer or are removed). It prints only the worktree path
+  lines, if the servers die or don't answer within about 90 s (`WH_START_TIMEOUT`). On a
+  timeout the servers keep running and a second `start` refuses until they answer;
+  `scripts/worktree.sh down <branch>` stops them. It prints only the worktree path
   (folder names are slugified: never guess the path). If the current checkout has no
   `scripts/worktree.sh`, run the main checkout's copy by its absolute path.
-  `create <branch>` does only the worktree part; `up <branch> --bg` only the servers.
+  `create <branch>` does only the worktree part; `up <branch> --bg` only starts the
+  servers and `down <branch>` only stops them. Branch names need letters a-z or digits
+  (folder and host names are built from them; an Arabic-only name is refused).
   A branch cut before the harness existed has no `scripts/dev-server.sh`: rebase it
   onto `main` first. Branch names are capped at 49 characters (host-name limit).
 - **Servers** — each worktree runs its own `wrangler dev` with its own local D1
   (`server/.wrangler/state`, migrated and seeded from `server/seed/dev.sql` at every
-  start) and its own Vite, which proxies `/api` to that Worker. App URL:
+  start) and its own Vite, which proxies `/api` to that Worker; Vite starts only once
+  that worktree's own Worker holds its port and answers. App URL:
   `https://lessons-radio-<worktree-dir>.dev.sageplex.com` (the API is under `/api`
   at the same URL). Course titles end in "(محلي)" so local data can't be mistaken for
   production. The Worker's own port is in the log (`api: http://127.0.0.1:<port>`),
-  under `../lessons-radio-worktrees/.logs/<slug>.log`; point the agent at it with
-  `API_BASE=http://127.0.0.1:<port>`, the `ADMIN_TOKEN` from `server/.dev.vars` and
-  `ALBADR_AGENT_LOCK=$wt/.tmp/agent.lock` (the default lock is the production
-  agent's: sharing it makes one of the two runs skip). Audio, transcripts and verdicts
-  are still cached in the shared `~/.cache/albadr-agent/`, which production reads too.
+  under `../lessons-radio-worktrees/.logs/<slug>.log`, with the agent's settings for it.
+  **Run the agent from a worktree only with its own cache**: `API_BASE=http://127.0.0.1:<port>`,
+  the `ADMIN_TOKEN` from `server/.dev.vars` and `ALBADR_AGENT_CACHE=$wt/.tmp/agent-cache`.
+  The default cache (`~/.cache/albadr-agent/`) belongs to the production agent: it reuses
+  cached verdicts and PATCHes them into production, and its run lock lives there too.
   Cron jobs don't run in `wrangler dev`, so nothing is ingested or pushed on its own.
   Every D1 command must carry `--local`: `wrangler.jsonc` names the production database.
 - **Work** — edit, run and commit only inside that path.
 - **Finish** — commit on your branch and report it. Agents never merge: the
-  orchestrator reviews and runs `scripts/worktree.sh finish <branch>` (merges into
-  `main` locally with `--no-ff`; there is no remote and no deploy on finish).
+  orchestrator reviews and runs `scripts/worktree.sh finish <branch>`, which merges into
+  `main` in the main checkout with `--no-ff` (there is no remote). **That merge deploys
+  `agent/`**: the production timer runs the main checkout's code on its next tick, so
+  review a branch that changes `agent/` as a production deploy.
 - **Clean up** — `scripts/worktree.sh remove <branch>` stops every process running in
   the worktree (servers included), removes it and deletes the branch; it refuses an
   unmerged or dirty branch unless given `--force`. `scripts/worktree.sh list` shows

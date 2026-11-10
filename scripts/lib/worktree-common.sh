@@ -139,12 +139,20 @@ _wh_pid_cwds() {
   return 0
 }
 
+# _wh_is_wt_root <dir> -> true when <dir> is $WH_WT_ROOT, the dir holding every worktree.
+_wh_is_wt_root() {
+  [ -n "${WH_WT_ROOT:-}" ] && [ "$(_wh_realpath "$1")" = "$(_wh_realpath "$WH_WT_ROOT")" ]
+}
+
 # wh_procs_under <dir> -> "<pid>\t<path relative to dir, '.' for dir>\t<command>"
 # for every process working in <dir> or below, except the caller's own family.
 wh_procs_under() {
   local dir="${1:-}" pid cwd rel cmd root
   [ -n "$dir" ] || return 0
   dir="$(_wh_realpath "$dir")"
+  if [ "${2:-}" != --whole-root ] && _wh_is_wt_root "$dir"; then
+    echo "refusing to list processes across the whole worktree dir $dir" >&2; return 1
+  fi
   root="$(_wh_family_root "$dir")"
   _wh_pid_cwds | while read -r pid cwd; do
     # The trailing slash matters: a sibling named <dir>2 is not below <dir>.
@@ -164,6 +172,9 @@ wh_procs_under() {
 # what is left. Never fails the caller. Messages go to stderr.
 wh_stop_procs_in() {
   local dir="${1:-}" procs pids pid _i root
+  if [ -z "$dir" ] || _wh_is_wt_root "$dir"; then
+    echo "refusing to stop processes in '$dir': not a single worktree" >&2; return 1
+  fi
   if [ ! -d /proc/1 ] && ! command -v lsof >/dev/null 2>&1; then
     echo "note: cannot list processes here (no /proc, no lsof); stop servers in $dir yourself" >&2
     return 0

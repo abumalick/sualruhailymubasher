@@ -7,8 +7,9 @@ import httpx
 from faster_whisper import WhisperModel
 from pydantic import BaseModel
 
+from .paths import CACHE_ROOT
+
 log = logging.getLogger("albadr_agent")
-CACHE_ROOT = Path.home() / ".cache" / "albadr-agent"
 DEFAULT_AUDIO = CACHE_ROOT / "audio"
 DEFAULT_TRANSCRIPTS = CACHE_ROOT / "transcripts"
 MODEL = "large-v3-turbo"

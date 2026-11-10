@@ -9,9 +9,12 @@ set -euo pipefail
 src="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$src/../.tmp"
 scratch="$(cd "$(mktemp -d "$src/../.tmp/worktree-test.XXXXXX")" && pwd -P)"
+procs_in() { for p in /proc/[0-9]*; do case "$(readlink "$p/cwd" 2>/dev/null)" in "$1"|"$1"/*) echo "${p#/proc/}";; esac; done; }
 bg_pids=()
 cleanup() {
   for p in "${bg_pids[@]}"; do kill "$p" 2>/dev/null || true; done
+  # Whatever a failed or aborted case left running in the scratch dirs.
+  for p in $(procs_in "$scratch"); do kill "$p" 2>/dev/null || true; done
   rm -rf "$scratch"
 }
 trap cleanup EXIT
@@ -47,7 +50,6 @@ check "create refuses a branch too long for a host label" \
   bash -c "cd '$repo' && ! '$wt_sh' create $(printf 'b%.0s' $(seq 1 50)) 2>/dev/null"
 
 # up: URL per worktree dir, a branch without the harness is refused
-procs_in() { for p in /proc/[0-9]*; do case "$(readlink "$p/cwd" 2>/dev/null)" in "$1"|"$1"/*) echo "${p#/proc/}";; esac; done; }
 (cd "$repo" && "$wt_sh" up feat/ui --bg >/dev/null 2>&1)
 for _ in $(seq 1 20); do [ -n "$(procs_in "$wts/feat-ui")" ] && break; sleep 0.1; done
 check "up --bg runs the server inside the worktree" [ -n "$(procs_in "$wts/feat-ui")" ]
@@ -69,18 +71,32 @@ check "each worktree's URL is named after its directory" \
   all '[ "$feat_url" = https://lessons-radio-feat-ui.dev.sageplex.com ]' '[ "$fix_url" = https://lessons-radio-fix-ui.dev.sageplex.com ]'
 (cd "$repo" && "$wt_sh" remove fix/ui --force >/dev/null 2>&1)
 
-# dev-server.sh registers the same name with portless (pnpm and portless stubbed)
+# dev-server.sh (pnpm and portless stubbed; the wrangler stub serves /api/health from
+# its own cwd, the way workerd does)
 ds="$scratch/ds"
-mkdir -p "$ds/scripts/lib" "$ds/server" "$ds/app" "$scratch/ds-stubs"
+dstubs="$scratch/ds-stubs"
+mkdir -p "$ds/scripts/lib" "$ds/server" "$ds/app" "$dstubs"
 cp "$src/dev-server.sh" "$ds/scripts/"
 cp "$src/lib/worktree-common.sh" "$src/lib/ports.sh" "$ds/scripts/lib/"
-printf '#!/bin/sh\nexit 0\n' > "$scratch/ds-stubs/pnpm"
-# shellcheck disable=SC2016 # $1 expands when the stub runs
-printf '#!/bin/sh\necho "$1" > "%s/portless-name"\n' "$scratch" > "$scratch/ds-stubs/portless"
-chmod +x "$scratch/ds-stubs/pnpm" "$scratch/ds-stubs/portless"
-env PATH="$scratch/ds-stubs:$PATH" WH_SLUG=feat-ui bash "$ds/scripts/dev-server.sh" >/dev/null 2>&1 || true
+cat > "$dstubs/pnpm" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in *"wrangler dev"*) ;; *) exit 0 ;; esac
+[ -z "${STUB_WRANGLER_DIE:-}" ] || exit 1
+while [ $# -gt 0 ]; do [ "$1" = --port ] && port="$2"; shift; done
+exec node -e "require('http').createServer((q, r) => r.end('ok')).listen($port, '127.0.0.1')"
+EOF
+printf '#!/bin/sh\necho "$1" > "%s/portless-name"\n' "$scratch" > "$dstubs/portless"
+chmod +x "$dstubs/pnpm" "$dstubs/portless"
+run_ds() { set +e; env PATH="$dstubs:$PATH" WH_SLUG=feat-ui "$@" timeout 30 bash "$ds/scripts/dev-server.sh" >"$scratch/ds.log" 2>&1; DS_STATUS=$?; set -e; }
+run_ds
 check "dev-server.sh registers lessons-radio-<worktree-dir> with portless" \
   grep -qx 'lessons-radio-feat-ui' "$scratch/portless-name"
+check "dev-server.sh stops its Worker when Vite exits (status $DS_STATUS)" \
+  all '[ "$DS_STATUS" -ne 124 ]' '[ -z "$(procs_in "$ds")" ]'
+rm -f "$scratch/portless-name"
+run_ds STUB_WRANGLER_DIE=1
+check "dev-server.sh exits without starting Vite when its wrangler dies" \
+  all '[ "$DS_STATUS" -ne 0 ]' '[ "$DS_STATUS" -ne 124 ]' '[ ! -e "$scratch/portless-name" ]'
 
 # list: a process whose command line holds a newline does not break the output
 (cd "$wts/feat-ui" && exec bash -c $'sleep 300 # line one\n# line two') &
@@ -92,7 +108,7 @@ check "list ignores newlines in command lines" bash -c "! grep -q 'line two\|pro
 # start: health checks go through a curl stub, so no test touches the network
 stubs="$scratch/stubs"
 mkdir -p "$stubs"
-printf '#!/bin/sh\n[ -e "%s/curl-ok" ]\n' "$scratch" > "$stubs/curl"
+printf '#!/bin/sh\n[ -z "$STUB_CURL_SLEEP" ] || sleep "$STUB_CURL_SLEEP"\n[ -e "%s/curl-ok" ]\n' "$scratch" > "$stubs/curl"
 chmod +x "$stubs/curl"
 run_start() { # run_start <branch> [VAR=value...] -> START_OUT, START_ERR, START_STATUS
   local b="$1"; shift
@@ -108,7 +124,7 @@ run_start feat/cap
 check "start returns the path to a caller capturing it" [ "$START_OUT" = "$wts/feat-cap" ]
 check "start exits non-zero when the URL never answers (status $START_STATUS)" \
   all '[ "$START_STATUS" -ne 0 ]' '[ "$START_STATUS" -ne 124 ]'
-check "start's timeout names the failure and shows the log" all 'has "did not answer within 1s"' 'has stub-log-line'
+check "start's timeout names the failure and shows the log" all 'has "did not answer within 1s"' 'has stub-log-line' 'has "worktree.sh down feat/cap"'
 run_start feat/cap
 check "start refuses to launch a second copy while servers still boot" has "processes already run in $wts/feat-cap"
 touch "$scratch/curl-ok"
@@ -119,7 +135,26 @@ check "start refuses a URL answered by something outside the worktree" has "some
 rm "$scratch/curl-ok"
 run_start feat/die STUB_DIE=1 WH_START_TIMEOUT=20
 check "start fails fast when the servers exit" all '[ "$START_STATUS" -ne 0 ]' 'has "the servers exited"'
-for b in feat/cap feat/other feat/die; do (cd "$repo" && "$wt_sh" remove "$b" --force >/dev/null 2>&1) || echo "remove $b failed"; done
+s=$SECONDS
+run_start feat/slow STUB_CURL_SLEEP=2 WH_START_TIMEOUT=3
+check "start's limit counts time, not attempts ($((SECONDS - s))s)" [ $((SECONDS - s)) -le 9 ]
+(cd "$repo" && "$wt_sh" down feat/cap >/dev/null 2>&1) || true
+check "down stops the servers and keeps the worktree" all '[ -z "$(procs_in "$wts/feat-cap")" ]' '[ -d "$wts/feat-cap" ]'
+for b in feat/cap feat/other feat/die feat/slow; do (cd "$repo" && "$wt_sh" remove "$b" --force >/dev/null 2>&1) || echo "remove $b failed"; done
+
+# an empty slug (no a-z or digit) never reaches the whole worktree dir
+mkdir -p "$wts/.logs"
+check "remove refuses a name with an empty slug and stops nothing" \
+  all "! (cd '$repo' && '$wt_sh' remove 'دورة' --force 2>$scratch/slug.err)" "grep -q 'empty folder name' $scratch/slug.err" '[ -n "$(procs_in "$wts/feat-ui")" ]'
+check "create refuses a name with an empty slug" \
+  all "! (cd '$repo' && '$wt_sh' create '@' 2>$scratch/slug.err)" "grep -q 'empty folder name' $scratch/slug.err" "! git -C '$repo' worktree list --porcelain | grep -qx 'worktree $wts'"
+check "down refuses a name with an empty slug" all "! (cd '$repo' && '$wt_sh' down _ 2>$scratch/slug.err)" "grep -q 'empty folder name' $scratch/slug.err"
+# shellcheck source=/dev/null
+. "$repo/scripts/lib/worktree-common.sh"
+check "the lib refuses to stop processes across the whole worktree dir" \
+  all "! WH_WT_ROOT='$wts' wh_stop_procs_in '$wts/' 2>/dev/null" '[ -n "$(procs_in "$wts/feat-ui")" ]'
+check "the lib refuses to list the whole worktree dir unless asked" \
+  all "! WH_WT_ROOT='$wts' wh_procs_under '$wts' 2>/dev/null" "[ -n \"\$(WH_WT_ROOT='$wts' wh_procs_under '$wts' --whole-root)\" ]"
 
 # remove: stops every process in the worktree, deletes its log, keeps nothing
 echo change > "$wts/feat-ui/change.txt"
@@ -139,10 +174,15 @@ check "remove stops the worktree's processes" [ -z "$(procs_in "$wts/feat-ui")" 
 port=$(( 20000 + RANDOM % 20000 ))
 port="$(wh_free_port "$port")"
 check "wh_free_port returns a port nobody listens on" bash -c "! (exec 3<>/dev/tcp/127.0.0.1/$port) 2>/dev/null"
-node -e "require('net').createServer().listen($port, '127.0.0.1')" &
+(cd "$src" && exec node -e "require('net').createServer().listen($port, '127.0.0.1')") &
 bg_pids+=("$!")
 for _ in $(seq 1 50); do wh_port_busy "$port" && break; sleep 0.1; done
 check "wh_free_port skips a busy port" [ "$(wh_free_port "$port")" -gt "$port" ]
+check "wh_port_owned_by sees a listener working in the dir" wh_port_owned_by "$port" "$src"
+check "wh_port_owned_by ignores a listener working elsewhere" bash -c ". '$src/lib/ports.sh'; ! wh_port_owned_by '$port' '$scratch'"
+s=$SECONDS
+check "wh_wait_own_port gives up when the server exits" bash -c ". '$src/lib/ports.sh'; ! wh_wait_own_port '$port' '$scratch' 999999 30"
+check "wh_wait_own_port gives up at once, not at the timeout" [ $((SECONDS - s)) -le 2 ]
 
 if [ "$failures" -ne 0 ]; then echo "worktree harness: $failures failed"; exit 1; fi
 echo "worktree harness: all tests passed"
