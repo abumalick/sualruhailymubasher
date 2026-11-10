@@ -195,7 +195,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
         seriesId: Number(series.value),
         pdfUrls: pdfs.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
         edition: edition.value.trim() || null,
-        pageOffsets: offsets.value.split(/[\s,،]+/).filter(Boolean).map(Number),
+        pageOffsets: offsets.value.replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x660); }).split(/[\s,،]+/).filter(Boolean).map(Number),
         active: active.checked
       };
       var id = isNew ? idInput.value.trim() : c.id;

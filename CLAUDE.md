@@ -6,6 +6,7 @@ Monorepo: `app/` (Capacitor + Vite), `server/` (Cloudflare Worker + D1), `agent/
 
 This repo expects thorough tests. Every change ships with tests that would fail without it, and the whole suite stays green: `pnpm test` and `pnpm typecheck` at the root, `uv run pytest` in `agent/`.
 
+- `pnpm test` includes `app/test/visual/`, which renders in real Chromium and WebKit (vitest browser mode). On a new machine install the browsers once: `pnpm --filter app exec playwright install --with-deps chromium webkit`.
 - Test as much of the behaviour as possible. A change that cannot be tested as written is a design problem: restructure the code until it can be tested.
 - Keep decisions in pure functions, separate from I/O and UI, so they can be unit-tested without a device, network or database. Examples: `app/src/logic/`, `server/src/estimate.ts`, `server/src/schedule.ts`. Components, route handlers, cron jobs and the agent's CLI should stay thin: they gather inputs, call the logic and apply the result.
 - Put external services (Mixlr, al-badr.net, FCM, D1, the Claude CLI, PDFs) behind small boundaries, so tests can replace them with fakes instead of calling the real service.

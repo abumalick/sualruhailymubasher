@@ -42,7 +42,7 @@ const toCourse = (r: Row): CourseRow => ({
   seriesId: r.series_id as number,
   pdfUrls: JSON.parse(r.pdf_urls as string),
   edition: (r.edition as string | null) ?? null,
-  pageOffsets: JSON.parse(r.page_offsets as string),
+  pageOffsets: JSON.parse((r.page_offsets as string | undefined) ?? '[]'),
   active: r.active === 1,
   sort: r.sort as number,
 });

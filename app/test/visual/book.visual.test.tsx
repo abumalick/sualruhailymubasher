@@ -66,16 +66,20 @@ it('renders an Arabic page with embedded subset fonts like poppler does, inside 
     },
     { timeout: 20_000 },
   );
-  await new Promise((r) => setTimeout(r, 500));
-
   const img = new Image();
   img.src = referenceUrl;
   await img.decode();
   const height = Math.round((SAMPLE_WIDTH * canvas.height) / canvas.width);
-  const page = grey(canvas, SAMPLE_WIDTH, height);
   const reference = grey(img, SAMPLE_WIDTH, height);
-  const diff = Math.max(unmatchedInk(page, reference, SAMPLE_WIDTH, height), unmatchedInk(reference, page, SAMPLE_WIDTH, height));
+  const diff = () => {
+    const page = grey(canvas, SAMPLE_WIDTH, height);
+    return Math.max(unmatchedInk(page, reference, SAMPLE_WIDTH, height), unmatchedInk(reference, page, SAMPLE_WIDTH, height));
+  };
   // Measured: about 0.15 for a correct render, about 0.52 with the glyphs right-anchored.
-  console.info(`book visual diff vs poppler: ${diff.toFixed(3)}`);
-  expect(diff).toBeLessThan(0.3);
+  // Polled, because the canvas is sized before pdf.js has painted it.
+  await vi.waitFor(() => {
+    const d = diff();
+    console.info(`book visual diff vs poppler: ${d.toFixed(3)}`);
+    expect(d).toBeLessThan(0.3);
+  }, { timeout: 15_000, interval: 250 });
 });
