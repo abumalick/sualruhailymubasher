@@ -30,6 +30,18 @@ Commands below run from `server/`. `H2_TOKEN` is an API token on the H2 account
 Precondition: this branch is merged into `main`, and `main` holds every server change that is live
 on the old Worker. Step 5 deploys `main`.
 
+0. **Guard against the wrong account.** Wipe, import, export and deploy take their account only from
+   the `wrangler.jsonc` on disk, so run every personal-account step from a checkout of the merged
+   `main` and stop if it is anything else:
+   ```sh
+   MERGED=<sha of the merge on main>
+   [ "$(git rev-parse HEAD)" = "$MERGED" ] || { echo "HEAD is not the merged main"; exit 1; }
+   grep -q '"account_id": "9ab550becc556ce60d4250bfdc48224c"' wrangler.jsonc || { echo "wrangler.jsonc is not the personal account"; exit 1; }
+   wrangler whoami   # record which accounts this login reaches
+   ```
+   The old account is reached only through `H2_TOKEN` with `-c h2.jsonc`, never through the
+   checkout's `wrangler.jsonc`.
+
 Pick a time away from pushes that fire in a fixed window: the prep reminders at 12:30 and 18:00 UTC
 (15:30 and 21:00 Medina, 5-minute windows) and the live lessons. 07:00–11:00 UTC is clear.
 
@@ -92,7 +104,11 @@ to stop. The agent's pause starts earlier (step 1) and can last as long as its l
 
 ## Rollback
 
-The old Worker and D1 are never deleted, so rollback is re-enabling them:
+The old Worker and D1 are never deleted, so rollback is re-enabling them.
+
+**Do not deploy from `main` until step 3 below is done.** `main` deploys to the new account with
+crons on, so a routine `wrangler deploy` after a rollback restarts the new crons beside the old ones,
+and every push goes out twice from two diverging databases.
 
 1. Stop the agent as in cutover step 1, and remove the new crons: PUT `[]` to the personal
    account's `.../workers/scripts/albadr-lessons/schedules`. Wait until `wrangler tail` shows no
@@ -100,7 +116,10 @@ The old Worker and D1 are never deleted, so rollback is re-enabling them:
 2. Copy the new D1 back with step 3 in reverse (export new, wipe old, import into old). This is not
    optional: every new cron run writes `sent_notifications`, `live_state` and `settings`, and
    without them the old Worker re-sends every push the new one already sent that day.
-3. Restore the old crons: PUT `[{"cron":"* * * * *"}]` to the H2 account's schedules URL.
-4. Set `API_BASE=https://api.albadr.h2.limited` in `agent.env` and restart the timer.
-5. An app already built with the new host keeps calling it; rebuild with
+3. Revert the move commit on `main` (`server/wrangler.jsonc`, `server/test/wrangler-config.test.ts`,
+   `app/src/api.ts`, `app/test/api.test.ts`, `server/README.md`) with `git revert`, so `main` targets
+   the old account again.
+4. Restore the old crons: PUT `[{"cron":"* * * * *"}]` to the H2 account's schedules URL.
+5. Set `API_BASE=https://api.albadr.h2.limited` in `agent.env` and restart the timer.
+6. An app already built with the new host keeps calling it; rebuild with
    `VITE_API_BASE=https://api.albadr.h2.limited` if needed.
