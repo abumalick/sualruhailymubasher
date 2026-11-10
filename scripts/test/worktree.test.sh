@@ -205,7 +205,7 @@ mkdir -p "$scratch/quiet"
 check "wh_procs_under skips a process that exited during the scan" \
   bash -c ". '$src/lib/worktree-common.sh'; true & gone=\$!; wait \$gone; _wh_pid_cwds() { echo \"\$gone $scratch/quiet\"; }; [ -z \"\$(wh_procs_under '$scratch/quiet')\" ]"
 check "wh_wait_any treats a live pid that is not its child as gone (pid reuse)" \
-  timeout 10 "$BASH" -c ". '$src/lib/worktree-common.sh'; sleep 300 & b=\$!; wh_wait_any \$b 1; s=\$?; kill \$b; exit \$s"
+  timeout 10 "$BASH" -c ". '$src/lib/worktree-common.sh'; sleep 300 & b=\$!; o=\$(sleep 300 >/dev/null 2>&1 & echo \$!); kill -0 \$o || exit 9; wh_wait_any \$b \$o; s=\$?; kill \$b \$o; exit \$s"
 # Without ss (macOS) lsof answers; without either the check is skipped, not failed.
 mkdir -p "$scratch/no-ss" "$scratch/no-tools"
 for t in lsof sort readlink; do ln -s "$(command -v "$t")" "$scratch/no-ss/$t"; done
