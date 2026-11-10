@@ -60,9 +60,9 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
           )}
           <div class="lreload">
             <span>توقّف البث أو لم يظهر؟</span>
-            <button class="chip" aria-label="إعادة تحميل البث" onClick={() => setLoads((n) => n + 1)}>
+            <button class="chip" onClick={() => setLoads((n) => n + 1)}>
               <Icon id="i-rev" />
-              إعادة التحميل
+              إعادة تحميل البث
             </button>
           </div>
         </div>
