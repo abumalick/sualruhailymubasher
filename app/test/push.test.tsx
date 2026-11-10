@@ -24,8 +24,6 @@ const fm = vi.hoisted(() => ({
 
 vi.mock('@capacitor-firebase/messaging', () => ({ FirebaseMessaging: fm, Importance: { High: 4 } }));
 const st = vi.hoisted(() => ({
-  state: null as unknown,
-  listeners: [] as ((s: unknown) => void)[],
   fresh: [] as ((s: unknown) => void)[],
   data: { state: null, follow: null } as { state: unknown; follow: unknown },
   dataListeners: [] as ((d: unknown) => void)[],
@@ -35,28 +33,19 @@ vi.mock('../src/store', () => ({
     st.fresh.push(cb);
     return () => {};
   },
-  currentState: () => st.state,
   currentData: () => st.data,
   currentView: () => st.data.state,
   watchData: (cb: (d: unknown) => void) => {
     st.dataListeners.push(cb);
     return () => {};
   },
-  watchState: (cb: (s: unknown) => void) => {
-    cb(st.state);
-    st.listeners.push(cb);
-  },
 }));
-const setState = (s: unknown) => {
-  st.state = s;
-  st.listeners.forEach((cb) => cb(s));
-};
 const setData = (d: { state: unknown; follow: unknown }) => {
   st.data = d;
   st.dataListeners.forEach((cb) => cb(d));
 };
 const fetched = (s: unknown) => {
-  setState(s);
+  setData({ ...st.data, state: s });
   st.fresh.forEach((cb) => cb(s));
 };
 
@@ -69,8 +58,6 @@ const ids = FIXTURE_STATE.courses.map((c) => c.id);
 const subscribed = () => fm.subscribeToTopic.mock.calls.map((c) => c[0].topic);
 
 beforeEach(() => {
-  st.state = null;
-  st.listeners = [];
   st.fresh = [];
   st.data = { state: null, follow: null };
   st.dataListeners = [];
@@ -208,9 +195,10 @@ describe('initPush', () => {
 
   it('ignores a cached not-live state and keeps the notification when the fresh state is live', async () => {
     fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered });
-    st.state = withLive(false);
+    const follow = followOnly(FIXTURE_STATE.courses, ids);
+    st.data = { state: withLive(false), follow };
     await initPush();
-    setState(withLive(false));
+    setData({ state: withLive(false), follow });
     fetched(withLive(true));
     await settle();
     expect(fm.getDeliveredNotifications).not.toHaveBeenCalled();
