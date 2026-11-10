@@ -1,6 +1,6 @@
 import type { CourseDTO, LiveDTO } from '@albadr/shared';
 import { ar, bookHref, editionPage, startText } from '../ui/format';
-import { medinaDate } from './time';
+import { hijriToday, medinaDate } from './time';
 
 export type LiveView = 'closed' | 'expanded' | 'collapsed';
 
@@ -42,14 +42,16 @@ export interface LiveLesson {
   start: { startPoint: string | null; pdfIndex: number | null; startPage: number | null } | null;
 }
 
-// course.next moves on to the following lesson some time after the scheduled start, while a long broadcast is
-// still running. The lesson on air is the one dated the broadcast's Medina day.
+// The lesson on air is the one held on the broadcast's Medina day. course.next is not always it: once that lesson is
+// published next counts past it, and 150 min after the scheduled start next moves on while a long broadcast runs.
 export function liveLesson(course: CourseDTO, startedAt: string | null): LiveLesson {
   const next = course.next;
   const started = startedAt ? new Date(startedAt) : null;
   const onAirDay = started && !Number.isNaN(started.getTime()) ? medinaDate(started) : null;
+  const heldToday = started && onAirDay ? course.latest.find((l) => l.hijriDate === hijriToday(started)) : undefined;
+  if (heldToday) return { number: heldToday.number, start: { startPoint: heldToday.startPoint, pdfIndex: heldToday.pdfIndex, startPage: heldToday.startPage } };
   if (!next) return { number: (course.latest[0]?.number ?? 0) + 1, start: null };
-  if (!onAirDay || next.date === onAirDay) {
+  if (!onAirDay || next.date <= onAirDay) {
     return { number: next.number, start: { startPoint: next.startPoint, pdfIndex: next.pdfIndex, startPage: next.startPage } };
   }
   const number = next.number - 1;

@@ -74,6 +74,23 @@ describe('liveLesson', () => {
     expect(liveLesson({ ...flipped, latest: [] }, STARTED['kitab-tawhid'])).toEqual({ number: 15, start: null });
   });
 
+  it('a lesson published while still on air stays the lesson, although next already counts past it', () => {
+    const fifteen = { ...TAWHID_14, number: 15, hijriDate: '22-05-1448', startPoint: TAWHID_14.endPoint!, startPage: 280, endPoint: null, endPage: null };
+    const published: CourseDTO = {
+      ...TAWHID,
+      latest: [fifteen, ...TAWHID.latest],
+      next: { ...TAWHID.next!, date: '2026-11-02', number: 16, startPoint: null, startPage: 285, estimated: true },
+    };
+    expect(liveLesson(published, STARTED['kitab-tawhid'])).toEqual({
+      number: 15,
+      start: { startPoint: 'من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…', pdfIndex: 0, startPage: 280 },
+    });
+  });
+
+  it('a broadcast that runs past Medina midnight keeps next when next is dated the day before', () => {
+    expect(liveLesson(TAWHID, '2026-11-02T21:30:00Z').number).toBe(15);
+  });
+
   it('without a broadcast start or next lesson it falls back', () => {
     expect(liveLesson(TAWHID, null).number).toBe(15);
     expect(liveLesson(TAWHID, 'not a date').number).toBe(15);

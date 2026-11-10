@@ -1,5 +1,6 @@
 import type { CourseDTO, LessonDTO, NextPassageDTO, StateDTO } from '@albadr/shared';
 import type { Ticks } from './ticks';
+import { liveLesson } from './live';
 import { hijriToday, lessonInstant, medinaDate, medinaWeekday, previousDate } from './time';
 
 export type Item =
@@ -18,8 +19,6 @@ export interface HomeModel {
 
 const AWAITING_DELAY_MS = 30 * 60_000;
 const LESSON_MS = 150 * 60_000;
-
-export const liveLessonNumber = (c: CourseDTO) => c.next?.number ?? (c.latest[0]?.number ?? 0) + 1;
 
 const nextStart = (c: CourseDTO) => (c.next ? lessonInstant(c.next.date, c.next.time).getTime() : Infinity);
 
@@ -96,7 +95,7 @@ export function buildHome(state: StateDTO, ticks: Ticks, now: Date): HomeModel {
 
   if (live.isLive) {
     const course = state.courses.find((c) => c.id === live.courseId);
-    const lessonNumber = course ? liveLessonNumber(course) : null;
+    const lessonNumber = course ? liveLesson(course, live.startedAt).number : null;
     const hero: Item = { kind: 'live', courseId: live.courseId, lessonNumber };
     const steps = course
       ? {
