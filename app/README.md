@@ -52,6 +52,7 @@ Everything goes through fastlane, from the repository root on the Mac (`fastlane
     fastlane ios metadata    # listing (fastlane/metadata/ios), age rating, review notes, screenshots
     fastlane ios privacy     # App Privacy answers (fastlane/app_privacy_details.json), Apple ID login, see below
     fastlane ios store_setup # once, for the first release: free, every territory
+    fastlane ios submit      # latest TestFlight build of MARKETING_VERSION to App Review, released on approval
     fastlane ios build_status
 
 Screenshots come from the web build with real lessons from the production API:
@@ -77,4 +78,5 @@ The App Privacy answers are entered by hand in App Store Connect (App Privacy, t
 first, then the form, and keep both in line with the privacy page and Play's data-safety form.
 
 Push notifications use the APNs key `HW2PGQ6N8R`, uploaded to the Firebase project `albadr-lessons`.
-Submitting for review stays a manual decision: no lane submits.
+Submitting for review is a decision for the owner: run `submit` only on their go. It answers that the
+app shows third-party content and that the owner holds the rights to it.
