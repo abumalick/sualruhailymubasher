@@ -24,7 +24,7 @@ describe('handle', () => {
     expect(a.fetch).not.toHaveBeenCalled();
   });
 
-  it('serves the asset with nosniff and a referrer policy', async () => {
+  it('serves the asset with nosniff, a referrer policy, HSTS and no framing', async () => {
     const a = assets();
     const req = new Request('https://albadrmubasher.com/');
     const res = await handle(req, a);
@@ -34,6 +34,8 @@ describe('handle', () => {
     expect(res.headers.get('content-type')).toBe('text/html');
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     expect(res.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin');
+    expect(res.headers.get('strict-transport-security')).toBe('max-age=31536000');
+    expect(res.headers.get('content-security-policy')).toBe("frame-ancestors 'none'");
   });
 
   it('passes the assets status through (a missing page stays a 404)', async () => {

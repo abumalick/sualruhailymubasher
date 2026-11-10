@@ -14,6 +14,8 @@ export function canonicalUrl(raw: string): string | null {
 const SECURITY_HEADERS: Record<string, string> = {
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
+  'strict-transport-security': 'max-age=31536000',
+  'content-security-policy': "frame-ancestors 'none'",
 };
 
 export async function handle(request: Request, assets: Pick<Fetcher, 'fetch'>): Promise<Response> {
