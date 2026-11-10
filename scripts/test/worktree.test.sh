@@ -201,6 +201,9 @@ check "wh_wait_own_port gives up when the server exits" bash -c ". '$src/lib/por
 check "wh_wait_own_port gives up at once, not at the timeout" [ $((SECONDS - s)) -le 2 ]
 check "wh_wait_any returns when a child was reaped before the call" \
   timeout 10 "$BASH" -c ". '$src/lib/worktree-common.sh'; true & a=\$!; sleep 300 & b=\$!; sleep 1; wh_wait_any \$a \$b; s=\$?; kill \$b; exit \$s"
+mkdir -p "$scratch/quiet"
+check "wh_procs_under skips a process that exited during the scan" \
+  bash -c ". '$src/lib/worktree-common.sh'; true & gone=\$!; wait \$gone; _wh_pid_cwds() { echo \"\$gone $scratch/quiet\"; }; [ -z \"\$(wh_procs_under '$scratch/quiet')\" ]"
 # Without ss (macOS) lsof answers; without either the check is skipped, not failed.
 mkdir -p "$scratch/no-ss" "$scratch/no-tools"
 for t in lsof sort readlink; do ln -s "$(command -v "$t")" "$scratch/no-ss/$t"; done

@@ -162,6 +162,9 @@ wh_procs_under() {
     if _wh_related "$pid" "$root"; then continue; fi
     if [ -r "/proc/$pid/cmdline" ]; then cmd="$(tr '\0\n' '  ' < "/proc/$pid/cmdline" 2>/dev/null)" || cmd=""
     else cmd="$(ps -o command= -p "$pid" 2>/dev/null)" || cmd=""; fi
+    # A process that exited during the scan (often one of the caller's own short-lived
+    # helpers, whose parent chain could no longer be read) is not running there.
+    kill -0 "$pid" 2>/dev/null || continue
     printf '%s\t%s\t%s\n' "$pid" "$rel" "${cmd:-?}"
   done
   return 0
