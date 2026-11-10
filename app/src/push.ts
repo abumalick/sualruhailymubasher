@@ -1,4 +1,3 @@
-import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { FirebaseMessaging, Importance } from '@capacitor-firebase/messaging';
@@ -130,9 +129,8 @@ export async function pushPermission(): Promise<string> {
 const isPushData = (d: unknown): d is PushData =>
   typeof d === 'object' && d !== null && KINDS.includes((d as PushData).kind);
 
-// Fallback for a dismiss push that never arrived, and the only removal path on iOS, where nothing
-// clears a delivered notification while the app is not running. Android tags it; iOS uses the
-// collapse id as the notification's identifier.
+// Fallback for a dismiss push that was delayed or never arrived (iOS throttles background pushes).
+// Android tags it; iOS uses the collapse id as the notification's identifier.
 async function clearLiveNotification(): Promise<void> {
   try {
     const { notifications } = await FirebaseMessaging.getDeliveredNotifications();
@@ -143,8 +141,6 @@ async function clearLiveNotification(): Promise<void> {
 
 export async function initPush(): Promise<void> {
   if (!native()) return;
-  void clearLiveNotification();
-  await App.addListener('resume', () => void clearLiveNotification());
   await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
     const data = event.notification.data;
     if (!isPushData(data)) return;
@@ -152,6 +148,7 @@ export async function initPush(): Promise<void> {
   });
   let synced = false;
   watchState((state) => {
+    if (state && !state.live.isLive) void clearLiveNotification();
     if (synced || !state) return;
     synced = true;
     void syncTopics(state);

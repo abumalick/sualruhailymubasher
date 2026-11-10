@@ -12,6 +12,7 @@ import {
   recordBroadcast,
   setLive,
   setSetting,
+  unmarkSent,
   type LiveRow,
 } from '../repo';
 import { medinaDate } from '../time';
@@ -31,10 +32,20 @@ export interface LiveDeps {
 
 const liveTopic = (courseId: string | null) => (courseId ? courseTopic(courseId, 'live') : LIVE_OTHER_TOPIC);
 
-function readPending(value: string | null): { topic: string; at: string } | null {
+// One live push per course and Medina day, so a reconnect does not alert twice.
+const sentKey = (courseId: string | null, uid: string | null, at: Date) =>
+  courseId ? `live:${courseId}:${medinaDate(at)}` : `live:${uid}`;
+
+interface PendingEnd {
+  topic: string;
+  at: string;
+  sentKey: string;
+}
+
+function readPending(value: string | null): PendingEnd | null {
   try {
     const p = JSON.parse(value ?? '');
-    return typeof p?.topic === 'string' && typeof p?.at === 'string' ? p : null;
+    return typeof p?.topic === 'string' && typeof p?.at === 'string' && typeof p?.sentKey === 'string' ? p : null;
   } catch {
     return null;
   }
@@ -42,7 +53,13 @@ function readPending(value: string | null): { topic: string; at: string } | null
 
 async function dismissEndedLive(db: D1Database, fcm: Fcm, now: Date, prev: LiveRow): Promise<void> {
   if (prev.isLive) {
-    await setSetting(db, END_KEY, JSON.stringify({ topic: liveTopic(prev.courseId), at: now.toISOString() }));
+    const started = Date.parse(prev.startedAt ?? '');
+    const pending: PendingEnd = {
+      topic: liveTopic(prev.courseId),
+      at: now.toISOString(),
+      sentKey: sentKey(prev.courseId, prev.broadcastUid, Number.isNaN(started) ? now : new Date(started)),
+    };
+    await setSetting(db, END_KEY, JSON.stringify(pending));
     return;
   }
   const pending = readPending(await getSetting(db, END_KEY));
@@ -50,6 +67,8 @@ async function dismissEndedLive(db: D1Database, fcm: Fcm, now: Date, prev: LiveR
   await setSetting(db, END_KEY, '');
   try {
     await fcm.sendDataToTopic(pending.topic, DISMISS_LIVE, LIVE_TTL_SEC);
+    // The notification is gone, so a broadcast resuming the same day must be able to push again.
+    await unmarkSent(db, pending.sentKey);
   } catch (e) {
     console.error('live dismiss push failed', e);
   }
@@ -95,7 +114,7 @@ export async function runLivePoll({ db, fetch: f, fcm, now }: LiveDeps): Promise
   await recordBroadcast(db, view.uid, course?.id ?? null, at.toISOString());
 
   const day = medinaDate(at);
-  if (!(await markSent(db, course ? `live:${course.id}:${day}` : `live:${view.uid}`))) return;
+  if (!(await markSent(db, sentKey(course?.id ?? null, view.uid, at)))) return;
 
   try {
     if (course) {

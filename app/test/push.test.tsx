@@ -21,16 +21,20 @@ const fm = vi.hoisted(() => ({
   getDeliveredNotifications: vi.fn(async () => ({ notifications: [] as { id: string; tag?: string }[] })),
   removeDeliveredNotifications: vi.fn(async (_: { notifications: unknown[] }) => {}),
 }));
-const app = vi.hoisted(() => ({ resume: null as null | (() => void) }));
-vi.mock('@capacitor/app', () => ({
-  App: {
-    addListener: vi.fn(async (event: string, cb: () => void) => {
-      if (event === 'resume') app.resume = cb;
-      return { remove: async () => {} };
-    }),
+
+vi.mock('@capacitor-firebase/messaging', () => ({ FirebaseMessaging: fm, Importance: { High: 4 } }));
+const st = vi.hoisted(() => ({ state: null as unknown, listeners: [] as ((s: unknown) => void)[] }));
+vi.mock('../src/store', () => ({
+  currentState: () => st.state,
+  watchState: (cb: (s: unknown) => void) => {
+    cb(st.state);
+    st.listeners.push(cb);
   },
 }));
-vi.mock('@capacitor-firebase/messaging', () => ({ FirebaseMessaging: fm, Importance: { High: 4 } }));
+const setState = (s: unknown) => {
+  st.state = s;
+  st.listeners.forEach((cb) => cb(s));
+};
 
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { initPush, setTopic, syncTopics } from '../src/push';
@@ -40,6 +44,8 @@ const ids = FIXTURE_STATE.courses.map((c) => c.id);
 const subscribed = () => fm.subscribeToTopic.mock.calls.map((c) => c[0].topic);
 
 beforeEach(() => {
+  st.state = null;
+  st.listeners = [];
   store.clear();
   vi.clearAllMocks();
 });
@@ -160,18 +166,29 @@ describe('initPush', () => {
     { id: '7', tag: 'media' },
     { id: 'live' },
   ];
+  const withLive = (isLive: boolean) => ({ ...FIXTURE_STATE, live: { ...FIXTURE_STATE.live, isLive } });
 
-  it('removes only the live notification on launch and on every resume', async () => {
+  it('removes only the live notification once the state says nothing is live', async () => {
     fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered });
+    setState(withLive(false));
     await initPush();
     await waitFor(() => expect(fm.removeDeliveredNotifications).toHaveBeenCalledOnce());
     expect(fm.removeDeliveredNotifications).toHaveBeenCalledWith({ notifications: [delivered[0], delivered[3]] });
-    app.resume!();
-    await waitFor(() => expect(fm.removeDeliveredNotifications).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps the live notification while the broadcast is live, and clears it when it ends', async () => {
+    fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered });
+    setState(withLive(true));
+    await initPush();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fm.getDeliveredNotifications).not.toHaveBeenCalled();
+    setState(withLive(false));
+    await waitFor(() => expect(fm.removeDeliveredNotifications).toHaveBeenCalled());
   });
 
   it('leaves the tray alone when no live notification is shown', async () => {
     fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered.slice(1, 3) });
+    setState(withLive(false));
     await initPush();
     await waitFor(() => expect(fm.getDeliveredNotifications).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 0));

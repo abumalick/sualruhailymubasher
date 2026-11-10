@@ -115,11 +115,25 @@ describe('fcm', () => {
     expect(JSON.parse(String(f.mock.calls[1]![1]!.body)).message.android.ttl).toBe('0s');
   });
 
-  it('sends a data-only message for Android', async () => {
+  it('sends a silent message: data-only on Android, a background push on iOS', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
     const f = mockFetch();
     await createFcm(account(), f).sendDataToTopic('live-other', { dismiss: 'live' }, 3600);
     expect(JSON.parse(String(f.mock.calls[1]![1]!.body))).toEqual({
-      message: { topic: 'live-other', data: { dismiss: 'live' }, android: { priority: 'normal', ttl: '3600s' } },
+      message: {
+        topic: 'live-other',
+        data: { dismiss: 'live' },
+        android: { priority: 'normal', ttl: '3600s' },
+        apns: {
+          headers: {
+            'apns-push-type': 'background',
+            'apns-priority': '5',
+            'apns-expiration': String(Date.parse('2026-01-01T01:00:00Z') / 1000),
+          },
+          payload: { aps: { 'content-available': 1 } },
+        },
+      },
     });
   });
 

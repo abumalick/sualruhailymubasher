@@ -203,6 +203,32 @@ describe('live dismiss', () => {
     expect(sendDataToTopic).toHaveBeenCalledTimes(1);
   });
 
+  it('pushes again, once, when the broadcast resumes the same day after a dismiss', async () => {
+    const { sendToTopic, sendDataToTopic } = setup(offline);
+    const fcm = { sendToTopic, sendDataToTopic } as unknown as Fcm;
+    const pollAt = (fetchImpl: typeof fetch, iso: string) => runLivePoll({ db: env.DB, fetch: fetchImpl, fcm, now: new Date(iso) });
+    const resumed = respond(withStart('2026-10-19T15:36:00Z', 'again')) as typeof fetch;
+    await pollAt(respond(liveJson) as typeof fetch, '2026-10-19T15:20:30Z');
+    await pollAt(offline, '2026-10-19T15:30:00Z');
+    await pollAt(offline, '2026-10-19T15:34:00Z');
+    expect(sendDataToTopic).toHaveBeenCalledTimes(1);
+    await pollAt(resumed, '2026-10-19T15:36:30Z');
+    await pollAt(resumed, '2026-10-19T15:37:30Z');
+    expect(sendToTopic).toHaveBeenCalledTimes(2);
+    expect(sendToTopic.mock.calls[1][0]).toBe('c-kitab-tawhid-live');
+  });
+
+  it('does not push again after a reconnect within the grace period', async () => {
+    const { sendToTopic, sendDataToTopic } = setup(offline);
+    const fcm = { sendToTopic, sendDataToTopic } as unknown as Fcm;
+    const pollAt = (fetchImpl: typeof fetch, iso: string) => runLivePoll({ db: env.DB, fetch: fetchImpl, fcm, now: new Date(iso) });
+    await pollAt(respond(liveJson) as typeof fetch, '2026-10-19T15:20:30Z');
+    await pollAt(offline, '2026-10-19T15:30:00Z');
+    await pollAt(respond(withStart('2026-10-19T15:31:00Z', 'again')) as typeof fetch, '2026-10-19T15:31:30Z');
+    expect(sendDataToTopic).not.toHaveBeenCalled();
+    expect(sendToTopic).toHaveBeenCalledTimes(1);
+  });
+
   it('logs a failed dismiss and does not resend it', async () => {
     await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' });
     const { deps, sendDataToTopic } = setup(offline);
