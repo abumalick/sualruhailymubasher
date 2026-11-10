@@ -6,7 +6,8 @@ export type Route =
   | { name: 'course'; id: string }
   | { name: 'book'; id: string; pdfIndex: number; page: number; marker: boolean }
   | { name: 'notifications' }
-  | { name: 'links' };
+  | { name: 'links' }
+  | { name: 'follow' };
 
 export function parseRoute(hash: string): Route {
   const [path, query = ''] = hash.split('?');
@@ -24,6 +25,8 @@ export function parseRoute(hash: string): Route {
       return { name: 'notifications' };
     case 'links':
       return { name: 'links' };
+    case 'follow':
+      return { name: 'follow' };
     default:
       return { name: 'home' };
   }

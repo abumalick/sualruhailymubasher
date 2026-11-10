@@ -6,6 +6,7 @@ export interface PlayerSrc {
   title: string;
   subtitle: string;
   kind: 'live' | 'recording';
+  courseId?: string | null;
 }
 export interface PlayerState {
   src: PlayerSrc | null;
@@ -43,6 +44,8 @@ function syncPosition(force = true) {
 
 function setPlaying(playing: boolean) {
   set({ playing });
+  // After stop() the element's pause event arrives late; reporting it would restart the media notification.
+  if (!state.src) return;
   syncPosition();
   quiet(MediaSession.setPlaybackState({ playbackState: playing ? 'playing' : 'paused' }));
 }
@@ -108,6 +111,12 @@ export const player = {
 
   pause(): void {
     audio?.pause();
+  },
+
+  stop(): void {
+    audio?.pause();
+    set({ src: null, playing: false, position: 0, duration: 0, error: null });
+    quiet(MediaSession.setPlaybackState({ playbackState: 'none' }));
   },
 
   async resume(): Promise<void> {

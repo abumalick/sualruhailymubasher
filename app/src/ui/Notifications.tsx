@@ -1,6 +1,7 @@
 import { courseTopic, LIVE_OTHER_TOPIC, type CourseDTO, type StateDTO } from '@albadr/shared';
+import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { loadTopics, pushPermission, setTopic } from '../push';
+import { askPermission, loadTopics, pushPermission, setTopic } from '../push';
 import { slotName } from './format';
 
 const REMINDER = {
@@ -20,7 +21,7 @@ function Toggle({ label, hint, on, onToggle }: { label: string; hint?: string; o
   );
 }
 
-export function Notifications({ state }: { state: StateDTO | null }) {
+export function Notifications({ state, notice }: { state: StateDTO | null; notice?: ComponentChildren }) {
   const [topics, setTopics] = useState<string[] | null>(null);
   const [permission, setPermission] = useState('granted');
   const courseIds = state?.courses.map((c) => c.id).join(',');
@@ -45,9 +46,20 @@ export function Notifications({ state }: { state: StateDTO | null }) {
       <div class="bar">
         <div class="t">
           <b>التنبيهات</b>
-          <span>اختر ما يصلك لكل درس</span>
+          <span>اختر ما يصلك من كل درس تتابعه</span>
         </div>
       </div>
+      {notice}
+      {permission.startsWith('prompt') && (
+        <div class="card reach">
+          <span class="b">التنبيهات غير مفعّلة على هذا الجهاز</span>
+          <div class="acts start">
+            <button class="chip pri" onClick={() => void askPermission().then(setPermission)}>
+              فعّل التنبيهات
+            </button>
+          </div>
+        </div>
+      )}
       {permission === 'denied' && <p class="quiet">الإشعارات متوقفة من إعدادات الجهاز، واختياراتك محفوظة وستعمل عند تفعيلها.</p>}
       {topics &&
         state?.courses.map((c: CourseDTO) => (

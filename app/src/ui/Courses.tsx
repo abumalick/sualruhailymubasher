@@ -1,8 +1,9 @@
 import type { StateDTO } from '@albadr/shared';
+import type { ComponentChildren } from 'preact';
 import { ar, schedule, slotName } from './format';
 import { Icon } from './Star';
 
-export function Courses({ state }: { state: StateDTO | null }) {
+export function Courses({ state, notice }: { state: StateDTO | null; notice?: ComponentChildren }) {
   return (
     <>
       <div class="bar">
@@ -11,6 +12,7 @@ export function Courses({ state }: { state: StateDTO | null }) {
           <span>الدروس العلمية الحالية</span>
         </div>
       </div>
+      {notice}
       {state && (
         <div class="card">
           {state.courses.map((c) => (

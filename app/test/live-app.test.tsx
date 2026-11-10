@@ -1,8 +1,14 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 
+const prefs = vi.hoisted(() => new Map<string, string>());
 vi.mock('@capacitor/preferences', () => ({
-  Preferences: { get: async () => ({ value: null }), set: async () => {}, remove: async () => {}, keys: async () => ({ keys: [] }) },
+  Preferences: {
+    get: async ({ key }: { key: string }) => ({ value: prefs.get(key) ?? null }),
+    set: async ({ key, value }: { key: string; value: string }) => void prefs.set(key, value),
+    remove: async ({ key }: { key: string }) => void prefs.delete(key),
+    keys: async () => ({ keys: [] }),
+  },
 }));
 vi.mock('../src/api', () => ({ loadCachedState: vi.fn(), fetchState: vi.fn(), fetchLessons: vi.fn() }));
 vi.mock('../src/ui/Book', () => ({ Book: ({ page }: { page: number }) => <div class="book">book page {page}</div> }));
@@ -35,6 +41,7 @@ import { App } from '../src/App';
 import { player } from '../src/audio/player';
 import { endedState, liveState } from './live-state';
 import { refresh } from '../src/store';
+import { followOnly } from '../src/logic/follow';
 
 const go = (hash: string) =>
   act(() => {
@@ -65,6 +72,8 @@ beforeAll(() => {
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  prefs.clear();
+  prefs.set('follow', JSON.stringify(followOnly(liveState(null).courses, ['tafsir-saadi', 'kitab-tawhid'])));
   location.hash = '#/';
   vi.mocked(api.fetchState).mockRejectedValue(new Error('offline'));
 });
@@ -149,4 +158,38 @@ it('when the server reports the end with no course, the bar keeps its lesson and
   expect(screen.getByRole('button', { name: /التعليق على شرح كتاب التوحيد.*انتهى البث/ })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
   expect(screen.getByTitle('البث المباشر')).toBe(frame);
+});
+
+it('dropping the course on air closes the root-mounted live player and clears the media session', async () => {
+  await openLive('kitab-tawhid');
+  await go('#/follow');
+  expect(screen.getByTitle('البث المباشر')).toBeTruthy();
+  fireEvent.click(await screen.findByRole('checkbox', { name: /درس المغرب/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'حفظ · درس الفجر فقط' }));
+  await screen.findByText('دروسك: درس الفجر فقط');
+  expect(screen.queryByTitle('البث المباشر')).toBeNull();
+  expect(screen.queryByRole('region', { name: 'البث المباشر' })).toBeNull();
+  expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'none' });
+});
+
+it('dropping another course leaves the live player alone', async () => {
+  const frame = await openLive('kitab-tawhid');
+  await go('#/follow');
+  fireEvent.click(await screen.findByRole('checkbox', { name: /درس الفجر/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'حفظ · درس المغرب فقط' }));
+  await screen.findByText('دروسك: درس المغرب فقط');
+  expect(screen.getByTitle('البث المباشر')).toBe(frame);
+});
+
+it('dropping the course of a direct stream stops the audio', async () => {
+  vi.mocked(api.loadCachedState).mockResolvedValue({ ...liveState('kitab-tawhid'), live: { ...liveState('kitab-tawhid').live, mode: 'direct', streamUrl: 'https://s/live' } });
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'استمع إلى البث' }));
+  await act(async () => {});
+  expect(player.state.src?.courseId).toBe('kitab-tawhid');
+  await go('#/follow');
+  fireEvent.click(await screen.findByRole('checkbox', { name: /درس المغرب/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'حفظ · درس الفجر فقط' }));
+  await screen.findByText('دروسك: درس الفجر فقط');
+  expect(player.state.src).toBeNull();
 });

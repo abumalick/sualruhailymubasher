@@ -2,10 +2,12 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { FirebaseMessaging, Importance } from '@capacitor-firebase/messaging';
 import { LIVE_TAG, type PushData, type StateDTO } from '@albadr/shared';
-import { diffTopics, launchTopics, routeForPush, topicsFor, type StoredTopics } from './logic/topics';
+import { diffTopics, routeForPush, syncPlan, topicsFor, type StoredTopics } from './logic/topics';
 import { navigate } from './router';
-import { currentState, watchFreshState, watchState } from './store';
+import { currentData, currentView, watchData, watchFreshState, type AppData } from './store';
 import { loadCachedState } from './api';
+import { loadFollow } from './follow';
+import { filterState } from './logic/follow';
 
 const TOPICS_KEY = 'topics';
 const COURSES_KEY = 'topic-courses';
@@ -34,6 +36,11 @@ export async function loadTopics(state: StateDTO | null): Promise<string[]> {
   const stored = await loadStored();
   if (stored) return stored.topics;
   return state ? topicsFor(state.courses.map((c) => c.id)) : [];
+}
+
+async function cachedView(): Promise<StateDTO | null> {
+  const [state, follow] = await Promise.all([loadCachedState(), loadFollow()]);
+  return state && follow ? filterState(state, follow) : state;
 }
 
 let queue: Promise<unknown> = Promise.resolve();
@@ -84,7 +91,7 @@ export const setTopic = (topic: string, on: boolean): Promise<string[] | null> =
       await save(topics);
       return topics;
     }
-    const state = currentState() ?? (await loadCachedState());
+    const state = currentView() ?? (await cachedView());
     if (!state) return null;
     const ids = state.courses.map((c) => c.id);
     const defaults = topicsFor(ids);
@@ -96,26 +103,29 @@ export const setTopic = (topic: string, on: boolean): Promise<string[] | null> =
 
 async function prepareNotifications() {
   try {
-    const { receive } = await FirebaseMessaging.checkPermissions();
-    if (receive.startsWith('prompt')) await FirebaseMessaging.requestPermissions();
-  } catch {}
-  try {
     await FirebaseMessaging.createChannel({ id: 'lessons', name: 'الدروس', importance: Importance.High });
   } catch {}
 }
 
-export const syncTopics = (state: StateDTO): Promise<void> =>
+export const syncTopics = (state: StateDTO, followed: string[]): Promise<boolean> =>
   serial(async () => {
     if (native()) await prepareNotifications();
     const stored = await loadStored();
-    const ids = state.courses.map((c) => c.id);
-    const current = stored?.topics ?? [];
-    const wanted = launchTopics(stored, ids);
-    const unsub = [...new Set([...current, ...topicsFor(ids)])].filter((t) => !wanted.includes(t));
-    const { topics, failed } = await apply(current, { sub: wanted, unsub });
-    if (failed && !stored) return;
-    await save(topics, failed ? undefined : ids);
+    const plan = syncPlan(stored, state.courses.map((c) => c.id), followed);
+    const { topics, failed } = await apply(stored?.topics ?? [], plan);
+    if (failed && !stored) return false;
+    await save(topics, failed ? plan.coursesIfFailed : plan.courses);
+    return !failed;
   });
+
+export async function askPermission(): Promise<string> {
+  if (!native()) return 'granted';
+  try {
+    return (await FirebaseMessaging.requestPermissions()).receive;
+  } catch {
+    return pushPermission();
+  }
+}
 
 export async function pushPermission(): Promise<string> {
   if (!native()) return 'granted';
@@ -144,15 +154,22 @@ export async function initPush(): Promise<void> {
   await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
     const data = event.notification.data;
     if (!isPushData(data)) return;
-    navigate(routeForPush(data, currentState() ?? (await loadCachedState())));
+    navigate(routeForPush(data, currentView() ?? (await cachedView())));
   });
-  let synced = false;
   watchFreshState((state) => {
     if (!state.live.isLive) void clearLiveNotification();
   });
-  watchState((state) => {
-    if (synced || !state) return;
-    synced = true;
-    void syncTopics(state);
-  });
+  let synced = '';
+  const sync = ({ state, follow }: AppData) => {
+    if (!state || !follow) return;
+    const key = `${follow.ids.join(',')}|${state.courses.map((c) => c.id).join(',')}`;
+    if (key === synced) return;
+    synced = key;
+    const retry = () => {
+      if (synced === key) synced = '';
+    };
+    syncTopics(state, follow.ids).then((ok) => ok || retry(), retry);
+  };
+  sync(currentData());
+  watchData(sync);
 }

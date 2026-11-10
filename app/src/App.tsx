@@ -4,10 +4,12 @@ import { startLive } from './audio/live';
 import { CLOSED, nextLivePlayer, type LiveEvent } from './logic/live';
 import { player } from './audio/player';
 import { useRoute } from './router';
-import { boot, nowOverride, refresh, toggleTick, useAppData } from './store';
+import { unfollowed } from './logic/follow';
+import { boot, nowOverride, refresh, toggleTick, useAppData, viewOf } from './store';
 import { Book } from './ui/Book';
 import { Course } from './ui/Course';
 import { Courses } from './ui/Courses';
+import { Chooser, FollowNotice, NotFollowed } from './ui/Follow';
 import { Links } from './ui/Links';
 import { Home } from './ui/Home';
 import { LiveSheet } from './ui/LiveSheet';
@@ -21,12 +23,33 @@ export function App() {
   document.documentElement.dir = 'rtl';
   document.documentElement.lang = 'ar';
   const route = useRoute();
-  const { state, ticks, error } = useAppData();
+  const data = useAppData();
+  const { ticks, error, follow } = data;
+  const state = viewOf(data);
   const [livePlayer, setLivePlayer] = useState(CLOSED);
+  const [welcome, setWelcome] = useState(false);
   const send = (e: LiveEvent) => setLivePlayer((p) => nextLivePlayer(p, e));
   useEffect(() => void boot(), []);
   useEffect(() => send({ type: 'navigate' }), [route]);
   useEffect(() => void (state && send({ type: 'state', live: state.live })), [state?.live]);
+  useEffect(() => {
+    if (!follow) return;
+    if (unfollowed(player.state.src?.courseId, follow)) player.stop();
+    if (unfollowed(livePlayer.courseId, follow)) send({ type: 'close' });
+  }, [follow?.ids.join()]);
+  const notice = (always = false) => data.state && follow && <FollowNotice state={data.state} follow={follow} always={always} />;
+  const hidden = (id: string) => !!data.state?.courses.some((c) => c.id === id);
+
+  if (follow === null || welcome) {
+    return (
+      <div class="shell">
+        <Defs />
+        <div class="scroll">
+          <Chooser state={data.state} follow={follow ?? null} first onHold={setWelcome} />
+        </div>
+      </div>
+    );
+  }
   const now = nowOverride() ?? new Date();
   const onLive = () => state && startLive(state, () => send({ type: 'open', live: state.live }));
   const onTick = (kind: 'read' | 'reviewed', courseId: string, n: number) => void toggleTick(kind, courseId, n);
@@ -39,19 +62,23 @@ export function App() {
       title: `${course.title} · الدرس ${ar(lesson.number)}`,
       subtitle: arText(lesson.startPoint),
       kind: 'recording',
+      courseId: course.id,
     });
   };
 
   let page = null;
   if (route.name === 'home') {
-    page = <Home state={state} ticks={ticks} now={now} error={error} onTick={onTick} onPlay={onPlay} onLive={onLive} onRetry={() => void refresh()} />;
+    page = <Home state={state} ticks={ticks} now={now} error={error} onTick={onTick} onPlay={onPlay} onLive={onLive} onRetry={() => void refresh()} notice={notice()} />;
   } else if (route.name === 'courses') {
-    page = <Courses state={state} />;
+    page = <Courses state={state} notice={notice(true)} />;
   } else if (route.name === 'course') {
     const course = state?.courses.find((c) => c.id === route.id);
     if (course) page = <Course key={course.id} course={course} ticks={ticks} onTick={onTick} onPlay={onPlay} />;
+    else if (hidden(route.id)) page = <NotFollowed />;
   } else if (route.name === 'notifications') {
-    page = <Notifications state={state} />;
+    page = <Notifications state={state} notice={notice(true)} />;
+  } else if (route.name === 'follow') {
+    if (follow) page = <Chooser key={follow.ids.join()} state={data.state} follow={follow} first={false} />;
   } else if (route.name === 'links') {
     page = <Links state={state} />;
   }
@@ -59,7 +86,9 @@ export function App() {
   let body;
   if (route.name === 'book') {
     const course = state?.courses.find((c) => c.id === route.id);
-    body = course ? (
+    body = !course && hidden(route.id) ? (
+      <NotFollowed />
+    ) : course ? (
       <Book key={`${course.id}/${route.pdfIndex}`} course={course} pdfIndex={route.pdfIndex} page={route.page} marker={route.marker} ticks={ticks} onTick={onTick} />
     ) : state ? (
       <div class="booker">
