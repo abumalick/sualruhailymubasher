@@ -58,8 +58,6 @@ else
   pnpm exec vite --strictPort --host 127.0.0.1 &
 fi
 vite_pid=$!
-set +e
-wait -n "$api_pid" "$vite_pid"
-status=$?
-echo "a server exited (status $status); stopping the other" >&2
-exit "$status"
+wh_wait_any "$api_pid" "$vite_pid"
+echo "a server exited; stopping the other" >&2
+exit 1

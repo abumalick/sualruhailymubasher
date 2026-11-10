@@ -162,6 +162,9 @@ wh_procs_under() {
     if _wh_related "$pid" "$root"; then continue; fi
     if [ -r "/proc/$pid/cmdline" ]; then cmd="$(tr '\0\n' '  ' < "/proc/$pid/cmdline" 2>/dev/null)" || cmd=""
     else cmd="$(ps -o command= -p "$pid" 2>/dev/null)" || cmd=""; fi
+    # A process that exited during the scan (often one of the caller's own short-lived
+    # helpers, whose parent chain could no longer be read) is not running there.
+    kill -0 "$pid" 2>/dev/null || continue
     printf '%s\t%s\t%s\n' "$pid" "$rel" "${cmd:-?}"
   done
   return 0
@@ -169,7 +172,8 @@ wh_procs_under() {
 
 # wh_stop_procs_in <dir> — SIGTERM every process working in <dir> together with
 # its descendants, wait (portless deregisters its route on SIGTERM), then SIGKILL
-# what is left. Never fails the caller. Messages go to stderr.
+# what is left. Returns 1, stopping nothing, when <dir> is empty or the whole
+# worktree dir ($WH_WT_ROOT); otherwise 0, best effort. Messages go to stderr.
 wh_stop_procs_in() {
   local dir="${1:-}" procs pids pid _i root
   if [ -z "$dir" ] || _wh_is_wt_root "$dir"; then
@@ -209,4 +213,18 @@ wh_kill_tree() {
   done
   kill "$pid" 2>/dev/null || true
   return 0
+}
+
+# wh_wait_any <pid>... — return once any of the given children of this shell has exited.
+# Polled rather than `wait -n`, which blocks on the survivors ("no such job") when a
+# child was already reaped before the call. A pid that is alive but no longer our child
+# was reused by another process: ours is gone.
+wh_wait_any() {
+  local pid
+  while :; do
+    for pid in "$@"; do
+      if ! kill -0 "$pid" 2>/dev/null || [ "$(_wh_ppid "$pid")" != "$$" ]; then return 0; fi
+    done
+    sleep 1
+  done
 }
