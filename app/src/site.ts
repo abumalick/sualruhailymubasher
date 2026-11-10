@@ -1,3 +1,5 @@
+// The display name may still change: it also appears in index.html <title> and public/privacy.html.
+export const APP_NAME = 'دروس الشيخ عبد الرزاق البدر';
 export const SITE = 'https://albadrmubasher.com';
 export const PRIVACY_URL = `${SITE}/privacy`;
 export const MIXLR_URL = 'https://albadrnet.mixlr.com';

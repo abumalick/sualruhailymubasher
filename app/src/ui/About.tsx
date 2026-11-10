@@ -1,4 +1,4 @@
-import { MIXLR_URL, PRIVACY_URL, SHEIKH_SITE, STORES } from '../site';
+import { APP_NAME, MIXLR_URL, PRIVACY_URL, SHEIKH_SITE, STORES } from '../site';
 import { Icon } from './Star';
 
 function Row({ title, sub, href }: { title: string; sub: string; href: string }) {
@@ -26,7 +26,7 @@ export function About({ native, back }: { native: boolean; back?: string }) {
         )}
         <div class="t">
           <b>عن التطبيق</b>
-          <span>دروس الشيخ عبد الرزاق البدر</span>
+          <span>{APP_NAME}</span>
         </div>
       </div>
       <div class="card about">
