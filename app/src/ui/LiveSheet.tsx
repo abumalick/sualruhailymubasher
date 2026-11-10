@@ -49,6 +49,9 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
               <b>{ctx.title}</b>
               <span aria-live="polite">{ctx.status.live ? ctx.header : `${ctx.header} · ${ctx.status.text}`}</span>
             </div>
+            <button class="rl" aria-label="إعادة تحميل البث" onClick={() => setLoads((n) => n + 1)}>
+              <Icon id="i-rev" />
+            </button>
             {stop}
           </div>
           {ctx.start && (
@@ -58,13 +61,6 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
               {(ctx.edition || ctx.book) && <div class="acts start">{ctx.edition ? <span class="pill o">{ctx.edition}</span> : bookLink(false)}</div>}
             </div>
           )}
-          <div class="lreload">
-            <span>توقّف البث أو لم يظهر؟</span>
-            <button class="chip" onClick={() => setLoads((n) => n + 1)}>
-              <Icon id="i-rev" />
-              إعادة تحميل البث
-            </button>
-          </div>
         </div>
       ) : (
         <div class="lbar">
