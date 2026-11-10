@@ -2,14 +2,14 @@ import type { CourseDTO, LiveDTO } from '@albadr/shared';
 import { useEffect } from 'preact/hooks';
 import { player } from '../audio/player';
 import { liveLessonNumber } from '../logic/home';
-import { ar, arText, bookHref, editionPage } from './format';
+import { ar, bookHref, editionPage, startText } from './format';
 import { Icon } from './Star';
 
 export interface LiveSheetProps {
   live: LiveDTO;
   course: CourseDTO | undefined;
   expanded: boolean;
-  onBook?: boolean;
+  inBook?: boolean;
   onExpand: () => void;
   onCollapse: () => void;
   onClose: () => void;
@@ -20,7 +20,7 @@ export function liveContext(course: CourseDTO | undefined) {
   return {
     title: course?.title ?? 'البث المباشر',
     lesson: course ? `الدرس ${ar(liveLessonNumber(course))}` : null,
-    start: next ? (next.startPoint ? arText(next.startPoint) : `يتابع من حيث توقف الدرس ${ar(next.number - 1)}`) : null,
+    start: next ? startText(next) : null,
     edition: course && next ? editionPage(course, next.startPage) : null,
     book: course && next ? bookHref(course, next.pdfIndex, next.startPage, true) : null,
     bookLabel: next?.startPage != null ? `تابع في الكتاب · ص ${ar(next.startPage)}` : 'تابع في الكتاب',
@@ -28,7 +28,7 @@ export function liveContext(course: CourseDTO | undefined) {
 }
 
 // The iframe stays the first child in both states: moving or re-inserting it reloads Mixlr and cuts the audio.
-export function LiveSheet({ live, course, expanded, onBook = false, onExpand, onCollapse, onClose }: LiveSheetProps) {
+export function LiveSheet({ live, course, expanded, inBook = false, onExpand, onCollapse, onClose }: LiveSheetProps) {
   const ctx = liveContext(course);
   useEffect(() => {
     player.startEmbed(ctx.title, onClose);
@@ -72,7 +72,7 @@ export function LiveSheet({ live, course, expanded, onBook = false, onExpand, on
               {ctx.edition && ` · ${ctx.edition}`}
             </span>
           </button>
-          {!onBook && bookLink}
+          {!inBook && bookLink}
           <button class="x" aria-label="إيقاف البث" onClick={onClose}>
             <Icon id="i-pause" />
           </button>

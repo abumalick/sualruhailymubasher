@@ -18,5 +18,5 @@ export const TAWHID = {
 export const liveState = (courseId: string | null): StateDTO => ({
   ...FIXTURE_STATE,
   courses: [TAFSIR, TAWHID],
-  live: { ...FIXTURE_STATE.live, isLive: true, courseId, startedAt: '2026-11-02T15:10:00Z' },
+  live: { ...FIXTURE_STATE.live, embedUrl: 'about:blank#mixlr', isLive: true, courseId, startedAt: '2026-11-02T15:10:00Z' },
 });

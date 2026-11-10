@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('@capacitor/preferences', () => ({
   Preferences: { get: async () => ({ value: null }), set: async () => {}, remove: async () => {}, keys: async () => ({ keys: [] }) },
@@ -55,6 +55,12 @@ function watch(frame: HTMLIFrameElement) {
   return { moves, flush: () => moves.push(...mo.takeRecords().flatMap((r) => [...(touches(r.removedNodes) ? ['removed'] : []), ...(touches(r.addedNodes) ? ['added'] : [])])), stop: () => mo.disconnect() };
 }
 
+beforeAll(() => {
+  const { settings } = (window as unknown as { happyDOM: { settings: Record<string, boolean> } }).happyDOM;
+  settings.disableIframePageLoading = false;
+  settings.enableIframePageLoading = true;
+});
+
 beforeEach(async () => {
   vi.clearAllMocks();
   location.hash = '#/';
@@ -63,6 +69,8 @@ beforeEach(async () => {
 afterEach(() => {
   player.endEmbed();
   cleanup();
+  vi.unstubAllGlobals();
+  vi.stubGlobal('Audio', FakeAudio);
 });
 
 async function openLive(courseId: string) {

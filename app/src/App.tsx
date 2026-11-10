@@ -90,7 +90,7 @@ export function App() {
           live={state.live}
           course={state.courses.find((c) => c.id === state.live.courseId)}
           expanded={liveView === 'expanded'}
-          onBook={route.name === 'book'}
+          inBook={route.name === 'book'}
           onExpand={() => setLiveView('expanded')}
           onCollapse={() => setLiveView('collapsed')}
           onClose={() => setLiveView('closed')}
