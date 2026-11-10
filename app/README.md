@@ -18,6 +18,12 @@ Signing reads `ALBADR_KEYSTORE`, `ALBADR_KEYSTORE_PASSWORD`, `ALBADR_KEY_ALIAS`,
     apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
     adb install -r app/build/outputs/apk/release/app-release.apk
 
+For Google Play, build the bundle instead (upload key; Play App Signing re-signs it). Raise `versionCode`
+in `android/app/build.gradle` first: Play refuses a code it has already seen.
+
+    cd app/android && ./gradlew bundleRelease
+    keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab
+
 ## iOS release (macOS, fastlane)
 
 Everything goes through fastlane, from the repository root on the Mac (`fastlane/Fastfile.ios`):
