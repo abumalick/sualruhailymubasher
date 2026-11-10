@@ -158,13 +158,13 @@ def test_next_start_point_patches_end_from_the_chained_start_without_transcripti
     assert "start match 1.00, end match 1.00" in caplog.text
 
 
-def test_next_start_point_truncates(chained):
+def test_next_start_point_is_stored_whole(chained):
     handler, patches = chained
     nxt = "من قوله: باب الدعاء الى شهادة ان لا اله الا الله " + "و" * 100
     handler.pending = [older(nextStartPoint=nxt, startPage=1, pdfIndex=1)]
     assert run(handler) == 0
     body = json.loads(patches[0][1])
-    assert body == {"endPoint": nxt[:80], "endPage": 2, "endPdfIndex": 1, "startPage": 1, "pdfIndex": 1}
+    assert body == {"endPoint": nxt, "endPage": 2, "endPdfIndex": 1, "startPage": 1, "pdfIndex": 1}
 
 
 @pytest.mark.parametrize("start_page,pdf_index", [(None, None), (1, None), (9, 0)])
@@ -357,3 +357,80 @@ def test_course_without_pdfs_uses_its_local_book(setup, monkeypatch):
     assert run(handler) == 0
     assert opened == ["/books/t1.pdf", "/books/t2.pdf"]
     assert [p for p, _ in patches] == ["/api/admin/lessons/tafsir/1"]
+
+
+TAFSIR_START = "تفسير سورة التوبة: من الآية (٥) ﴿فَإِذَا انْسَلَخَ الْأَشْهُرُ الْحُرُمُ فَاقْتُلُوا الْمُشْرِكِينَ...﴾"
+AYAH_8 = cli.label(9, 8)
+
+
+def tafsir(**extra):
+    return lesson("tafsir", 459, pdfs=list(BOOK), **{"startPoint": TAFSIR_START, "startPage": 2, "pdfIndex": 0, **extra})
+
+
+def tafsir_answer(**over):
+    base = dict(start_page=2, end_page=3, pdf_index=0, end_pdf_index=0, end_point="من قوله: كيف يكون للمشركين",
+                next_surah="التوبة", next_ayah=8, next_ayah_words="كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ")
+    return good(**{**base, **over})
+
+
+def test_tafsir_end_point_is_the_next_ayah_as_announced(recorded):
+    handler, patches, prompts, fake = recorded
+    fake.answer = tafsir_answer()
+    handler.pending = [tafsir()]
+    assert run(handler) == 0
+    assert "next_surah" in prompts[0]
+    assert json.loads(patches[0][1]) == {"endPage": 3, "endPdfIndex": 0, "endPoint": AYAH_8}
+    assert AYAH_8.startswith("تفسير سورة التوبة: من الآية (٨) ﴿") and AYAH_8.endswith("...﴾")
+
+
+@pytest.mark.parametrize("over", [
+    dict(next_surah=None, next_ayah=None, next_ayah_words=None),
+    dict(next_ayah_words="كيف يكون للمشركين عهد"),
+    dict(next_surah="سورة لا توجد"),
+    dict(next_ayah=4, next_ayah_words="إِلَّا الَّذِينَ عَاهَدتُّم"),
+    dict(next_surah="يونس", next_ayah=2, next_ayah_words="أَكَانَ لِلنَّاسِ عَجَبًا"),
+])
+def test_tafsir_keeps_the_book_sentence_when_the_ayah_does_not_check_out(recorded, caplog, over):
+    handler, patches, _, fake = recorded
+    fake.answer = tafsir_answer(**over)
+    handler.pending = [tafsir()]
+    assert run(handler) == 0
+    assert json.loads(patches[0][1])["endPoint"] == "من قوله: كيف يكون للمشركين"
+    assert "keeping the book sentence" in caplog.text
+
+
+def test_tafsir_end_point_may_open_the_next_surah(recorded):
+    handler, patches, _, fake = recorded
+    fake.answer = tafsir_answer(next_surah="التوبة", next_ayah=1, next_ayah_words="بَرَاءَةٌ مِّنَ اللَّهِ وَرَسُولِهِ")
+    handler.pending = [tafsir(startPoint="تفسير سورة الأنفال: من الآية (٧٣) ﴿وَالَّذِينَ كَفَرُوا...﴾")]
+    assert run(handler) == 0
+    assert json.loads(patches[0][1])["endPoint"].startswith("تفسير سورة التوبة: من الآية (١) ﴿بَرَاءَةٌ")
+
+
+def test_tafsir_prefers_the_published_next_start_point(recorded):
+    handler, patches, _, fake = recorded
+    fake.answer = tafsir_answer()
+    nxt = "تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ لَا يَرْقُبُوا فِيكُمْ إِلًّا وَلَا ذِمَّةً...﴾"
+    handler.pending = [tafsir(nextStartPoint=nxt)]
+    assert run(handler) == 0
+    assert json.loads(patches[0][1])["endPoint"] == nxt
+
+
+def test_book_course_prompt_does_not_ask_for_an_ayah(recorded):
+    handler, patches, prompts, fake = recorded
+    fake.answer = tafsir_answer()
+    handler.pending = [lesson("c", 9, pdfs=list(BOOK), startPage=2, pdfIndex=0)]
+    assert run(handler) == 0
+    assert "next_surah" not in prompts[0]
+    assert json.loads(patches[0][1])["endPoint"] == "من قوله: كيف يكون للمشركين"
+
+
+ANNOUNCED = json.loads((cli.Path(__file__).parent / "fixtures" / "tafsir_announcements.json").read_text())["lessons"]
+
+
+@pytest.mark.parametrize("row", [r for r in ANNOUNCED if "claude" in r], ids=lambda r: str(r["lesson"]))
+def test_real_claude_replies_give_the_announced_next_ayah(row):
+    pending = cli.Pending(course_id="tafsir-saadi", number=row["lesson"], recording_url="", start_point=row["start_point"],
+                          pdf_urls=[])
+    got = cli._next_ayah(pending, good(**row["claude"]), "t")
+    assert got == cli.label(*cli.parse_label(row["next_announced"]))

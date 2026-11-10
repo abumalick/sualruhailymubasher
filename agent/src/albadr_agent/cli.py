@@ -11,10 +11,11 @@ import httpx
 from .api import Api, ApiError, Pending
 from .books import DEFAULT_CACHE, book_pages
 from .locate import (
-    MAX_END_POINT, MIN_CONFIDENCE, NEXT_MATCH, WINDOW_SIZE, ClaudeUnavailable, LocateResult, Page, accept,
+    MIN_CONFIDENCE, NEXT_MATCH, WINDOW_SIZE, ClaudeUnavailable, LocateResult, Page, accept,
     build_prompt, candidate_pages, find_page, locate, match_score, page_position,
 )
 from .lock import DEFAULT_LOCK, run_lock
+from .quran import label, matches, parse_label, surah_number
 from .transcribe import CACHE_ROOT, DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
 log = logging.getLogger("albadr_agent")
@@ -22,6 +23,7 @@ log = logging.getLogger("albadr_agent")
 
 EXTRA_WINDOW = 12
 DEFAULT_VERDICTS = CACHE_ROOT / "verdicts"
+VERDICT_SCHEMA = 2
 
 
 def _local_books() -> dict[str, list[str]]:
@@ -69,7 +71,7 @@ def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> End | None:
         return None
     (start_pdf, start_page, start_text), (end_pdf, end_page, end_text) = pages[start], pages[end]
     api.patch_lesson(lesson.course_id, lesson.number, {
-        "end_point": lesson.next_start_point[:MAX_END_POINT],
+        "end_point": lesson.next_start_point,
         "end_page": end_page,
         "end_pdf_index": end_pdf,
         "start_page": start_page,
@@ -84,7 +86,7 @@ def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> End | None:
 def _verdict_path(lesson: Pending, segments: list[Segment], candidates: list[Page]) -> Path:
     transcript = json.dumps([s.model_dump() for s in segments], ensure_ascii=False)
     inputs = json.dumps([
-        lesson.course_id, lesson.number, hashlib.sha256(transcript.encode()).hexdigest(),
+        VERDICT_SCHEMA, lesson.course_id, lesson.number, hashlib.sha256(transcript.encode()).hexdigest(),
         [(pdf, n) for pdf, n, _ in candidates], lesson.next_start_point,
     ], ensure_ascii=False)
     return DEFAULT_VERDICTS / f"{hashlib.sha256(inputs.encode()).hexdigest()}.json"
@@ -104,6 +106,24 @@ def _ask(lesson: Pending, segments: list[Segment], candidates: list[Page], name:
     tmp.write_text(found.model_dump_json() if found else "null")
     tmp.replace(path)
     return found
+
+
+def _next_ayah(lesson: Pending, found: LocateResult, name: str) -> str | None:
+    """The next Tafsir lesson's start as the channel announces it: the ayah it opens with."""
+    own = parse_label(lesson.start_point)
+    if own is None:
+        return None
+    surah = surah_number(found.next_surah or "")
+    ayah = found.next_ayah
+    if surah is None or ayah is None or not matches(found.next_ayah_words or "", surah, ayah):
+        log.warning("%s: claude's next ayah (%s %s «%s») is not a known ayah opening, keeping the book sentence",
+                    name, found.next_surah, found.next_ayah, found.next_ayah_words)
+        return None
+    if not ((surah == own[0] and ayah > own[1]) or (surah == own[0] + 1 and ayah == 1)):
+        log.warning("%s: claude's next ayah %d:%d does not follow the lesson's start %d:%d, keeping the book sentence",
+                    name, surah, ayah, *own)
+        return None
+    return label(surah, ayah)
 
 
 def _patch_from_recording(api: Api, lesson: Pending, name: str) -> End | None:
@@ -134,7 +154,7 @@ def _patch_from_recording(api: Api, lesson: Pending, name: str) -> End | None:
     patch |= {
         "end_page": found.end_page,
         "end_pdf_index": found.end_pdf_index,
-        "end_point": lesson.next_start_point[:MAX_END_POINT] if lesson.next_start_point else found.end_point,
+        "end_point": lesson.next_start_point or _next_ayah(lesson, found, name) or found.end_point,
     }
     api.patch_lesson(lesson.course_id, lesson.number, patch)
     mp3.unlink(missing_ok=True)

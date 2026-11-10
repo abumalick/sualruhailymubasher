@@ -4,7 +4,9 @@ import subprocess
 import pytest
 
 from albadr_agent.api import Pending
-from albadr_agent.locate import ClaudeUnavailable, LocateResult, accept, build_prompt, candidate_pages, find_page, locate
+from albadr_agent.locate import (
+    ClaudeUnavailable, LocateResult, accept, build_prompt, candidate_pages, clip, find_page, locate,
+)
 from albadr_agent.transcribe import Segment
 
 PENDING = Pending(
@@ -138,11 +140,11 @@ def test_candidates_empty_when_nothing_matches():
     assert candidate_pages(PENDING, [(0, 1, "zzz")], None) == []
 
 
-def test_long_end_point_is_truncated_and_cli_flags_set():
-    long = {**GOOD, "end_point": "من قوله: " + "ك" * 200}
+def test_long_end_point_is_cut_on_a_word_and_cli_flags_set():
+    long = {**GOOD, "end_point": "من قوله: " + "كلمتان " * 40}
     run = fake_run(json.dumps({"result": json.dumps(long, ensure_ascii=False)}))
     got = locate("p", run=run)
-    assert len(got.end_point) == 80
+    assert len(got.end_point) <= 80 and got.end_point.endswith("كلمتان…")
     cmd, kwargs = run.calls[0]
     assert "--tools" in cmd and "--no-session-persistence" in cmd and kwargs["timeout"] == 300
 
@@ -201,3 +203,17 @@ def test_tafsir_label_is_not_matched_as_book_text():
     from albadr_agent.locate import match_score
     point = "تفسير سورة الأنفال: من الآية (60) ﴿وَأَعِدُّوا لَهُمْ مَا اسْتَطَعْتُمْ﴾"
     assert match_score(point, "وأعدوا لهم ما استطعتم") == 1.0
+
+
+def test_clip_never_cuts_a_word_or_leaves_a_bracket_open():
+    assert clip("قصير") == "قصير"
+    cut = clip("من قوله: ﴿وَأَعِدُّوا لَهُمْ مَا اسْتَطَعْتُمْ مِنْ قُوَّةٍ وَمِنْ رِبَاطِ الْخَيْلِ تُرْهِبُونَ بِهِ عَدُوَّ اللَّهِ﴾")
+    assert cut.endswith("…﴾") and len(cut) <= 80
+    assert all(w in "وَأَعِدُّوا لَهُمْ مَا اسْتَطَعْتُمْ مِنْ قُوَّةٍ وَمِنْ رِبَاطِ الْخَيْلِ تُرْهِبُونَ بِهِ عَدُوَّ" for w in cut[10:-2].split())
+    assert clip("من قوله: «" + "قال " * 30 + "»").endswith("قال…»")
+
+
+def test_prompt_asks_for_the_next_ayah_only_for_tafsir_lessons():
+    tafsir = PENDING.model_copy(update={"start_point": "تفسير سورة التوبة: من الآية (٥) ﴿فَإِذَا انْسَلَخَ...﴾"})
+    assert "next_ayah_words" in build_prompt(tafsir, [], PAGES)
+    assert "next_ayah" not in build_prompt(PENDING, [], PAGES) and "3ب" not in build_prompt(PENDING, [], PAGES)
