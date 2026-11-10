@@ -1,8 +1,8 @@
 # Run from the repo root: `fastlane android <lane>`.
 ANDROID_DIR = "app/android"
-AAB = "app/android/app/build/outputs/bundle/release/app-release.aab"
-SECRETS_DIR = File.expand_path("~/.config/albadr-lessons")
-SIGNING_VARS = %w[ALBADR_KEYSTORE ALBADR_KEYSTORE_PASSWORD ALBADR_KEY_ALIAS ALBADR_KEY_PASSWORD].freeze
+ANDROID_AAB = "app/android/app/build/outputs/bundle/release/app-release.aab"
+ANDROID_SECRETS = File.expand_path("~/.config/albadr-lessons")
+ANDROID_SIGNING_VARS = %w[ALBADR_KEYSTORE ALBADR_KEYSTORE_PASSWORD ALBADR_KEY_ALIAS ALBADR_KEY_PASSWORD].freeze
 
 platform :android do
   before_all do
@@ -13,15 +13,15 @@ platform :android do
 
   # build.gradle signs only when these are set; an unsigned bundle would be refused by Play
   private_lane :load_signing_env do
-    env_file = ENV.fetch("ALBADR_SIGNING_ENV", File.join(SECRETS_DIR, "env"))
+    env_file = ENV.fetch("ALBADR_SIGNING_ENV", File.join(ANDROID_SECRETS, "env"))
     if File.exist?(env_file)
       File.readlines(env_file, chomp: true).each do |line|
         key, value = line.sub(/\Aexport\s+/, "").split("=", 2)
-        next unless SIGNING_VARS.include?(key)
+        next unless ANDROID_SIGNING_VARS.include?(key)
         ENV[key] ||= value.to_s.delete_prefix('"').delete_suffix('"')
       end
     end
-    missing = SIGNING_VARS.select { |k| ENV[k].to_s.empty? }
+    missing = ANDROID_SIGNING_VARS.select { |k| ENV[k].to_s.empty? }
     UI.user_error!("Upload-key settings missing (#{missing.join(', ')}): see #{env_file}") unless missing.empty?
   end
 
@@ -55,7 +55,7 @@ platform :android do
     build
     upload_to_play_store(
       track: "internal",
-      aab: AAB,
+      aab: ANDROID_AAB,
       release_status: options[:status] || "completed",
       sync_image_upload: true
     )

@@ -7,8 +7,8 @@ Arabic (ar), with an English (en-US) translation.
 
 The listing lives in `fastlane/metadata/android/` and is uploaded by fastlane (see `app/README.md`):
 titles, short and full descriptions per locale, changelogs per versionCode, and the images under
-`ar/images/` (icon, feature graphic, phone screenshots). Screenshots come from a phone with real lessons,
-status bar cropped and padded to Play's 2:1 limit. Home-screen label: البدر مباشر.
+`ar/images/` (icon, feature graphic, phone screenshots). Screenshots come from `scripts/store-screenshots.sh android`
+(the apps' screens with real lessons, 1080x1920), the same generator as the App Store's. Home-screen label: البدر مباشر.
 
 **Category**: Education. **Tags**: chosen in the console. **Contact email**: contact@albadrmubasher.com.
 **Privacy policy**: https://albadrmubasher.com/privacy (must load before the app is submitted for review)
