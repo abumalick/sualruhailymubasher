@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/preact';
+import { cleanup, fireEvent, render, screen } from '@testing-library/preact';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 
 const handlers = vi.hoisted(() => new Map<string, () => void>());
@@ -26,10 +26,16 @@ class FakeAudio extends EventTarget {
 }
 vi.stubGlobal('Audio', FakeAudio);
 
+import type { CourseDTO } from '@albadr/shared';
 import { player } from '../src/audio/player';
-import { LiveSheet } from '../src/ui/LiveSheet';
+import { LiveSheet, type LiveSheetProps } from '../src/ui/LiveSheet';
+import { TAFSIR, TAWHID } from './live-state';
 
 const live = { isLive: true, mode: 'embed' as const, embedUrl: 'about:blank#mixlr', streamUrl: null, courseId: null, startedAt: null };
+const noop = () => {};
+const sheet = (p: Partial<LiveSheetProps> = {}) => (
+  <LiveSheet live={live} course={undefined} expanded onExpand={noop} onCollapse={noop} onClose={noop} {...p} />
+);
 
 beforeAll(() => {
   const { settings } = (window as unknown as { happyDOM: { settings: Record<string, boolean> } }).happyDOM;
@@ -41,7 +47,7 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
 it('embeds the Mixlr page with autoplay', () => {
-  const { container } = render(<LiveSheet live={live} title="البث المباشر" onClose={() => {}} />);
+  const { container } = render(sheet());
   const frame = container.querySelector('iframe')!;
   expect(frame.getAttribute('src')).toBe(live.embedUrl);
   expect(frame.getAttribute('allow')).toBe('autoplay');
@@ -50,7 +56,7 @@ it('embeds the Mixlr page with autoplay', () => {
 
 it('owns the media session while open and the notification pause closes it', () => {
   const onClose = vi.fn();
-  const { rerender } = render(<div><LiveSheet live={live} title="شرح تفسير السعدي" onClose={onClose} /></div>);
+  const { rerender } = render(<div>{sheet({ course: TAFSIR, onClose })}</div>);
   expect(session.setMetadata).toHaveBeenCalledWith(expect.objectContaining({ title: 'شرح تفسير السعدي', artist: 'الشيخ عبد الرزاق البدر' }));
   expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'playing' });
 
@@ -63,11 +69,68 @@ it('owns the media session while open and the notification pause closes it', () 
 
 it('hands the session back to recordings after the sheet closes', async () => {
   const onClose = vi.fn();
-  render(<div><LiveSheet live={live} title="البث المباشر" onClose={onClose} /></div>).rerender(<div />);
+  render(<div>{sheet({ onClose })}</div>).rerender(<div />);
   await player.play({ url: 'https://x/a.mp3', title: 'الدرس ٣', subtitle: '', kind: 'recording' });
   expect(player.state.playing).toBe(true);
   handlers.get('pause')!();
   expect(player.state.playing).toBe(false);
   expect(onClose).not.toHaveBeenCalled();
   expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'paused' });
+});
+
+it('Tafsir: names the lesson and shows where it starts with the printed page and edition, without a book button', () => {
+  render(sheet({ course: TAFSIR }));
+  expect(screen.getByText('شرح تفسير السعدي')).toBeTruthy();
+  expect(screen.getByText('البث المباشر · الدرس ٤٦١')).toBeTruthy();
+  expect(screen.getByText('تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ﴾')).toBeTruthy();
+  expect(screen.getByText('ص ٦٢٨ · طبعة دار ابن الجوزي')).toBeTruthy();
+  expect(screen.queryByRole('link')).toBeNull();
+});
+
+it('evening course: shows where the lesson starts and opens the book there, collapsing the sheet', () => {
+  const onCollapse = vi.fn();
+  render(sheet({ course: TAWHID, onCollapse }));
+  expect(screen.getByText('البث المباشر · الدرس ١٥')).toBeTruthy();
+  expect(screen.getByText('من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…')).toBeTruthy();
+  const link = screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' });
+  expect(link.getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
+  fireEvent.click(link);
+  expect(onCollapse).toHaveBeenCalled();
+});
+
+it('falls back when the start text, the page or the next lesson is unknown', () => {
+  const noStart: CourseDTO = { ...TAWHID, next: { ...TAWHID.next, startPoint: null, startPage: null } };
+  const { rerender } = render(sheet({ course: noStart }));
+  expect(screen.getByText('يتابع من حيث توقف الدرس ١٤')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'تابع في الكتاب' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/1');
+
+  rerender(sheet({ course: { ...TAFSIR, next: null } }));
+  expect(screen.getByText('البث المباشر · الدرس ٤٤٤')).toBeTruthy();
+  expect(screen.queryByText('يبدأ الدرس من')).toBeNull();
+
+  rerender(sheet({ course: undefined }));
+  expect(screen.getAllByText('البث المباشر').length).toBeGreaterThan(0);
+  expect(screen.queryByText('يبدأ الدرس من')).toBeNull();
+});
+
+it('collapses into a bar with the course, lesson and book link while keeping the same iframe', () => {
+  const onExpand = vi.fn();
+  const onClose = vi.fn();
+  const { container, rerender } = render(sheet({ course: TAWHID, onExpand, onClose }));
+  const frame = container.querySelector('iframe')!;
+  rerender(sheet({ course: TAWHID, onExpand, onClose, expanded: false }));
+  expect(container.querySelector('iframe')).toBe(frame);
+  expect(container.querySelector('.sheet.min')).toBeTruthy();
+  expect(screen.getByText('مباشر · الدرس ١٥')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٨٠' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'عرض البث المباشر' }));
+  expect(onExpand).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'إيقاف البث' }));
+  expect(onClose).toHaveBeenCalled();
+});
+
+it('the Tafsir bar shows the printed page instead of a book link', () => {
+  render(sheet({ course: TAFSIR, expanded: false }));
+  expect(screen.getByText(/مباشر · الدرس ٤٦١ · ص ٦٢٨ · طبعة دار ابن الجوزي/)).toBeTruthy();
+  expect(screen.queryByRole('link')).toBeNull();
 });

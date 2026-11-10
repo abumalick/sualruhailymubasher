@@ -19,6 +19,8 @@ export interface HomeModel {
 const AWAITING_DELAY_MS = 30 * 60_000;
 const LESSON_MS = 150 * 60_000;
 
+export const liveLessonNumber = (c: CourseDTO) => c.next?.number ?? (c.latest[0]?.number ?? 0) + 1;
+
 const nextStart = (c: CourseDTO) => (c.next ? lessonInstant(c.next.date, c.next.time).getTime() : Infinity);
 
 function prepareFrom(c: CourseDTO): number {
@@ -94,7 +96,7 @@ export function buildHome(state: StateDTO, ticks: Ticks, now: Date): HomeModel {
 
   if (live.isLive) {
     const course = state.courses.find((c) => c.id === live.courseId);
-    const lessonNumber = course ? (course.next?.number ?? (course.latest[0]?.number ?? 0) + 1) : null;
+    const lessonNumber = course ? liveLessonNumber(course) : null;
     const hero: Item = { kind: 'live', courseId: live.courseId, lessonNumber };
     const steps = course
       ? {
