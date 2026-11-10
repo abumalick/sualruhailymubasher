@@ -32,6 +32,12 @@ platform :android do
     UI.user_error!("#{path} has no client for com.albadrmubasher.app") unless packages.include?("com.albadrmubasher.app")
   end
 
+  # The release to promote is the one this checkout builds
+  def android_version_code
+    gradle = File.read(File.expand_path("../#{ANDROID_DIR}/app/build.gradle", __dir__))
+    gradle[/versionCode\s+(\d+)/, 1] || UI.user_error!("versionCode not found in build.gradle")
+  end
+
   desc "Build the web app, sync it into Android and build the signed release bundle"
   lane :build do
     load_signing_env
@@ -62,14 +68,16 @@ platform :android do
     )
   end
 
-  desc "Promote the current internal-testing release to production (sent to review). validate_only:true checks without sending"
+  desc "Promote the current internal-testing release to production (sent to review). validate_only:true checks without sending; status:draft while the app has never been published"
   lane :production do |options|
     upload_to_play_store(
       track: "internal",
       track_promote_to: "production",
-      release_status: "completed",
+      version_code: android_version_code,
+      track_promote_release_status: options[:status] || "completed",
       skip_upload_aab: true,
       skip_upload_apk: true,
+      skip_upload_changelogs: true, # the promoted release keeps the notes it was uploaded with
       sync_image_upload: true,
       validate_only: options[:validate_only] || false
     )
