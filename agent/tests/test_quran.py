@@ -66,12 +66,30 @@ def test_matches_needs_every_written_letter_when_ayahs_share_an_opening():
 
 
 def test_matches_ignores_a_basmala_before_the_first_ayah():
-    assert matches("بسم الله الرحمن الرحيم يسألونك عن الأنفال", 8, 1)
+    assert matches("بسم الله الرحمن الرحيم يسألونك عن الأنفال قل الأنفال", 8, 1)
     assert matches("الم", 2, 1)
 
 
+def test_ayah_one_has_no_basmala_in_any_surah_and_matches_its_real_opening():
+    for surah in range(2, 115):
+        first = ayah(surah, 1)
+        assert not normalize(first).startswith(normalize(ayah(1, 1))), surah
+        assert matches(first, surah, 1), surah
+    assert normalize(ayah(95, 1)) == normalize("والتين والزيتون")
+    assert normalize(ayah(97, 1)).startswith(normalize("إنا أنزلناه"))
+
+
+def test_a_shared_generic_opening_with_a_wrong_number_is_rejected():
+    generic = "يا أيها الذين آمنوا"
+    assert normalize(ayah(8, 24)).startswith(normalize(generic)) and normalize(ayah(8, 27)).startswith(normalize(generic))
+    assert not matches(generic, 8, 27)
+    point, problem = next_lesson_start("تفسير سورة الأنفال: من الآية (٢٠) ﴿...﴾", "الأنفال", 27, generic)
+    assert point is None and "not a known ayah opening" in problem
+    assert not matches(ayah(8, 24), 8, 27)
+
+
 def test_matches_rejects_another_ayah_and_too_few_letters():
-    assert matches("كيف وإن يظهروا عليكم", 9, 8)
+    assert matches("كيف وإن يظهروا عليكم لا يرقبوا فيكم", 9, 8)
     assert not matches("كيف يكون للمشركين عهد", 9, 8)
     assert not matches("كي", 9, 8)
     assert not matches("كيف وإن يظهروا", 9, 999)
@@ -90,9 +108,9 @@ NINE_FIVE = "تفسير سورة التوبة: من الآية (٥) ﴿فَإِ�
 @pytest.mark.parametrize("surah,number,words,why", [
     (None, None, None, "not a known ayah opening"),
     ("التوبة", 8, "كيف يكون للمشركين عهد", "not a known ayah opening"),
-    ("التوبة", 4, "إلا الذين عاهدتم من المشركين", "does not follow"),
-    ("التوبة", 60, "إنما الصدقات للفقراء", "does not follow"),
-    ("يونس", 1, "الر تلك آيات الكتاب", "does not follow"),
+    ("التوبة", 4, ayah(9, 4), "does not follow"),
+    ("التوبة", 60, ayah(9, 60), "does not follow"),
+    ("يونس", 1, ayah(10, 1), "does not follow"),
 ])
 def test_next_lesson_start_rejects_with_a_reason(surah, number, words, why):
     point, problem = next_lesson_start(NINE_FIVE, surah, number, words)
@@ -105,6 +123,6 @@ def test_next_lesson_start_is_silent_for_book_courses():
 
 def test_next_lesson_start_may_open_the_next_surah_only_near_the_end():
     near_end = "تفسير سورة الأنفال: من الآية (٧٣) ﴿وَالَّذِينَ كَفَرُوا...﴾"
-    assert next_lesson_start(near_end, "التوبة", 1, "براءة من الله ورسوله")[0].startswith("تفسير سورة التوبة: من الآية (١)")
+    assert next_lesson_start(near_end, "التوبة", 1, ayah(9, 1))[0].startswith("تفسير سورة التوبة: من الآية (١)")
     early = "تفسير سورة الأنفال: من الآية (٥) ﴿كَمَا أَخْرَجَكَ...﴾"
-    assert "does not follow" in next_lesson_start(early, "التوبة", 1, "براءة من الله ورسوله")[1]
+    assert "does not follow" in next_lesson_start(early, "التوبة", 1, ayah(9, 1))[1]

@@ -28,8 +28,11 @@ lesson is already published, the agent stores its start point unchanged. Otherwi
 - **Tafsir lessons** (a start point of the form `تفسير سورة …: من الآية (N) ﴿…﴾`) each open with an ayah, so the
   end point is the next ayah written the way the channel announces it. Claude names the surah, ayah number and
   opening words; the agent checks the words against the Quran text, checks the ayah comes after the lesson's own
-  start, and writes the opening from the Quran text, closed with ﴾. If the check fails it keeps the book sentence
-  and logs a warning.
+  start, and writes the opening from the Quran text, closed with ﴾. If the check fails it leaves the end point
+  unset (the pages are still saved) and logs a warning; the app then shows «يتابع من حيث توقف الدرس N». A Tafsir
+  start is never a book passage.
+- Each run also compares every recent Tafsir lesson's end point with the next lesson's published start point,
+  and replaces it when they differ, so a predicted start corrects itself once the next lesson is published.
 - **Book courses** keep the opening of the next unread sentence in the book («من قوله: …»), cut on a word with «…».
 
 The Quran text in `src/albadr_agent/data/` is the Tanzil Project's Simple text and metadata

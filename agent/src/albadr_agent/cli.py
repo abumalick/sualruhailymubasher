@@ -15,7 +15,7 @@ from .locate import (
     build_prompt, candidate_pages, find_page, locate, match_score, page_position,
 )
 from .lock import DEFAULT_LOCK, run_lock
-from .quran import next_lesson_start
+from .endpoints import corrections, recorded_end_point
 from .transcribe import CACHE_ROOT, DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
 log = logging.getLogger("albadr_agent")
@@ -108,13 +108,6 @@ def _ask(lesson: Pending, segments: list[Segment], candidates: list[Page], name:
     return found
 
 
-def _next_ayah(lesson: Pending, found: LocateResult, name: str) -> str | None:
-    point, problem = next_lesson_start(lesson.start_point, found.next_surah, found.next_ayah, found.next_ayah_words)
-    if problem:
-        log.warning("%s: %s, keeping the book sentence", name, problem)
-    return point
-
-
 def _patch_from_recording(api: Api, lesson: Pending, name: str) -> End | None:
     mp3 = download_audio(lesson.recording_url)
     segments = transcribe(mp3, DEFAULT_TRANSCRIPTS / f"{url_key(lesson.recording_url)}.json")
@@ -140,15 +133,30 @@ def _patch_from_recording(api: Api, lesson: Pending, name: str) -> End | None:
         log.warning("%s: result rejected: %s", name, found.model_dump_json())
         return None
     patch = {} if own else {"start_page": found.start_page, "pdf_index": found.pdf_index}
-    patch |= {
-        "end_page": found.end_page,
-        "end_pdf_index": found.end_pdf_index,
-        "end_point": lesson.next_start_point or _next_ayah(lesson, found, name) or found.end_point,
-    }
+    end_point, problem = recorded_end_point(lesson.start_point, lesson.next_start_point, found)
+    if problem:
+        log.warning("%s: %s, leaving the end point unset", name, problem)
+    patch |= {"end_page": found.end_page, "end_pdf_index": found.end_pdf_index}
+    if end_point:
+        patch["end_point"] = end_point
     api.patch_lesson(lesson.course_id, lesson.number, patch)
     mp3.unlink(missing_ok=True)
     log.info("%s: patched pages %d-%d", name, own[1] if own else found.start_page, found.end_page)
     return found.end_pdf_index, found.end_page
+
+
+def correct_end_points(api: Api) -> None:
+    """Once the next Tafsir lesson is published, its start point replaces whatever was predicted. Best effort:
+    the next run tries again, so only an auth failure stops the run."""
+    try:
+        for course_id, latest in api.latest().items():
+            for number, end_point in corrections(latest):
+                api.patch_lesson(course_id, number, {"end_point": end_point})
+                log.info("%s #%d: end point set to the next lesson's published start", course_id, number)
+    except ApiError as e:
+        if e.status in (401, 403):
+            raise
+        log.warning("could not correct end points from the published lessons: %s", e)
 
 
 def process_lesson(api: Api, lesson: Pending) -> End | None:
@@ -252,6 +260,7 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
                     log.error("%s #%d: claude CLI unavailable: %s", lesson.course_id, lesson.number, e)
                     claude_down, end = True, None
                 previous = (lesson.course_id, lesson.number, end) if end else None
+            correct_end_points(api)
         except ApiError as e:
             log.error("server error: %s", e)
             return 1

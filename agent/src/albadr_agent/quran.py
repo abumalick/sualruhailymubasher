@@ -9,6 +9,7 @@ from pathlib import Path
 
 DATA = Path(__file__).parent / "data"
 OPENING_MAX = 50
+MIN_MATCH_LETTERS = 25
 MAX_AYAH_STEP = 40
 ARABIC_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 WESTERN_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
@@ -31,6 +32,12 @@ def _surahs() -> list[str]:
     return [s.get("name") for s in sorted(root.iter("sura"), key=lambda s: int(s.get("index")))]
 
 
+def _drop_basmala(text: str, basmala: str) -> str:
+    """Tanzil prefixes ayah 1 with the basmala, not always spelled alike (بِّسْمِ in 95 and 97)."""
+    words, size = text.split(), len(basmala.split())
+    return " ".join(words[size:]) if normalize(" ".join(words[:size])) == normalize(basmala) else text
+
+
 @cache
 def _ayahs() -> dict[tuple[int, int], str]:
     ayahs: dict[tuple[int, int], str] = {}
@@ -39,7 +46,7 @@ def _ayahs() -> dict[tuple[int, int], str]:
         if len(parts) == 3 and parts[0].isdigit():
             surah, number, text = int(parts[0]), int(parts[1]), parts[2]
             if number == 1 and surah != 1:
-                text = text.removeprefix(ayahs[1, 1] + " ")
+                text = _drop_basmala(text, ayahs[1, 1])
             ayahs[surah, number] = text
     return ayahs
 
@@ -78,8 +85,8 @@ def label(surah: int, number: int) -> str:
 
 
 def matches(words: str, surah: int, number: int) -> bool:
-    """Whether words someone wrote are the opening of that ayah. Every letter they wrote must agree, since many
-    ayahs share an opening such as «يا أيها الذين آمنوا»."""
+    """Whether words someone wrote are the opening of that ayah. Every letter they wrote must agree, and there must
+    be enough of them, since many ayahs share an opening such as «يا أيها الذين آمنوا» (18 letters)."""
     text = ayah(surah, number)
     if text is None:
         return False
@@ -87,7 +94,7 @@ def matches(words: str, surah: int, number: int) -> bool:
     if surah != 1:
         wanted = wanted.removeprefix(normalize(_ayahs()[1, 1]))
     size = min(len(wanted), len(actual))
-    return size >= min(8, len(actual)) and wanted[:size] == actual[:size]
+    return size >= min(MIN_MATCH_LETTERS, len(actual)) and wanted[:size] == actual[:size]
 
 
 def ayah_count(surah: int) -> int:
