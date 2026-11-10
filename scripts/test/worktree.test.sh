@@ -28,7 +28,8 @@ mkdir -p "$repo/scripts/lib" "$repo/server"
 cp "$src/lib/worktree-common.sh" "$src/lib/ports.sh" "$repo/scripts/lib/"
 sed "s|^WH_INSTALL_CMD='pnpm install'|WH_INSTALL_CMD=''|" "$src/worktree.sh" > "$repo/scripts/worktree.sh"
 chmod +x "$repo/scripts/worktree.sh"
-printf 'exec sleep 300\n' > "$repo/scripts/dev-server.sh"
+# shellcheck disable=SC2016 # expands when the stub runs
+printf '[ -z "${STUB_DIE:-}" ] || exit 3\nexec sleep 300\n' > "$repo/scripts/dev-server.sh"
 printf 'server/.dev.vars\n' > "$repo/.gitignore"
 printf 'ADMIN_TOKEN=local\n' > "$repo/server/.dev.vars"
 git -C "$repo" add -A
@@ -69,6 +70,24 @@ bg_pids+=("$!")
 sleep 0.3
 list_out="$(cd "$repo" && "$wt_sh" list 2>&1)"
 check "list ignores newlines in command lines" bash -c "! grep -q 'line two\|processes left' <<<\"\$1\"" _ "$list_out"
+
+# start: a caller capturing the path gets it back; dead servers fail fast
+set +e
+WH_START_TIMEOUT=2 timeout 30 bash -c "cd '$repo' && x=\"\$('$wt_sh' start feat/cap 2>/dev/null)\"; [ \"\$x\" = '$wts/feat-cap' ]"
+status=$?
+set -e
+check "start returns to a caller capturing its output (status $status)" [ "$status" -ne 124 ]
+(cd "$repo" && "$wt_sh" remove feat/cap --force >/dev/null 2>&1)
+set +e
+start_err="$(cd "$repo" && STUB_DIE=1 timeout 30 "$wt_sh" start feat/die 2>&1 >/dev/null)"
+status=$?
+set -e
+case "$status:$start_err" in
+  124:*|0:*) fail "start fails fast when the servers exit (status $status)" ;;
+  *"the servers exited"*) pass "start fails fast when the servers exit" ;;
+  *) fail "start fails fast when the servers exit: $start_err" ;;
+esac
+(cd "$repo" && "$wt_sh" remove feat/die --force >/dev/null 2>&1)
 
 # remove: stops every process in the worktree, deletes its log, keeps nothing
 echo change > "$wts/feat-ui/change.txt"

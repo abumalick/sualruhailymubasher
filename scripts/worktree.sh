@@ -506,16 +506,19 @@ cmd_start() {
     say "already running: $url"
     return 0
   fi
-  cmd_up "$branch" 1 >&2
+  # Not `cmd_up … >&2`: bash would park a copy of stdout on a spare fd, the background
+  # servers would inherit it, and a caller's `$(… start)` would never return.
+  exec 1>&2
+  cmd_up "$branch" 1
   say "waiting for $url/api/health …"
-  for _i in $(seq 1 90); do
+  for _i in $(seq 1 "${WH_START_TIMEOUT:-90}"); do
     if ! kill -0 "$UP_PID" 2>/dev/null; then
       say "the servers exited; last lines of $UP_LOG:"; tail -n 20 "$UP_LOG" >&2; exit 1
     fi
     if curl -sf -o /dev/null "$url/api/health"; then say "ready: $url (app + its own API)"; return 0; fi
     sleep 1
   done
-  die "$url did not answer within 90s; see $UP_LOG"
+  die "$url did not answer within ${WH_START_TIMEOUT:-90}s; see $UP_LOG"
 }
 
 usage() {
