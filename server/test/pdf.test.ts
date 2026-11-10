@@ -60,7 +60,7 @@ describe('servePdf', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('application/pdf');
     expect(res.headers.get('content-length')).toBe(String(PDF.length));
-    expect(res.headers.get('cache-control')).toBe('public, max-age=604800');
+    expect(res.headers.get('cache-control')).toBe('public, max-age=86400');
     expect(res.headers.get('set-cookie')).toBeNull();
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PDF);
     expect(fetch).toHaveBeenCalledWith(BOOK, { redirect: 'manual' });
@@ -145,8 +145,11 @@ describe('GET /api/courses/:id/pdf/:index', () => {
   it('refuses a course PDF URL that is not on al-badr.net', async () => {
     vi.stubGlobal('fetch', upstream);
     await upsertCourse(env.DB, 'odd', { title: 'x', slot: 'fajr', weekdays: [0], offsetMin: 0, seriesId: 1, pdfUrls: ['https://evil.example/a.pdf'], active: true });
-    expect((await get('/api/courses/odd/pdf/0')).status).toBe(404);
-    expect(upstream).not.toHaveBeenCalled();
-    await env.DB.prepare("DELETE FROM courses WHERE id = 'odd'").run();
+    try {
+      expect((await get('/api/courses/odd/pdf/0')).status).toBe(404);
+      expect(upstream).not.toHaveBeenCalled();
+    } finally {
+      await env.DB.prepare("DELETE FROM courses WHERE id = 'odd'").run();
+    }
   });
 });

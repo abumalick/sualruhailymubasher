@@ -41,7 +41,7 @@ async function downloadNative(url: string): Promise<Uint8Array> {
   return fromBase64(res.data);
 }
 
-// The browser's HTTP cache keeps the proxied file (the proxy sends a week-long max-age).
+// The browser's HTTP cache keeps the proxied file (the proxy sends a one-day max-age).
 async function downloadWeb(book: BookFile): Promise<Uint8Array> {
   const res = await fetch(proxyUrl(book));
   if (!res.ok) throw new Error(`download failed: ${res.status}`);

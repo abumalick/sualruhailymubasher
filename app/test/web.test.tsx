@@ -105,6 +105,7 @@ describe('App on the web', () => {
   it('#/about opens the About page without a back button', async () => {
     await app('#/about');
     await screen.findByText(/هذا تطبيق غير رسمي/);
+    expect(document.documentElement.classList.contains('web')).toBe(true);
     expect(screen.queryByRole('link', { name: 'رجوع' })).toBeNull();
   });
 
@@ -129,6 +130,8 @@ describe('App in the mobile app', () => {
   it('reaches About from روابط, with a way back', async () => {
     await app('#/about');
     await screen.findByText(/هذا تطبيق غير رسمي/);
+    expect(document.querySelector('.nav a.on')!.textContent).toBe('روابط');
+    expect(document.documentElement.classList.contains('web')).toBe(false);
     expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/links');
   });
 

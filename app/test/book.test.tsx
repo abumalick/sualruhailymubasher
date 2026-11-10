@@ -211,6 +211,25 @@ describe('Book', () => {
     expect(canvas.width / (devicePixelRatio || 1)).toBe(900);
   });
 
+  it('the native app (tablets) uses the full width, without the desktop cap', async () => {
+    platform.native = true;
+    http.get.mockResolvedValue({ status: 200, data: b64 });
+    let resized: () => void = () => {};
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb: () => void) {
+        resized = cb;
+      }
+      observe() {}
+      disconnect() {}
+    });
+    render(book(10));
+    await waitFor(() => expect(rendered).toEqual([10]));
+    Object.defineProperty(document.querySelector('.pdfwrap'), 'clientWidth', { configurable: true, value: 1600 });
+    act(() => resized());
+    await waitFor(() => expect(rendered).toEqual([10, 10]));
+    expect(document.querySelector('canvas')!.width / (devicePixelRatio || 1)).toBe(1572);
+  });
+
   it('a render failure surfaces the error state', async () => {
     pdfDoc.getPage.mockRejectedValue(new Error('boom'));
     render(book(10));

@@ -4,7 +4,8 @@ export interface PdfDeps {
   waitUntil: (p: Promise<unknown>) => void;
 }
 
-const MAX_AGE = 7 * 24 * 3600;
+// One day: a corrected edition published under the same URL reaches readers by the next day.
+const MAX_AGE = 24 * 3600;
 
 export function isBookUrl(raw: string | undefined): raw is string {
   if (!raw) return false;

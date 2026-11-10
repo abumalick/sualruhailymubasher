@@ -2,6 +2,7 @@ import type { CourseDTO } from '@albadr/shared';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { dropPdf, getPdf } from '../pdf/cache';
+import { isNative } from '../platform';
 import { ar, arText } from './format';
 import { Icon, Tick } from './Star';
 import type { TickKind, Ticks } from '../logic/ticks';
@@ -21,7 +22,7 @@ const isPdf = (data: Uint8Array) => String.fromCharCode(...data.subarray(0, 5)) 
 
 const clamp = (n: number, total: number) => Math.min(Math.max(n, 1), total);
 
-// Matches .pdfwrap .pg max-width: wider canvases only cost memory on a desktop screen.
+// Matches .web .pdfwrap .pg max-width: wider canvases only cost memory on a desktop screen.
 const MAX_PAGE_WIDTH = 900;
 
 export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick }: Props) {
@@ -88,7 +89,8 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
       const p = await pdf.getPage(current);
       if (cancelled) return;
       const base = p.getViewport({ scale: 1 });
-      const width = Math.min((wrap.current!.clientWidth || 360) - 28, MAX_PAGE_WIDTH);
+      const room = (wrap.current!.clientWidth || 360) - 28;
+      const width = isNative() ? room : Math.min(room, MAX_PAGE_WIDTH);
       const viewport = p.getViewport({ scale: (width / base.width) * (devicePixelRatio || 1) });
       const el = canvas.current!;
       el.width = Math.floor(viewport.width);

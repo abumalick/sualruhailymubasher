@@ -24,6 +24,7 @@ import { Defs } from './ui/Star';
 export function App() {
   document.documentElement.dir = 'rtl';
   document.documentElement.lang = 'ar';
+  document.documentElement.classList.toggle('web', !isNative());
   const route = useRoute();
   const data = useAppData();
   const { ticks, error, follow } = data;
