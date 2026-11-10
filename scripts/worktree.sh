@@ -496,16 +496,20 @@ cmd_post_merge() {
 
 # start: create (or resume) the worktree, then run its servers in the background and
 # wait until the app URL serves the worktree's own API. Prints only the path on stdout.
+_healthy() { curl -sf --max-time 2 -o /dev/null "$1/api/health"; }
+
 cmd_start() {
-  local branch="$1" wt url _i
+  local branch="$1" wt url running _i
   wt="$(cmd_create "$branch")"
   printf '%s\n' "$wt"
   url="$(wt_url "${wt##*/}")"
-  if curl -sf -o /dev/null "$url/api/health"; then
-    [ -n "$(wh_procs_under "$wt")" ] || die "something else already answers at $url — not this worktree's servers"
+  running="$(wh_procs_under "$wt" | cut -f1 | tr '\n' ' ')"
+  if _healthy "$url"; then
+    [ -n "$running" ] || die "something else already answers at $url — not this worktree's servers"
     say "already running: $url"
     return 0
   fi
+  [ -z "$running" ] || die "processes already run in $wt (pids: $running) but $url does not answer yet — wait, or stop them with: scripts/worktree.sh remove $branch"
   # Not `cmd_up … >&2`: bash would park a copy of stdout on a spare fd, the background
   # servers would inherit it, and a caller's `$(… start)` would never return.
   exec 1>&2
@@ -515,10 +519,12 @@ cmd_start() {
     if ! kill -0 "$UP_PID" 2>/dev/null; then
       say "the servers exited; last lines of $UP_LOG:"; tail -n 20 "$UP_LOG" >&2; exit 1
     fi
-    if curl -sf -o /dev/null "$url/api/health"; then say "ready: $url (app + its own API)"; return 0; fi
+    if _healthy "$url"; then say "ready: $url (app + its own API)"; return 0; fi
     sleep 1
   done
-  die "$url did not answer within ${WH_START_TIMEOUT:-90}s; see $UP_LOG"
+  say "$url did not answer within ${WH_START_TIMEOUT:-90}s (servers left running); last lines of $UP_LOG:"
+  tail -n 20 "$UP_LOG" >&2
+  exit 1
 }
 
 usage() {

@@ -33,7 +33,8 @@ Worktrees live beside the repo in `../lessons-radio-worktrees/<branch-slug>`.
   it creates the worktree from `main` (or resumes and rebases it), copies
   `server/.dev.vars`, runs `pnpm install`, then starts that worktree's own servers in
   the background and waits until they answer. It exits non-zero, with the log's last
-  lines, if the servers die or don't answer within 90 s. It prints only the worktree path
+  lines, if the servers die or don't answer within 90 s (on a timeout they keep running,
+  and a second `start` refuses until they answer or are removed). It prints only the worktree path
   (folder names are slugified: never guess the path). If the current checkout has no
   `scripts/worktree.sh`, run the main checkout's copy by its absolute path.
   `create <branch>` does only the worktree part; `up <branch> --bg` only the servers.

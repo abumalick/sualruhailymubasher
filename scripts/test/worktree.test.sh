@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# all() evals its quoted conditions, so they are single-quoted on purpose.
+# shellcheck disable=SC2016,SC2034
 # Tests for scripts/worktree.sh and scripts/lib/*.sh, run against a scratch repo.
 # Each case starts no real dev server: the harness is copied with an empty install
 # command and a stub dev-server.sh.
@@ -18,6 +20,7 @@ failures=0
 pass() { printf 'ok   %s\n' "$1"; }
 fail() { printf 'FAIL %s\n' "$1"; failures=$((failures + 1)); }
 check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name"; fi; }
+all() { local c; for c in "$@"; do eval "$c" || return 1; done; }
 
 repo="$scratch/proj"
 wts="$scratch/proj-worktrees"
@@ -29,7 +32,7 @@ cp "$src/lib/worktree-common.sh" "$src/lib/ports.sh" "$repo/scripts/lib/"
 sed "s|^WH_INSTALL_CMD='pnpm install'|WH_INSTALL_CMD=''|" "$src/worktree.sh" > "$repo/scripts/worktree.sh"
 chmod +x "$repo/scripts/worktree.sh"
 # shellcheck disable=SC2016 # expands when the stub runs
-printf '[ -z "${STUB_DIE:-}" ] || exit 3\nexec sleep 300\n' > "$repo/scripts/dev-server.sh"
+printf 'echo stub-log-line\n[ -z "${STUB_DIE:-}" ] || exit 3\nexec sleep 300\n' > "$repo/scripts/dev-server.sh"
 printf 'server/.dev.vars\n' > "$repo/.gitignore"
 printf 'ADMIN_TOKEN=local\n' > "$repo/server/.dev.vars"
 git -C "$repo" add -A
@@ -59,10 +62,25 @@ case "$old_err" in
   *"predates the harness"*) pass "up refuses a worktree without dev-server.sh" ;;
   *) fail "up refuses a worktree without dev-server.sh: $old_err" ;;
 esac
-# shellcheck source=/dev/null
-. "$repo/scripts/lib/worktree-common.sh"
-check "feat/ui and fix/ui get different hosts" \
-  [ "$(wh_url lessons-radio "$(wh_slugify feat/ui)" t)" != "$(wh_url lessons-radio "$(wh_slugify fix/ui)" t)" ]
+url_of() { (cd "$repo" && "$wt_sh" create "$1" 2>&1 >/dev/null) | sed -n 's/^url: *//p'; }
+fix_url="$(url_of fix/ui)"
+feat_url="$(url_of feat/ui)"
+check "each worktree's URL is named after its directory" \
+  all '[ "$feat_url" = https://lessons-radio-feat-ui.dev.sageplex.com ]' '[ "$fix_url" = https://lessons-radio-fix-ui.dev.sageplex.com ]'
+(cd "$repo" && "$wt_sh" remove fix/ui --force >/dev/null 2>&1)
+
+# dev-server.sh registers the same name with portless (pnpm and portless stubbed)
+ds="$scratch/ds"
+mkdir -p "$ds/scripts/lib" "$ds/server" "$ds/app" "$scratch/ds-stubs"
+cp "$src/dev-server.sh" "$ds/scripts/"
+cp "$src/lib/worktree-common.sh" "$src/lib/ports.sh" "$ds/scripts/lib/"
+printf '#!/bin/sh\nexit 0\n' > "$scratch/ds-stubs/pnpm"
+# shellcheck disable=SC2016 # $1 expands when the stub runs
+printf '#!/bin/sh\necho "$1" > "%s/portless-name"\n' "$scratch" > "$scratch/ds-stubs/portless"
+chmod +x "$scratch/ds-stubs/pnpm" "$scratch/ds-stubs/portless"
+env PATH="$scratch/ds-stubs:$PATH" WH_SLUG=feat-ui bash "$ds/scripts/dev-server.sh" >/dev/null 2>&1 || true
+check "dev-server.sh registers lessons-radio-<worktree-dir> with portless" \
+  grep -qx 'lessons-radio-feat-ui' "$scratch/portless-name"
 
 # list: a process whose command line holds a newline does not break the output
 (cd "$wts/feat-ui" && exec bash -c $'sleep 300 # line one\n# line two') &
@@ -71,23 +89,37 @@ sleep 0.3
 list_out="$(cd "$repo" && "$wt_sh" list 2>&1)"
 check "list ignores newlines in command lines" bash -c "! grep -q 'line two\|processes left' <<<\"\$1\"" _ "$list_out"
 
-# start: a caller capturing the path gets it back; dead servers fail fast
-set +e
-WH_START_TIMEOUT=2 timeout 30 bash -c "cd '$repo' && x=\"\$('$wt_sh' start feat/cap 2>/dev/null)\"; [ \"\$x\" = '$wts/feat-cap' ]"
-status=$?
-set -e
-check "start returns to a caller capturing its output (status $status)" [ "$status" -ne 124 ]
-(cd "$repo" && "$wt_sh" remove feat/cap --force >/dev/null 2>&1)
-set +e
-start_err="$(cd "$repo" && STUB_DIE=1 timeout 30 "$wt_sh" start feat/die 2>&1 >/dev/null)"
-status=$?
-set -e
-case "$status:$start_err" in
-  124:*|0:*) fail "start fails fast when the servers exit (status $status)" ;;
-  *"the servers exited"*) pass "start fails fast when the servers exit" ;;
-  *) fail "start fails fast when the servers exit: $start_err" ;;
-esac
-(cd "$repo" && "$wt_sh" remove feat/die --force >/dev/null 2>&1)
+# start: health checks go through a curl stub, so no test touches the network
+stubs="$scratch/stubs"
+mkdir -p "$stubs"
+printf '#!/bin/sh\n[ -e "%s/curl-ok" ]\n' "$scratch" > "$stubs/curl"
+chmod +x "$stubs/curl"
+run_start() { # run_start <branch> [VAR=value...] -> START_OUT, START_ERR, START_STATUS
+  local b="$1"; shift
+  set +e
+  START_OUT="$(cd "$repo" && env PATH="$stubs:$PATH" WH_START_TIMEOUT=1 "$@" timeout 30 "$wt_sh" start "$b" 2>"$scratch/start.err")"
+  START_STATUS=$?
+  set -e
+  START_ERR="$(cat "$scratch/start.err")"
+}
+has() { case "$START_ERR" in *"$1"*) return 0 ;; esac; return 1; }
+
+run_start feat/cap
+check "start returns the path to a caller capturing it" [ "$START_OUT" = "$wts/feat-cap" ]
+check "start exits non-zero when the URL never answers (status $START_STATUS)" \
+  all '[ "$START_STATUS" -ne 0 ]' '[ "$START_STATUS" -ne 124 ]'
+check "start's timeout names the failure and shows the log" all 'has "did not answer within 1s"' 'has stub-log-line'
+run_start feat/cap
+check "start refuses to launch a second copy while servers still boot" has "processes already run in $wts/feat-cap"
+touch "$scratch/curl-ok"
+run_start feat/cap
+check "start reports servers that already answer as running" all '[ "$START_STATUS" -eq 0 ]' 'has "already running"'
+run_start feat/other
+check "start refuses a URL answered by something outside the worktree" has "something else already answers"
+rm "$scratch/curl-ok"
+run_start feat/die STUB_DIE=1 WH_START_TIMEOUT=20
+check "start fails fast when the servers exit" all '[ "$START_STATUS" -ne 0 ]' 'has "the servers exited"'
+for b in feat/cap feat/other feat/die; do (cd "$repo" && "$wt_sh" remove "$b" --force >/dev/null 2>&1) || echo "remove $b failed"; done
 
 # remove: stops every process in the worktree, deletes its log, keeps nothing
 echo change > "$wts/feat-ui/change.txt"
