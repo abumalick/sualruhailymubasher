@@ -221,7 +221,7 @@ cmd_create() {
   _mise_trust "$wt"
   if [ -n "$WH_INSTALL_CMD" ]; then
     say "+ install: $WH_INSTALL_CMD"
-    ( cd "$wt" && eval "$WH_INSTALL_CMD" ) >&2 || say "warning: install failed; rerun it in $wt"
+    ( cd "$wt" && eval "$WH_INSTALL_CMD" ) >&2 || say "warning: install (pnpm install, app build, cap sync android) failed; rerun it in $wt"
   fi
   say "worktree: $wt"
   _print_info "$branch"

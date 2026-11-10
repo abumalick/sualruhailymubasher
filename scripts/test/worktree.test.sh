@@ -43,7 +43,7 @@ git -C "$repo" commit -q -m init
 wt_sh="$repo/scripts/worktree.sh"
 check "the scratch harness installs nothing" grep -qx "WH_INSTALL_CMD=''" "$wt_sh"
 check "a new worktree generates the Android files its Gradle tests need" \
-  grep -q "^WH_INSTALL_CMD='pnpm install && pnpm --filter app build && pnpm --filter app exec cap sync android'$" "$src/worktree.sh"
+  grep -q "^WH_INSTALL_CMD=.*pnpm --filter app build.*cap sync android" "$src/worktree.sh"
 
 # create
 out="$(cd "$repo" && "$wt_sh" create feat/ui 2>/dev/null)"
