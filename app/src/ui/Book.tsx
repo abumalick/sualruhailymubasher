@@ -2,7 +2,7 @@ import type { CourseDTO } from '@albadr/shared';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { dropPdf, getPdf } from '../pdf/cache';
-import { isNative } from '../platform';
+import { nativeUI } from '../platform';
 import { ar, arText } from './format';
 import { Icon, Tick } from './Star';
 import type { TickKind, Ticks } from '../logic/ticks';
@@ -90,7 +90,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
       if (cancelled) return;
       const base = p.getViewport({ scale: 1 });
       const room = (wrap.current!.clientWidth || 360) - 28;
-      const width = isNative() ? room : Math.min(room, MAX_PAGE_WIDTH);
+      const width = nativeUI() ? room : Math.min(room, MAX_PAGE_WIDTH);
       const viewport = p.getViewport({ scale: (width / base.width) * (devicePixelRatio || 1) });
       const el = canvas.current!;
       el.width = Math.floor(viewport.width);

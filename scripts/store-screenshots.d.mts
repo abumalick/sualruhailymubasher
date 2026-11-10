@@ -4,3 +4,4 @@ export interface ScreenshotTarget {
   dir: string;
 }
 export declare const TARGETS: Record<'ios' | 'android', ScreenshotTarget>;
+export declare const SHOTS: { name: string; route: string }[];

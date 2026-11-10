@@ -12,11 +12,13 @@ targets=("$@")
 port="$(node -e 'const s=require("net").createServer();s.listen(0,"127.0.0.1",()=>{const p=s.address().port;s.close(()=>console.log(p))})')"
 base="http://127.0.0.1:${port}"
 
-# VITE_API_BASE unset: the build talks to the production API
-env -u VITE_API_BASE pnpm --filter app build >/dev/null
+# VITE_API_BASE unset: the build talks to the production API. VITE_NATIVE_UI=1: the apps' screens,
+# not the web's. It builds into .tmp so app/dist (the web deploy) never carries the apps' screens.
+dist="$root/.tmp/store-screenshots-dist"
+(cd app && env -u VITE_API_BASE VITE_NATIVE_UI=1 pnpm exec vite build --outDir "$dist" --emptyOutDir) >/dev/null
 pnpm exec playwright install chromium >/dev/null
 
-(cd app && exec pnpm exec vite preview --host 127.0.0.1 --port "$port" --strictPort) >/dev/null 2>&1 &
+(cd app && exec pnpm exec vite preview --outDir "$dist" --host 127.0.0.1 --port "$port" --strictPort) >/dev/null 2>&1 &
 preview=$!
 trap 'kill "$preview" 2>/dev/null || true' EXIT
 

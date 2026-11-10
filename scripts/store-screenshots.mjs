@@ -1,6 +1,6 @@
 // Store screenshots from the web build with real lessons from the production API.
 // Usage: node scripts/store-screenshots.mjs <base url> <ios|android>...
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
@@ -13,7 +13,7 @@ export const TARGETS = {
   android: { viewport: { width: 360, height: 640 }, scale: 3, dir: 'fastlane/metadata/android/ar/images/phoneScreenshots' },
 };
 
-const SHOTS = [
+export const SHOTS = [
   { name: '01-home', route: '#/' },
   { name: '02-recordings', route: '#/course/tafsir-saadi' },
   { name: '03-notifications', route: '#/notifications' },
@@ -33,6 +33,8 @@ async function capture(browser, base, target) {
   const page = await context.newPage();
   await page.goto(base);
   await chooseAllLessons(page);
+  // A run replaces the whole set, so no screenshot from an older naming scheme survives it
+  rmSync(join(ROOT, dir), { recursive: true, force: true });
   mkdirSync(join(ROOT, dir), { recursive: true });
   for (const shot of SHOTS) {
     await page.goto(`${base}/${shot.route}`);
