@@ -11,4 +11,5 @@ This repo expects thorough tests. Every change ships with tests that would fail 
 - Put external services (Mixlr, al-badr.net, FCM, D1, the Claude CLI, PDFs) behind small boundaries, so tests can replace them with fakes instead of calling the real service.
 - Use clean-architecture layering where it makes testing easier. Don't add layers that buy no test coverage.
 - Prefer tests that use real data shapes, such as captured API responses, real lesson texts and real page numbers, over invented ones.
+- Beyond unit tests, check the change in the running app. Test in the browser at phone width everything that can be tested there (the `dev-browser` skill). Test on the Huawei test phone (the `android-adb` skill) only what needs a real device: native audio, pushes, WebView behaviour, the media notification. The tablet and the moto are the owner's devices; use them only when the owner asks.
 - When something can only be checked on a device or live (audio, pushes, the Mixlr embed), say so in the report and describe how it was checked, or state that it was not.
