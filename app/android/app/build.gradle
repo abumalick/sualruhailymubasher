@@ -7,8 +7,8 @@ android {
         applicationId "com.albadrmubasher.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
-        versionName "1.0.5"
+        versionCode 6
+        versionName "1.0.6"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -34,6 +34,14 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+    }
+}
+
+// A release build without the upload key would be unsigned, and Play refuses it
+gradle.taskGraph.whenReady { graph ->
+    def release = graph.allTasks.find { it.project == project && it.name ==~ /(assemble|bundle|package)Release/ }
+    if (release && !System.getenv('ALBADR_KEYSTORE')) {
+        throw new GradleException("${release.name} needs the upload key: set ALBADR_KEYSTORE, ALBADR_KEYSTORE_PASSWORD, ALBADR_KEY_ALIAS and ALBADR_KEY_PASSWORD (see app/README.md)")
     }
 }
 

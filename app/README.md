@@ -11,7 +11,7 @@ Untracked config required: `app/android/app/google-services.json`, `app/ios/App/
 
 ## Android release
 
-Signing reads `ALBADR_KEYSTORE`, `ALBADR_KEYSTORE_PASSWORD`, `ALBADR_KEY_ALIAS`, `ALBADR_KEY_PASSWORD` from the environment; without them the release APK is unsigned.
+Signing reads `ALBADR_KEYSTORE`, `ALBADR_KEYSTORE_PASSWORD`, `ALBADR_KEY_ALIAS`, `ALBADR_KEY_PASSWORD` from the environment. A release build (`assembleRelease`, `bundleRelease`) fails without them rather than produce an unsigned app; debug builds do not need them.
 
     set -a; source ~/.config/albadr-lessons/env; set +a
     cd app/android && ./gradlew assembleRelease
