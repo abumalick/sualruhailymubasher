@@ -1,0 +1,2 @@
+# Lanes live per platform in Fastfile.<platform>: Fastfile.ios (ios-release), Fastfile.android (play-release)
+Dir[File.join(FastlaneCore::FastlaneFolder.path, "Fastfile.*")].sort.each { |f| import(File.basename(f)) }
