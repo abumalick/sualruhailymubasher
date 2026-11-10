@@ -56,6 +56,7 @@ platform :android do
     upload_to_play_store(
       track: "internal",
       aab: ANDROID_AAB,
+      skip_upload_apk: true,
       release_status: options[:status] || "completed",
       sync_image_upload: true
     )
