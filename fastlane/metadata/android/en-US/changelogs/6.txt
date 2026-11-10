@@ -1,0 +1,1 @@
+Book view: Arabic text renders correctly and pages show their printed numbers.

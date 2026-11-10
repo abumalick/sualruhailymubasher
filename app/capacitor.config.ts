@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.albadrmubasher.app',
-  appName: 'دروس الشيخ عبد الرزاق البدر',
+  appName: 'البدر مباشر',
   webDir: 'dist',
   experimental: {
     ios: {

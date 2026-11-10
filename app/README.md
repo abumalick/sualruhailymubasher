@@ -11,12 +11,37 @@ Untracked config required: `app/android/app/google-services.json`, `app/ios/App/
 
 ## Android release
 
-Signing reads `ALBADR_KEYSTORE`, `ALBADR_KEYSTORE_PASSWORD`, `ALBADR_KEY_ALIAS`, `ALBADR_KEY_PASSWORD` from the environment; without them the release APK is unsigned.
+Signing reads `ALBADR_KEYSTORE`, `ALBADR_KEYSTORE_PASSWORD`, `ALBADR_KEY_ALIAS`, `ALBADR_KEY_PASSWORD` from the environment. A release build (`assembleRelease`, `bundleRelease`) fails without them rather than produce an unsigned app; debug builds do not need them.
 
     set -a; source ~/.config/albadr-lessons/env; set +a
     cd app/android && ./gradlew assembleRelease
     apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
     adb install -r app/build/outputs/apk/release/app-release.apk
+
+`google-services.json` must contain a client for `com.albadrmubasher.app`: without one the google-services
+plugin fails the build, and without the file it is skipped and push silently stops working. The current
+file is `~/.config/albadr-lessons/google-services.com.albadrmubasher.app.json`.
+
+## Google Play (fastlane)
+
+Everything Play-side goes through fastlane, run from the repo root. The listing (texts, icon, feature
+graphic, screenshots, changelogs) is in `fastlane/metadata/android/`. Secrets stay in
+`~/.config/albadr-lessons/`: `env` (upload key, read by the `build` lane) and `play-service-account.json`
+(Play API key; override with `ALBADR_PLAY_JSON_KEY`). Play App Signing re-signs the bundle.
+
+Before each release, raise `versionCode` in `android/app/build.gradle` (Play refuses a code it has seen)
+and add `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt`.
+
+    fastlane android build                 # signed bundle only
+    fastlane android validate_credentials  # the key reaches the Play Console
+    fastlane android upload_metadata       # listing and images, no release
+    fastlane android internal              # build + upload to internal testing with the listing
+    fastlane android production validate_only:true   # check the promotion without sending it
+    fastlane android production            # promote the internal release to production review
+
+While the app has never been published, Play accepts only draft releases: `fastlane android internal
+status:draft`, then roll it out in the console. Content rating, target audience, data safety, ads and app
+access have no API: they are answered in the console (answers in `docs/store/google-play.md`).
 
 ## iOS release (macOS, fastlane)
 
