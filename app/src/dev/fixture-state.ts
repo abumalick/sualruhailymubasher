@@ -84,6 +84,7 @@ export const FIXTURE_STATE: StateDTO = {
         'https://al-badr.net/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_02.pdf',
         'https://al-badr.net/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_03.pdf',
       ],
+      pageOffsets: [2, 2, 2],
       edition: null,
       latest: [
         {

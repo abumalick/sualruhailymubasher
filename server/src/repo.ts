@@ -80,9 +80,9 @@ export async function upsertCourse(db: D1Database, id: string, input: CourseInpu
   await db
     .prepare(
       `INSERT INTO courses (id, title, slot, weekdays, offset_min, series_id, pdf_urls, active, edition, page_offsets, sort)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, (SELECT coalesce(max(sort), -1) + 1 FROM courses))
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, coalesce(?10, '[]'), (SELECT coalesce(max(sort), -1) + 1 FROM courses))
        ON CONFLICT(id) DO UPDATE SET title = ?2, slot = ?3, weekdays = ?4, offset_min = ?5,
-         series_id = ?6, pdf_urls = ?7, active = ?8, edition = ?9, page_offsets = ?10`,
+         series_id = ?6, pdf_urls = ?7, active = ?8, edition = ?9, page_offsets = coalesce(?10, page_offsets)`,
     )
     .bind(
       id,
@@ -94,7 +94,7 @@ export async function upsertCourse(db: D1Database, id: string, input: CourseInpu
       JSON.stringify(input.pdfUrls),
       input.active ? 1 : 0,
       input.edition?.trim() || null,
-      JSON.stringify(input.pageOffsets ?? []),
+      input.pageOffsets === undefined ? null : JSON.stringify(input.pageOffsets),
     )
     .run();
 }

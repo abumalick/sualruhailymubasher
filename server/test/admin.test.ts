@@ -90,12 +90,16 @@ describe('courses', () => {
     expect(await edition()).toBeNull();
   });
 
-  it('stores the per-volume page offsets and clears them when omitted', async () => {
+  it('stores the per-volume page offsets, keeps them when a save omits them, clears them with []', async () => {
     const offsets = () =>
       call('GET', '/api/admin/courses').then(async (r) => ((await r.json()) as any[]).find((c) => c.id === 'po').pageOffsets);
+    await call('PUT', '/api/admin/courses/po', course);
+    expect(await offsets()).toEqual([]);
     await call('PUT', '/api/admin/courses/po', { ...course, pdfUrls: ['a', 'b'], pageOffsets: [2, 0] });
     expect(await offsets()).toEqual([2, 0]);
-    await call('PUT', '/api/admin/courses/po', course);
+    await call('PUT', '/api/admin/courses/po', { ...course, pdfUrls: ['a', 'b'], title: 'من صفحة إدارة قديمة' });
+    expect(await offsets()).toEqual([2, 0]);
+    await call('PUT', '/api/admin/courses/po', { ...course, pageOffsets: [] });
     expect(await offsets()).toEqual([]);
   });
 

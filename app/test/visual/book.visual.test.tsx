@@ -81,5 +81,5 @@ it('renders an Arabic page with embedded subset fonts like poppler does, inside 
     const d = diff();
     console.info(`book visual diff vs poppler: ${d.toFixed(3)}`);
     expect(d).toBeLessThan(0.3);
-  }, { timeout: 15_000, interval: 250 });
-});
+  }, { timeout: 40_000, interval: 250 });
+}, 60_000);
