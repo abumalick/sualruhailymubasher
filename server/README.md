@@ -1,9 +1,9 @@
 # Server
 
-Cloudflare Worker + D1, served at `api.albadr.h2.limited`.
+Cloudflare Worker + D1, served at `api.albadrmubasher.com`.
 
 ```sh
-export CLOUDFLARE_ACCOUNT_ID=4a9e8181f68f28dff664f9752a6d83cd
+export CLOUDFLARE_ACCOUNT_ID=9ab550becc556ce60d4250bfdc48224c
 
 pnpm --filter server exec wrangler d1 migrations apply albadr-lessons --remote
 pnpm --filter server exec wrangler deploy
@@ -20,7 +20,7 @@ pnpm --filter server exec wrangler secret put FCM_SERVICE_ACCOUNT < ~/.config/al
 
 ```sh
 curl -X POST -H "Authorization: Bearer $(cat ~/.config/albadr-lessons/admin-token)" \
-  https://api.albadr.h2.limited/api/admin/run/ingest
+  https://api.albadrmubasher.com/api/admin/run/ingest
 ```
 
 Each run fetches at most 8 recording detail pages per course; repeat to fill older recordings.

@@ -1,7 +1,7 @@
 import { Preferences } from '@capacitor/preferences';
 import type { LessonDTO, StateDTO } from '@albadr/shared';
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'https://api.albadr.h2.limited';
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'https://api.albadrmubasher.com';
 const STATE_KEY = 'state';
 
 export async function loadCachedState(): Promise<StateDTO | null> {
