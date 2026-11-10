@@ -22,6 +22,15 @@ class Pending(BaseModel):
     pdf_index: int | None = None
 
 
+class Published(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    number: int
+    start_point: str
+    end_point: str | None = None
+    end_page: int | None = None
+
+
 class Api:
     def __init__(self, base: str, token: str, client: httpx.Client | None = None):
         self._base = base.rstrip("/")
@@ -44,6 +53,17 @@ class Api:
             return TypeAdapter(list[Pending]).validate_python(response.json())
         except (ValueError, ValidationError) as e:
             raise ApiError(f"pending-transcriptions returned a malformed body: {e}") from e
+
+    def latest(self) -> dict[str, list[Published]]:
+        """Each course's most recent published lessons, as the app sees them."""
+        response = self._request("GET", "/api/state")
+        try:
+            return {
+                course["id"]: TypeAdapter(list[Published]).validate_python(course["latest"])
+                for course in response.json()["courses"]
+            }
+        except (ValueError, KeyError, TypeError, ValidationError) as e:
+            raise ApiError(f"state returned a malformed body: {e}") from e
 
     def close(self) -> None:
         self._client.close()

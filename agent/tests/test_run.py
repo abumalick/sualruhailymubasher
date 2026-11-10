@@ -1,3 +1,4 @@
+import copy
 import json
 
 import httpx
@@ -6,6 +7,7 @@ import pytest
 from albadr_agent import cli
 from albadr_agent.locate import ClaudeUnavailable, LocateResult, candidate_pages
 from albadr_agent.lock import run_lock
+from albadr_agent.quran import ayah, label
 
 PAGES = [f"صفحة {i}" for i in range(1, 6)]
 
@@ -45,12 +47,15 @@ def setup(monkeypatch, tmp_path):
     patches = []
 
     def handler(request):
+        if request.method == "GET" and request.url.path == "/api/state":
+            return httpx.Response(200, json=handler.state)
         if request.method == "GET":
             return httpx.Response(200, json=handler.pending)
         patches.append((request.url.path, request.content))
         return httpx.Response(200, json={})
 
     handler.pending = []
+    handler.state = {"courses": []}
     return handler, patches, mp3s
 
 
@@ -158,13 +163,13 @@ def test_next_start_point_patches_end_from_the_chained_start_without_transcripti
     assert "start match 1.00, end match 1.00" in caplog.text
 
 
-def test_next_start_point_truncates(chained):
+def test_next_start_point_is_stored_whole(chained):
     handler, patches = chained
     nxt = "من قوله: باب الدعاء الى شهادة ان لا اله الا الله " + "و" * 100
     handler.pending = [older(nextStartPoint=nxt, startPage=1, pdfIndex=1)]
     assert run(handler) == 0
     body = json.loads(patches[0][1])
-    assert body == {"endPoint": nxt[:80], "endPage": 2, "endPdfIndex": 1, "startPage": 1, "pdfIndex": 1}
+    assert body == {"endPoint": nxt, "endPage": 2, "endPdfIndex": 1, "startPage": 1, "pdfIndex": 1}
 
 
 @pytest.mark.parametrize("start_page,pdf_index", [(None, None), (1, None), (9, 0)])
@@ -357,3 +362,126 @@ def test_course_without_pdfs_uses_its_local_book(setup, monkeypatch):
     assert run(handler) == 0
     assert opened == ["/books/t1.pdf", "/books/t2.pdf"]
     assert [p for p, _ in patches] == ["/api/admin/lessons/tafsir/1"]
+
+
+TAFSIR_START = "تفسير سورة التوبة: من الآية (٥) ﴿فَإِذَا انْسَلَخَ الْأَشْهُرُ الْحُرُمُ فَاقْتُلُوا الْمُشْرِكِينَ...﴾"
+AYAH_8 = label(9, 8)
+
+
+def tafsir(**extra):
+    return lesson("tafsir", 459, pdfs=list(BOOK), **{"startPoint": TAFSIR_START, "startPage": 2, "pdfIndex": 0, **extra})
+
+
+def tafsir_answer(**over):
+    base = dict(start_page=2, end_page=3, pdf_index=0, end_pdf_index=0, end_point="من قوله: كيف يكون للمشركين",
+                next_surah="التوبة", next_ayah=8, next_ayah_words=ayah(9, 8))
+    return good(**{**base, **over})
+
+
+def test_tafsir_end_point_is_the_next_ayah_as_announced(recorded):
+    handler, patches, prompts, fake = recorded
+    fake.answer = tafsir_answer()
+    handler.pending = [tafsir()]
+    assert run(handler) == 0
+    assert "next_surah" in prompts[0]
+    assert json.loads(patches[0][1]) == {"endPage": 3, "endPdfIndex": 0, "endPoint": AYAH_8}
+    assert AYAH_8.startswith("تفسير سورة التوبة: من الآية (٨) ﴿") and AYAH_8.endswith("...﴾")
+
+
+@pytest.mark.parametrize("over", [
+    dict(next_surah=None, next_ayah=None, next_ayah_words=None),
+    dict(next_ayah_words=ayah(9, 7)),
+    dict(next_ayah_words="كَيْفَ وَإِنْ يَظْهَرُوا"),
+    dict(next_surah="سورة لا توجد"),
+    dict(next_ayah=4, next_ayah_words=ayah(9, 4)),
+    dict(next_surah="يونس", next_ayah=2, next_ayah_words=ayah(10, 2)),
+    dict(next_ayah=60, next_ayah_words=ayah(9, 60)),
+    dict(next_surah="يونس", next_ayah=1, next_ayah_words=ayah(10, 1)),
+])
+def test_tafsir_never_stores_the_book_sentence_when_the_ayah_does_not_check_out(recorded, caplog, over):
+    handler, patches, _, fake = recorded
+    fake.answer = tafsir_answer(**over)
+    handler.pending = [tafsir()]
+    assert run(handler) == 0
+    assert json.loads(patches[0][1]) == {"endPage": 3, "endPdfIndex": 0}
+    assert "leaving the end point unset" in caplog.text
+
+
+def test_tafsir_end_point_may_open_the_next_surah(recorded):
+    handler, patches, _, fake = recorded
+    fake.answer = tafsir_answer(next_surah="التوبة", next_ayah=1, next_ayah_words=ayah(9, 1))
+    handler.pending = [tafsir(startPoint="تفسير سورة الأنفال: من الآية (٧٣) ﴿وَالَّذِينَ كَفَرُوا...﴾")]
+    assert run(handler) == 0
+    assert json.loads(patches[0][1])["endPoint"].startswith("تفسير سورة التوبة: من الآية (١) ﴿بَرَاءَةٌ")
+
+
+def test_tafsir_prefers_the_published_next_start_point(recorded):
+    handler, patches, _, fake = recorded
+    fake.answer = tafsir_answer()
+    nxt = "تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ لَا يَرْقُبُوا فِيكُمْ إِلًّا وَلَا ذِمَّةً...﴾"
+    handler.pending = [tafsir(nextStartPoint=nxt)]
+    assert run(handler) == 0
+    assert json.loads(patches[0][1])["endPoint"] == nxt
+
+
+def test_book_course_prompt_does_not_ask_for_an_ayah(recorded):
+    handler, patches, prompts, fake = recorded
+    fake.answer = tafsir_answer()
+    handler.pending = [lesson("c", 9, pdfs=list(BOOK), startPage=2, pdfIndex=0)]
+    assert run(handler) == 0
+    assert "next_surah" not in prompts[0]
+    assert json.loads(patches[0][1])["endPoint"] == "من قوله: كيف يكون للمشركين"
+
+
+
+STATE = json.loads((cli.Path(__file__).parent / "fixtures" / "api-state-2026-11-01.json").read_text())
+
+
+def test_run_replaces_tafsir_end_points_with_the_published_next_start(setup):
+    handler, patches, _ = setup
+    handler.state = STATE
+    assert run(handler) == 0
+    sent = {path: json.loads(body) for path, body in patches}
+    assert set(sent) == {"/api/admin/lessons/tafsir-saadi/451", "/api/admin/lessons/tafsir-saadi/452"}
+    [tafsir_course] = [c for c in STATE["courses"] if c["id"] == "tafsir-saadi"]
+    start_453 = next(l["startPoint"] for l in tafsir_course["latest"] if l["number"] == 453)
+    assert start_453.startswith("تفسير سورة الأنفال: من الآية (٦١)") and start_453.endswith("...﴾")
+    assert sent["/api/admin/lessons/tafsir-saadi/452"] == {"endPoint": start_453}
+
+
+def test_run_does_not_rewrite_end_points_that_already_agree(setup):
+    handler, patches, _ = setup
+    handler.state = copy.deepcopy(STATE)
+    run(handler)
+    for path, body in patches:
+        number = int(path.rsplit("/", 1)[1])
+        [lesson] = [l for c in handler.state["courses"] for l in c["latest"]
+                    if c["id"] == "tafsir-saadi" and l["number"] == number]
+        lesson["endPoint"] = json.loads(body)["endPoint"]
+    patches.clear()
+    assert run(handler) == 0 and patches == []
+
+
+def test_a_failed_correction_does_not_fail_the_run(setup, caplog):
+    handler, patches, _ = setup
+    handler.state = {"unexpected": True}
+    assert run(handler) == 0
+    assert "could not correct end points" in caplog.text
+
+
+def test_verdict_cache_key_changes_with_the_start_point():
+    book = cli.Pending(course_id="c", number=1, recording_url="", start_point="من قوله: باب", pdf_urls=[])
+    tafsir_lesson = book.model_copy(update={"start_point": TAFSIR_START})
+    assert cli._verdict_path(book, [], []) != cli._verdict_path(tafsir_lesson, [], [])
+    assert cli._verdict_path(book, [], []) == cli._verdict_path(book.model_copy(), [], [])
+
+
+def test_an_auth_failure_while_correcting_stops_the_run(setup):
+    handler, patches, _ = setup
+    handler.state = copy.deepcopy(STATE)
+    plain = handler
+
+    def denied(request):
+        return httpx.Response(403) if request.method == "PATCH" else plain(request)
+
+    assert cli.main(["run"], transport=httpx.MockTransport(denied)) == 1

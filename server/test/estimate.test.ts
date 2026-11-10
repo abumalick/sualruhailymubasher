@@ -55,6 +55,19 @@ describe('nextPassage', () => {
     });
   });
 
+  it('keeps the located end page when the end point is unknown', () => {
+    const latest = [
+      lesson(3, { startPage: 14, endPage: 20, endPoint: null, pdfIndex: 2 }),
+      lesson(2, { startPage: 12, endPage: 14 }),
+    ];
+    expect(nextPassage(course, latest, next)).toMatchObject({
+      number: 4,
+      startPoint: null,
+      startPage: 20,
+      estimated: false,
+    });
+  });
+
   it('takes the volume of the transcribed end', () => {
     const latest = [lesson(3, { startPage: 300, endPage: 2, endPoint: 'باب', pdfIndex: 0, endPdfIndex: 1 })];
     expect(nextPassage(course, latest, next)).toMatchObject({ pdfIndex: 1, startPage: 2, estimated: false });

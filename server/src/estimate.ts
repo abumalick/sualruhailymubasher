@@ -23,7 +23,7 @@ export function nextPassage(
   if (!next) return null;
   const last = latest[0];
   const step = pace(latest);
-  const ended = !!last?.endPoint && last.endPage !== null;
+  const ended = !!last && last.endPage !== null;
   const unpublished = last ? number - last.number - 1 : 0;
   const base = {
     date: next.date,

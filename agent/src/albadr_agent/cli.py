@@ -11,10 +11,11 @@ import httpx
 from .api import Api, ApiError, Pending
 from .books import DEFAULT_CACHE, book_pages
 from .locate import (
-    MAX_END_POINT, MIN_CONFIDENCE, NEXT_MATCH, WINDOW_SIZE, ClaudeUnavailable, LocateResult, Page, accept,
+    MIN_CONFIDENCE, NEXT_MATCH, WINDOW_SIZE, ClaudeUnavailable, LocateResult, Page, accept,
     build_prompt, candidate_pages, find_page, locate, match_score, page_position,
 )
 from .lock import DEFAULT_LOCK, run_lock
+from .endpoints import corrections, recorded_end_point
 from .transcribe import CACHE_ROOT, DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
 log = logging.getLogger("albadr_agent")
@@ -22,6 +23,7 @@ log = logging.getLogger("albadr_agent")
 
 EXTRA_WINDOW = 12
 DEFAULT_VERDICTS = CACHE_ROOT / "verdicts"
+VERDICT_SCHEMA = 3
 
 
 def _local_books() -> dict[str, list[str]]:
@@ -69,7 +71,7 @@ def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> End | None:
         return None
     (start_pdf, start_page, start_text), (end_pdf, end_page, end_text) = pages[start], pages[end]
     api.patch_lesson(lesson.course_id, lesson.number, {
-        "end_point": lesson.next_start_point[:MAX_END_POINT],
+        "end_point": lesson.next_start_point,
         "end_page": end_page,
         "end_pdf_index": end_pdf,
         "start_page": start_page,
@@ -84,7 +86,7 @@ def _patch_from_next_start(api: Api, lesson: Pending, name: str) -> End | None:
 def _verdict_path(lesson: Pending, segments: list[Segment], candidates: list[Page]) -> Path:
     transcript = json.dumps([s.model_dump() for s in segments], ensure_ascii=False)
     inputs = json.dumps([
-        lesson.course_id, lesson.number, hashlib.sha256(transcript.encode()).hexdigest(),
+        VERDICT_SCHEMA, lesson.course_id, lesson.number, lesson.start_point, hashlib.sha256(transcript.encode()).hexdigest(),
         [(pdf, n) for pdf, n, _ in candidates], lesson.next_start_point,
     ], ensure_ascii=False)
     return DEFAULT_VERDICTS / f"{hashlib.sha256(inputs.encode()).hexdigest()}.json"
@@ -131,15 +133,30 @@ def _patch_from_recording(api: Api, lesson: Pending, name: str) -> End | None:
         log.warning("%s: result rejected: %s", name, found.model_dump_json())
         return None
     patch = {} if own else {"start_page": found.start_page, "pdf_index": found.pdf_index}
-    patch |= {
-        "end_page": found.end_page,
-        "end_pdf_index": found.end_pdf_index,
-        "end_point": lesson.next_start_point[:MAX_END_POINT] if lesson.next_start_point else found.end_point,
-    }
+    end_point, problem = recorded_end_point(lesson.start_point, lesson.next_start_point, found)
+    if problem:
+        log.warning("%s: %s, leaving the end point unset", name, problem)
+    patch |= {"end_page": found.end_page, "end_pdf_index": found.end_pdf_index}
+    if end_point:
+        patch["end_point"] = end_point
     api.patch_lesson(lesson.course_id, lesson.number, patch)
     mp3.unlink(missing_ok=True)
     log.info("%s: patched pages %d-%d", name, own[1] if own else found.start_page, found.end_page)
     return found.end_pdf_index, found.end_page
+
+
+def correct_end_points(api: Api) -> None:
+    """Once the next Tafsir lesson is published, its start point replaces whatever was predicted. Best effort:
+    the next run tries again, so only an auth failure stops the run."""
+    try:
+        for course_id, latest in api.latest().items():
+            for number, end_point in corrections(latest):
+                api.patch_lesson(course_id, number, {"end_point": end_point})
+                log.info("%s #%d: end point set to the next lesson's published start", course_id, number)
+    except ApiError as e:
+        if e.status in (401, 403):
+            raise
+        log.warning("could not correct end points from the published lessons: %s", e)
 
 
 def process_lesson(api: Api, lesson: Pending) -> End | None:
@@ -243,6 +260,7 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
                     log.error("%s #%d: claude CLI unavailable: %s", lesson.course_id, lesson.number, e)
                     claude_down, end = True, None
                 previous = (lesson.course_id, lesson.number, end) if end else None
+            correct_end_points(api)
         except ApiError as e:
             log.error("server error: %s", e)
             return 1
