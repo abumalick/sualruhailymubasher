@@ -88,9 +88,13 @@ if [ -n "${STUB_WRANGLER_FOREIGN:-}" ]; then
   (cd "$STUB_WRANGLER_FOREIGN" && exec node -e "require('http').createServer((q, r) => r.end('ok')).listen($port, '127.0.0.1')") &
   exec sleep 300
 fi
+if [ -n "${STUB_WRANGLER_EXIT_AFTER_HEALTH:-}" ]; then
+  # Exits right after answering, so it is gone before Vite has even started.
+  exec node -e "require('http').createServer((q, r) => r.end('ok', () => process.exit(0))).listen($port, '127.0.0.1')"
+fi
 exec node -e "require('http').createServer((q, r) => r.end('ok')).listen($port, '127.0.0.1')"
 EOF
-printf '#!/bin/sh\necho "$1" > "%s/portless-name"\n' "$scratch" > "$dstubs/portless"
+printf '#!/bin/sh\necho "$1" > "%s/portless-name"\n[ -z "$STUB_VITE_STAY" ] || exec sleep 300\n' "$scratch" > "$dstubs/portless"
 chmod +x "$dstubs/pnpm" "$dstubs/portless"
 run_ds() { set +e; env PATH="$dstubs:$PATH" WH_SLUG=feat-ui "$@" timeout 30 bash "$ds/scripts/dev-server.sh" >"$scratch/ds.log" 2>&1; DS_STATUS=$?; set -e; }
 run_ds
@@ -106,6 +110,9 @@ rm -f "$scratch/portless-name"
 run_ds STUB_WRANGLER_FOREIGN="$scratch" WH_API_TIMEOUT=2
 check "dev-server.sh refuses to start Vite when another checkout answers on its port" \
   all '[ "$DS_STATUS" -ne 0 ]' '[ "$DS_STATUS" -ne 124 ]' '[ ! -e "$scratch/portless-name" ]'
+run_ds STUB_WRANGLER_EXIT_AFTER_HEALTH=1 STUB_VITE_STAY=1
+check "dev-server.sh stops Vite when its Worker exits, even before the wait (status $DS_STATUS)" \
+  all '[ "$DS_STATUS" -ne 0 ]' '[ "$DS_STATUS" -ne 124 ]' 'grep -qx lessons-radio-feat-ui "$scratch/portless-name"' '[ -z "$(procs_in "$ds")" ]'
 
 # list: a process whose command line holds a newline does not break the output
 (cd "$wts/feat-ui" && exec bash -c $'sleep 300 # line one\n# line two') &
@@ -188,10 +195,21 @@ bg_pids+=("$!")
 for _ in $(seq 1 50); do wh_port_busy "$port" && break; sleep 0.1; done
 check "wh_free_port skips a busy port" [ "$(wh_free_port "$port")" -gt "$port" ]
 check "wh_port_owned_by sees a listener working in the dir" wh_port_owned_by "$port" "$src"
-check "wh_port_owned_by ignores a listener working elsewhere" bash -c ". '$src/lib/ports.sh'; ! wh_port_owned_by '$port' '$scratch'"
+check "wh_port_owned_by ignores a listener working elsewhere" bash -c "set -o pipefail; . '$src/lib/worktree-common.sh'; . '$src/lib/ports.sh'; wh_port_owned_by '$port' '$scratch'; [ \$? -eq 1 ]"
 s=$SECONDS
 check "wh_wait_own_port gives up when the server exits" bash -c ". '$src/lib/ports.sh'; ! wh_wait_own_port '$port' '$scratch' 999999 30"
 check "wh_wait_own_port gives up at once, not at the timeout" [ $((SECONDS - s)) -le 2 ]
+# Without ss (macOS) lsof answers; without either the check is skipped, not failed.
+mkdir -p "$scratch/no-ss" "$scratch/no-tools"
+for t in lsof sort readlink; do ln -s "$(command -v "$t")" "$scratch/no-ss/$t"; done
+libs="set -o pipefail; . '$src/lib/worktree-common.sh'; . '$src/lib/ports.sh'"
+check "wh_port_owned_by falls back to lsof without ss" env PATH="$scratch/no-ss" "$BASH" -c "$libs; wh_port_owned_by '$port' '$src'"
+check "the lsof fallback still ignores a listener working elsewhere" \
+  env PATH="$scratch/no-ss" "$BASH" -c "$libs; wh_port_owned_by '$port' '$scratch'; [ \$? -eq 1 ]"
+check "wh_port_owned_by says it cannot tell without ss or lsof" \
+  env PATH="$scratch/no-tools" "$BASH" -c "$libs; wh_port_owned_by '$port' '$src'; [ \$? -eq 2 ]"
+check "wh_wait_own_port skips the check with a note without ss or lsof" \
+  env PATH="$scratch/no-tools" "$BASH" -c "$libs; [[ \$(wh_wait_own_port '$port' '$scratch' \$\$ 5 2>&1) == *'neither ss nor lsof'* ]]"
 
 if [ "$failures" -ne 0 ]; then echo "worktree harness: $failures failed"; exit 1; fi
 echo "worktree harness: all tests passed"

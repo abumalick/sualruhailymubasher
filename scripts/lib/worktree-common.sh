@@ -169,7 +169,8 @@ wh_procs_under() {
 
 # wh_stop_procs_in <dir> — SIGTERM every process working in <dir> together with
 # its descendants, wait (portless deregisters its route on SIGTERM), then SIGKILL
-# what is left. Never fails the caller. Messages go to stderr.
+# what is left. Returns 1, stopping nothing, when <dir> is empty or the whole
+# worktree dir ($WH_WT_ROOT); otherwise 0, best effort. Messages go to stderr.
 wh_stop_procs_in() {
   local dir="${1:-}" procs pids pid _i root
   if [ -z "$dir" ] || _wh_is_wt_root "$dir"; then

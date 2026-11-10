@@ -58,8 +58,8 @@ else
   pnpm exec vite --strictPort --host 127.0.0.1 &
 fi
 vite_pid=$!
-set +e
-wait -n "$api_pid" "$vite_pid"
-status=$?
-echo "a server exited (status $status); stopping the other" >&2
-exit "$status"
+# Polled rather than `wait -n`, which blocks on the survivor when the other server
+# was reaped before the call.
+while kill -0 "$api_pid" 2>/dev/null && kill -0 "$vite_pid" 2>/dev/null; do sleep 1; done
+echo "a server exited; stopping the other" >&2
+exit 1
