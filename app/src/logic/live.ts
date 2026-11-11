@@ -90,3 +90,5 @@ export function liveContext(course: CourseDTO | undefined, isLive: boolean, star
     status: isLive ? { live: true, text: liveText } : { live: false, text: 'انتهى البث' },
   };
 }
+
+export const listeningLive = (p: LivePlayer, src: { kind: 'live' | 'recording' } | null): boolean => p.view !== 'closed' || src?.kind === 'live';

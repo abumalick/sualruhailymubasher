@@ -34,12 +34,25 @@ button:disabled { cursor: default; }
 .disc .btn svg { width: 26px; height: 26px; fill: var(--btn-fg); }
 .disc .btn svg.pl { margin-left: 4px; }
 .disc .btn svg.ln { fill: none; stroke: var(--btn-fg); stroke-width: 1.7; }
+.disc.live svg.st { opacity: .35; }
+.disc.live .btn { width: 84px; height: 84px; background: var(--live); box-shadow: 0 6px 18px color-mix(in srgb, var(--live) 35%, transparent); }
+.disc.live .btn svg { width: 32px; height: 32px; fill: var(--live-fg); }
+.disc.live .btn svg.pl { margin-left: 5px; }
+.disc.pulse .btn::before, .disc.pulse .btn::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--live); pointer-events: none; animation: ring 2.4s ease-out infinite; }
+.disc.pulse .btn::after { animation-delay: 1.2s; }
+@keyframes ring { from { transform: scale(1); opacity: .55; } to { transform: scale(1.9); opacity: 0; } }
+.go-live { align-self: stretch; min-height: 52px; margin-top: 4px; border-radius: 99px; background: var(--live); color: var(--live-fg); font: 600 16px var(--ui); display: flex; align-items: center; justify-content: center; gap: 10px; }
+.go-live svg { width: 18px; height: 18px; fill: currentColor; }
 .tag { display: inline-flex; align-items: center; gap: 6px; font: 600 12px var(--ui); padding: 4px 11px; border-radius: 99px; }
 .tag.live { color: var(--live); background: var(--live-bg); }
 .tag.step { color: var(--gold-hi); border: 1px solid var(--line); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--live); display: inline-block; animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .35; } }
-@media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .dot { animation: none; }
+  .disc.pulse .btn::before { animation: none; transform: scale(1.2); opacity: .3; }
+  .disc.pulse .btn::after { animation: none; transform: scale(1.45); opacity: .15; }
+}
 .hero h3 { font-family: var(--naskh); font-size: 21px; margin: 0; line-height: 1.35; }
 .hero p { font-family: var(--naskh); font-size: 15px; margin: 0; color: var(--soft); }
 .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
@@ -76,6 +89,7 @@ button:disabled { cursor: default; }
 .lesson .t { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .lesson svg.fwd { width: 16px; height: 16px; flex: none; stroke: var(--gold-hi); transform: scaleX(-1); }
 .pill { font: 600 11px var(--ui); padding: 3px 9px; border-radius: 99px; white-space: nowrap; background: var(--btn); color: var(--btn-fg); }
+.pill.live { background: var(--live); color: var(--live-fg); }
 .pill.o { background: transparent; color: var(--gold-hi); border: 1px solid var(--line); }
 .mini { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--gold); display: grid; place-items: center; flex: none; }
 .mini svg { width: 13px; height: 13px; margin-left: 2px; fill: var(--gold-hi); }

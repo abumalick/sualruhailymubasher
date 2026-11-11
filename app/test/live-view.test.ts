@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CourseDTO } from '@albadr/shared';
-import { CLOSED, liveContext, liveLesson, nextLivePlayer, type LiveEvent, type LivePlayer } from '../src/logic/live';
+import { CLOSED, listeningLive, liveContext, liveLesson, nextLivePlayer, type LiveEvent, type LivePlayer } from '../src/logic/live';
 import { endedState, liveDTO, STARTED, TAFSIR, TAWHID, TAWHID_14 } from './live-state';
 
 const open = (courseId: string): LivePlayer => ({ view: 'expanded', courseId, startedAt: STARTED[courseId] });
@@ -143,5 +143,21 @@ describe('liveContext', () => {
     const ctx = liveContext(undefined, true, null);
     expect([ctx.title, ctx.header, ctx.start, ctx.book]).toEqual(['البث المباشر', 'البث المباشر', null, null]);
     expect(ctx.status).toEqual({ live: true, text: 'بث مباشر' });
+  });
+});
+
+describe('listeningLive', () => {
+  const recording = { url: 'r', title: '', subtitle: '', kind: 'recording' as const };
+  const stream = { url: 's', title: '', subtitle: '', kind: 'live' as const };
+  it('is true while the live sheet is open, expanded or collapsed', () => {
+    expect(listeningLive(open('kitab-tawhid'), null)).toBe(true);
+    expect(listeningLive({ ...open('kitab-tawhid'), view: 'collapsed' }, null)).toBe(true);
+  });
+  it('is true while a direct stream is loaded in the player', () => {
+    expect(listeningLive(CLOSED, stream)).toBe(true);
+  });
+  it('is false with the sheet closed and nothing or a recording in the player', () => {
+    expect(listeningLive(CLOSED, null)).toBe(false);
+    expect(listeningLive(CLOSED, recording)).toBe(false);
   });
 });

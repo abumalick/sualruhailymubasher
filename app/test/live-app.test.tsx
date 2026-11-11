@@ -87,7 +87,7 @@ afterEach(() => {
 async function openLive(courseId: string) {
   vi.mocked(api.loadCachedState).mockResolvedValue(liveState(courseId));
   render(<App />);
-  fireEvent.click(await screen.findByRole('button', { name: 'استمع إلى البث' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'استمع إلى البث المباشر' }));
   return screen.getByTitle('البث المباشر') as HTMLIFrameElement;
 }
 
@@ -118,6 +118,15 @@ it('opening the book from the live sheet keeps the Mixlr iframe mounted and coll
   expect([...sheetEl.children]).toEqual([head, frame]);
   expect(frame.isConnected).toBe(true);
   expect(session.setPlaybackState).not.toHaveBeenCalledWith({ playbackState: 'none' });
+});
+
+it('tapping the hero again after collapsing re-expands the same sheet without reloading Mixlr', async () => {
+  const frame = await openLive('kitab-tawhid');
+  fireEvent.click(screen.getByRole('button', { name: 'تصغير' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'تستمع الآن إلى البث' }));
+  expect(screen.getByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
+  expect(screen.getByTitle('البث المباشر')).toBe(frame);
 });
 
 it('a deep link to the book while the sheet is open collapses it instead of covering the book', async () => {
@@ -184,7 +193,7 @@ it('dropping another course leaves the live player alone', async () => {
 it('dropping the course of a direct stream stops the audio', async () => {
   vi.mocked(api.loadCachedState).mockResolvedValue({ ...liveState('kitab-tawhid'), live: { ...liveState('kitab-tawhid').live, mode: 'direct', streamUrl: 'https://s/live' } });
   render(<App />);
-  fireEvent.click(await screen.findByRole('button', { name: 'استمع إلى البث' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'استمع إلى البث المباشر' }));
   await act(async () => {});
   expect(player.state.src?.courseId).toBe('kitab-tawhid');
   await go('#/follow');
@@ -192,4 +201,15 @@ it('dropping the course of a direct stream stops the audio', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'حفظ · درس الفجر فقط' }));
   await screen.findByText('دروسك: درس الفجر فقط');
   expect(player.state.src).toBeNull();
+});
+
+it('tapping the hero again in direct mode keeps the stream instead of reloading it', async () => {
+  vi.mocked(api.loadCachedState).mockResolvedValue({ ...liveState('kitab-tawhid'), live: { ...liveState('kitab-tawhid').live, mode: 'direct', streamUrl: 'https://s/live' } });
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'استمع إلى البث المباشر' }));
+  await act(async () => {});
+  const src = player.state.src;
+  fireEvent.click(await screen.findByRole('button', { name: 'تستمع الآن إلى البث' }));
+  await act(async () => {});
+  expect(player.state.src).toBe(src);
 });

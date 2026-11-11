@@ -15,6 +15,7 @@ export interface HomeProps {
   onTick: (kind: TickKind, courseId: string, n: number) => void;
   onPlay: (lesson: LessonDTO, course: CourseDTO) => void;
   onLive: () => void;
+  listening?: boolean;
   onRetry?: () => void;
   notice?: ComponentChildren;
 }
@@ -151,7 +152,7 @@ function Body(p: HomeProps & { state: StateDTO; model: HomeModel }) {
                   <span class="b">{c.title}</span>
                 </div>
                 {t.status === 'live' ? (
-                  <span class="pill">مباشر</span>
+                  <span class="pill live">مباشر</span>
                 ) : (
                   <span class="pill o">{t.status === 'done' ? 'انتهى' : clock12(t.time)}</span>
                 )}
@@ -171,11 +172,11 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
     const ctx = c ? liveContext(c, true, p.state.live.startedAt) : null;
     return (
       <div class="hero">
-        <Disc icon="play" label="استمع إلى البث" onClick={p.onLive} />
         <span class="tag live">
           <i class="dot" />
           {c ? `مباشر الآن · درس ${slotName(c.slot)}` : 'مباشر الآن'}
         </span>
+        <Disc icon="play" label="استمع إلى البث المباشر" onClick={p.onLive} live={p.listening ? 'still' : 'pulse'} />
         <h3>{c ? c.title : 'البث المباشر'}</h3>
         {c && item.lessonNumber !== null && (
           <p>
@@ -183,6 +184,10 @@ function Hero(p: HomeProps & { state: StateDTO; item: Item; course: (id: string)
             {ctx?.start && ` · ${ctx.start}`}
           </p>
         )}
+        <button class="go-live" onClick={p.onLive}>
+          <Icon id="play" />
+          {p.listening ? 'تستمع الآن إلى البث' : 'استمع إلى البث المباشر'}
+        </button>
         {ctx?.edition && (
           <div class="acts">
             <span class="pill o">{ctx.edition}</span>

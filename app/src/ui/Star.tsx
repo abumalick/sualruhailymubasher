@@ -25,16 +25,17 @@ export const Icon = ({ id, class: cls }: { id: string; class?: string }) => (
   <svg class={cls} aria-hidden="true"><use href={`#${id}`} /></svg>
 );
 
-export function Disc({ icon, label, onClick }: { icon: 'play' | 'i-book' | 'i-rev'; label: string; onClick?: () => void }) {
+export function Disc({ icon, label, onClick, live }: { icon: 'play' | 'i-book' | 'i-rev'; label: string; onClick?: () => void; live?: 'pulse' | 'still' }) {
   return (
-    <div class="disc">
+    <div class={live ? `disc live${live === 'pulse' ? ' pulse' : ''}` : 'disc'}>
       <svg class="st" viewBox="0 0 100 100" aria-hidden="true">
         <use href="#star" fill="none" stroke="var(--gold)" stroke-width="1.2" />
       </svg>
       <svg class="st" viewBox="0 0 100 100" style="transform:rotate(22.5deg) scale(.86)" aria-hidden="true">
         <use href="#star" fill="none" stroke="var(--gold)" stroke-width="1" opacity=".5" />
       </svg>
-      <button class="btn" aria-label={label} onClick={onClick} disabled={!onClick}>
+      {/* A live disc repeats the worded button below it: it stays tappable but out of the accessibility tree. */}
+      <button class="btn" aria-label={live ? undefined : label} aria-hidden={live ? 'true' : undefined} tabIndex={live ? -1 : undefined} onClick={onClick} disabled={!onClick}>
         <Icon id={icon} class={icon === 'play' ? 'pl' : 'ln'} />
       </button>
     </div>
