@@ -28,7 +28,7 @@ vi.stubGlobal('Audio', FakeAudio);
 
 import type { CourseDTO } from '@albadr/shared';
 import { player } from '../src/audio/player';
-import { LiveSheet, type LiveSheetProps } from '../src/ui/LiveSheet';
+import { LiveSheet, SLIDE_MS, type LiveSheetProps } from '../src/ui/LiveSheet';
 import { TAFSIR, TAWHID } from './live-state';
 
 const live = { isLive: true, mode: 'embed' as const, embedUrl: 'about:blank#mixlr', streamUrl: null, courseId: null, startedAt: null };
@@ -208,4 +208,38 @@ it('the stop button shows a stop square, in the sheet and in the bar, since it e
   expect(icon()).toBe('#i-stop');
   rerender(sheet({ course: TAWHID, expanded: false }));
   expect(icon()).toBe('#i-stop');
+});
+
+it('minimizes with a down chevron that slides the sheet down before it becomes the bar, keeping the player', () => {
+  vi.useFakeTimers();
+  try {
+    const onCollapse = vi.fn();
+    const { container } = render(sheet({ course: TAWHID, onCollapse }));
+    const frame = container.querySelector('iframe')!;
+    const button = screen.getByRole('button', { name: 'تصغير' });
+    expect(button.querySelector('use')!.getAttribute('href')).toBe('#i-down');
+
+    fireEvent.click(button);
+    expect(container.querySelector('.sheet')!.classList.contains('down')).toBe(true);
+    expect(onCollapse).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(SLIDE_MS);
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('iframe')).toBe(frame);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('minimizes at once when the phone asks for reduced motion', () => {
+  const real = window.matchMedia;
+  window.matchMedia = ((q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)' })) as typeof window.matchMedia;
+  try {
+    const onCollapse = vi.fn();
+    render(sheet({ onCollapse }));
+    fireEvent.click(screen.getByRole('button', { name: 'تصغير' }));
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+  } finally {
+    window.matchMedia = real;
+  }
 });

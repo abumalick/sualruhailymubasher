@@ -1,8 +1,10 @@
 import type { CourseDTO, LiveDTO } from '@albadr/shared';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { player } from '../audio/player';
 import { liveContext } from '../logic/live';
 import { Icon } from './Star';
+
+export const SLIDE_MS = 220;
 
 export interface LiveSheetProps {
   live: LiveDTO;
@@ -21,10 +23,23 @@ export interface LiveSheetProps {
 export function LiveSheet({ live, course, startedAt, expanded, inBook = false, onExpand, onCollapse, onClose }: LiveSheetProps) {
   const ctx = liveContext(course, live.isLive, startedAt);
   const [loads, setLoads] = useState(0);
+  const [sliding, setSliding] = useState(false);
+  const slide = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
     player.startEmbed(ctx.title, onClose);
-    return () => player.endEmbed();
+    return () => {
+      clearTimeout(slide.current);
+      player.endEmbed();
+    };
   }, []);
+  const minimize = () => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return onCollapse();
+    setSliding(true);
+    slide.current = setTimeout(() => {
+      setSliding(false);
+      onCollapse();
+    }, SLIDE_MS);
+  };
   const bookLink = (short: boolean) =>
     ctx.book && (
       <a class="chip" href={ctx.book} aria-label={ctx.bookLabel} onClick={onCollapse}>
@@ -38,12 +53,12 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
     </button>
   );
   return (
-    <div class={expanded ? 'sheet' : 'sheet min'} role={expanded ? 'dialog' : 'region'} aria-label="البث المباشر">
+    <div class={!expanded ? 'sheet min' : sliding ? 'sheet down' : 'sheet'} role={expanded ? 'dialog' : 'region'} aria-label="البث المباشر">
       {expanded ? (
         <div class="lhead">
           <div class="bar">
-            <button class="back" aria-label="تصغير" onClick={onCollapse}>
-              <Icon id="i-back" />
+            <button class="back" aria-label="تصغير" onClick={minimize}>
+              <Icon id="i-down" />
             </button>
             <div class="t">
               <b>{ctx.title}</b>
