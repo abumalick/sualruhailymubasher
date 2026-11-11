@@ -30,6 +30,7 @@ graphic, screenshots, changelogs) is in `fastlane/metadata/android/`. Secrets st
 (Play API key; override with `ALBADR_PLAY_JSON_KEY`). Play App Signing re-signs the bundle.
 
 Before each release, raise `versionCode` in `android/app/build.gradle` (Play refuses a code it has seen)
+and `versionName` (the GitHub APK release is tagged with it, see below),
 and add `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt`.
 
     fastlane android build                 # signed bundle only
@@ -44,6 +45,27 @@ been published, Play accepts only draft releases (`fastlane android internal sta
 android production status:draft`); finish those in the console (roll out, or Publishing overview → send
 for review). Store settings (category, contact details) and countries are set in the console too. Content rating, target audience, data safety, ads and app
 access have no API: they are answered in the console (answers in `docs/store/google-play.md`).
+
+## Sideloaded APK (GitHub releases, Obtainium)
+
+Besides Play, each release is published as an APK on the public, releases-only repository
+[abumalick/albadrmubasher](https://github.com/abumalick/albadrmubasher) (no source there), which
+[Obtainium](https://github.com/ImranR98/Obtainium) follows. `fastlane android production` does it after the
+promotion (not for `validate_only:true` or `status:draft`); on its own, or to retry a failed publish:
+
+    fastlane android github_apk   # web build + cap sync, signed release APK, checks, GitHub release
+
+The APK is signed by its own key, not the Play upload key: `~/.config/albadr-lessons/obtainium-apk.env`
+(override with `ALBADR_GITHUB_APK_SIGNING_ENV`) and `obtainium-apk.jks` beside it, both backed up in Bitwarden
+("Albadr Mubasher Obtainium APK signing key"). The lane overrides any signing variables already in the
+environment. Losing this key means Obtainium users must uninstall and reinstall; a Play install and an
+Obtainium install cannot update each other.
+
+`scripts/github-apk.mjs` refuses to publish unless the APK's package and versions match `build.gradle` and
+its only signer is the certificate pinned in `SIGNER_SHA256`. The release is tagged `v<versionName>`
+(Obtainium compares it with the installed versionName), carries one asset, `albadr-mubasher.apk`, with the
+Play changelogs as notes, and is marked latest. A tag that already exists is never replaced, so raise
+`versionName` together with `versionCode` for every release.
 
 ## iOS release (macOS, fastlane)
 

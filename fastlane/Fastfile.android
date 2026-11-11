@@ -1,6 +1,7 @@
 # Run from the repo root: `fastlane android <lane>`.
 ANDROID_DIR = "app/android"
 ANDROID_AAB = "app/android/app/build/outputs/bundle/release/app-release.aab"
+ANDROID_APK = "app/android/app/build/outputs/apk/release/app-release.apk"
 ANDROID_SECRETS = File.expand_path("~/.config/albadr-lessons")
 ANDROID_SIGNING_VARS = %w[ALBADR_KEYSTORE ALBADR_KEYSTORE_PASSWORD ALBADR_KEY_ALIAS ALBADR_KEY_PASSWORD].freeze
 
@@ -11,16 +12,18 @@ platform :android do
     ENV["LC_ALL"] = "en_US.UTF-8" if ENV["LC_ALL"].to_s.empty?
   end
 
+  def signing_vars_in(env_file)
+    return {} unless File.exist?(env_file)
+    File.readlines(env_file, chomp: true).each_with_object({}) do |line, vars|
+      key, value = line.sub(/\Aexport\s+/, "").split("=", 2)
+      vars[key] = value.to_s.delete_prefix('"').delete_suffix('"') if ANDROID_SIGNING_VARS.include?(key)
+    end
+  end
+
   # build.gradle signs only when these are set; an unsigned bundle would be refused by Play
   private_lane :load_signing_env do
     env_file = ENV.fetch("ALBADR_SIGNING_ENV", File.join(ANDROID_SECRETS, "env"))
-    if File.exist?(env_file)
-      File.readlines(env_file, chomp: true).each do |line|
-        key, value = line.sub(/\Aexport\s+/, "").split("=", 2)
-        next unless ANDROID_SIGNING_VARS.include?(key)
-        ENV[key] ||= value.to_s.delete_prefix('"').delete_suffix('"')
-      end
-    end
+    signing_vars_in(env_file).each { |key, value| ENV[key] ||= value }
     missing = ANDROID_SIGNING_VARS.select { |k| ENV[k].to_s.empty? }
     UI.user_error!("Upload-key settings missing (#{missing.join(', ')}): see #{env_file}") unless missing.empty?
   end
@@ -46,6 +49,24 @@ platform :android do
     gradle(task: "bundle", build_type: "Release", project_dir: ANDROID_DIR)
   end
 
+  # The sideload key replaces whatever is in ENV, so an upload key sourced in the shell can never sign the APK
+  private_lane :load_github_apk_signing_env do
+    env_file = ENV.fetch("ALBADR_GITHUB_APK_SIGNING_ENV", File.join(ANDROID_SECRETS, "obtainium-apk.env"))
+    vars = signing_vars_in(env_file)
+    missing = ANDROID_SIGNING_VARS.select { |k| vars[k].to_s.empty? }
+    UI.user_error!("Sideload-key settings missing (#{missing.join(', ')}): see #{env_file}") unless missing.empty?
+    vars.each { |key, value| ENV[key] = value }
+  end
+
+  desc "Build the APK signed with the sideload key and publish it as a GitHub release for Obtainium (abumalick/albadrmubasher)"
+  lane :github_apk do
+    load_github_apk_signing_env
+    check_google_services
+    sh("cd .. && pnpm --filter app build && cd app && npx cap sync android")
+    gradle(task: "assemble", build_type: "Release", project_dir: ANDROID_DIR)
+    sh("cd .. && node scripts/github-apk.mjs publish #{ANDROID_APK}")
+  end
+
   desc "Check that the service-account key reaches the Play Console"
   lane :validate_credentials do
     validate_play_store_json_key(json_key: CredentialsManager::AppfileConfig.try_fetch_value(:json_key_file))
@@ -68,7 +89,7 @@ platform :android do
     )
   end
 
-  desc "Promote the current internal-testing release to production (sent to review). validate_only:true checks without sending; status:draft while the app has never been published"
+  desc "Promote the current internal-testing release to production (sent to review), then publish the sideload APK on GitHub. validate_only:true checks without sending; status:draft while the app has never been published"
   lane :production do |options|
     upload_to_play_store(
       track: "internal",
@@ -81,5 +102,7 @@ platform :android do
       sync_image_upload: true,
       validate_only: options[:validate_only] || false
     )
+    # A draft or a check has released nothing; a failed publish is retried with `fastlane android github_apk`
+    github_apk unless options[:validate_only] || options[:status] == "draft"
   end
 end
