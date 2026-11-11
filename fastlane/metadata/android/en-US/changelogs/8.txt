@@ -1,0 +1,1 @@
+Live broadcast: a reload button for when the stream gets stuck, a minimize button that slides the player down while it keeps playing, and a clearer stop button.
