@@ -9,7 +9,7 @@ WH_TLD="dev.sageplex.com"                     # dev-host TLD (e.g. dev.example.c
 WH_PORT_MODE="portless"         # hash (export PORT from the band) | portless (portless assigns it) | none
 WH_PORT_BAND_START=""
 WH_PORT_BAND_SIZE=""
-# Worktrees live beside the main checkout, in <repo>-worktrees/, outside the repo so no tool in the main checkout scans them.
+# Worktrees live inside the main checkout, in .worktrees/ (gitignored).
 WH_ENV_FILES="server/.dev.vars"                    # space-separated gitignored files copied main->worktree
 WH_SHARED_LINKS=""              # space-separated gitignored dirs symlinked main->worktree
 # The *_CMD vars below are SINGLE-quoted so any $WH_PORT/$WH_SLUG/... they contain
@@ -31,7 +31,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 # Run from the main checkout even when invoked inside a worktree.
 main_root="$(git rev-parse --path-format=absolute --git-common-dir)"
 main_root="$(cd "$main_root/.." && pwd)"
-wt_root="$(dirname "$main_root")/$(basename "$main_root")-worktrees"
+wt_root="$main_root/.worktrees"
 export WH_WT_ROOT="$wt_root"   # the lib refuses to stop processes across this whole dir
 ib="$WH_INTEGRATION_BRANCH"
 

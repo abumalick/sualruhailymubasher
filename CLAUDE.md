@@ -28,7 +28,7 @@ that touches files, however small, starts in its own worktree. The main checkout
 stays on `main`, always, and its branch must never change. Uncommitted changes in
 the main checkout may belong to sibling agents: never commit, stash or revert them.
 
-Worktrees live beside the repo in `../lessons-radio-worktrees/<branch-slug>`.
+Worktrees live inside the repo in `.worktrees/<branch-slug>` (gitignored).
 
 - **Start** — `wt="$(scripts/worktree.sh start <branch>)" && cd "$wt"`. One command:
   it creates the worktree from `main` (or resumes and rebases it), copies
@@ -52,7 +52,7 @@ Worktrees live beside the repo in `../lessons-radio-worktrees/<branch-slug>`.
   `https://lessons-radio-<worktree-dir>.dev.sageplex.com` (the API is under `/api`
   at the same URL). Course titles end in "(محلي)" so local data can't be mistaken for
   production. The Worker's own port is in the log (`api: http://127.0.0.1:<port>`),
-  under `../lessons-radio-worktrees/.logs/<slug>.log`, with the agent's settings for it.
+  under `.worktrees/.logs/<slug>.log`, with the agent's settings for it.
   **Run the agent from a worktree only with its own cache**: `API_BASE=http://127.0.0.1:<port>`,
   the `ADMIN_TOKEN` from `server/.dev.vars` and `ALBADR_AGENT_CACHE=$wt/.tmp/agent-cache`.
   The default cache (`~/.cache/albadr-agent/`) belongs to the production agent: it reuses

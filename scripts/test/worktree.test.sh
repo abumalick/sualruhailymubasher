@@ -26,7 +26,7 @@ check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name";
 all() { local c; for c in "$@"; do eval "$c" || return 1; done; }
 
 repo="$scratch/proj"
-wts="$scratch/proj-worktrees"
+wts="$repo/.worktrees"
 git init -q -b main "$repo"
 git -C "$repo" config user.email t@t.t
 git -C "$repo" config user.name t
@@ -36,7 +36,7 @@ sed "s|^WH_INSTALL_CMD=.*|WH_INSTALL_CMD=''|" "$src/worktree.sh" > "$repo/script
 chmod +x "$repo/scripts/worktree.sh"
 # shellcheck disable=SC2016 # expands when the stub runs
 printf 'echo stub-log-line\n[ -z "${STUB_DIE:-}" ] || exit 3\nexec sleep 300\n' > "$repo/scripts/dev-server.sh"
-printf 'server/.dev.vars\n' > "$repo/.gitignore"
+printf '.worktrees/\nserver/.dev.vars\n' > "$repo/.gitignore"
 printf 'ADMIN_TOKEN=local\n' > "$repo/server/.dev.vars"
 git -C "$repo" add -A
 git -C "$repo" commit -q -m init
@@ -47,7 +47,9 @@ check "a new worktree generates the Android files its Gradle tests need" \
 
 # create
 out="$(cd "$repo" && "$wt_sh" create feat/ui 2>/dev/null)"
-check "create prints only the worktree path, beside the repo" [ "$out" = "$wts/feat-ui" ]
+check "create prints only the worktree path, in the repo's .worktrees/" [ "$out" = "$wts/feat-ui" ]
+check "the project ignores .worktrees/" git -C "$src/.." check-ignore -q .worktrees/feat-ui
+check "a new worktree leaves the main checkout clean" [ -z "$(git -C "$repo" status --porcelain)" ]
 check "create copies server/.dev.vars" grep -qx 'ADMIN_TOKEN=local' "$wts/feat-ui/server/.dev.vars"
 check "create refuses a branch too long for a host label" \
   bash -c "cd '$repo' && ! '$wt_sh' create $(printf 'b%.0s' $(seq 1 50)) 2>/dev/null"
