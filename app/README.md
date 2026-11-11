@@ -13,20 +13,20 @@ Untracked config required: `app/android/app/google-services.json`, `app/ios/App/
 
 Signing reads `ALBADR_KEYSTORE`, `ALBADR_KEYSTORE_PASSWORD`, `ALBADR_KEY_ALIAS`, `ALBADR_KEY_PASSWORD` from the environment. A release build (`assembleRelease`, `bundleRelease`) fails without them rather than produce an unsigned app; debug builds do not need them.
 
-    set -a; source ~/.config/albadr-lessons/env; set +a
+    set -a; source ~/.config/albadrmubasher/env; set +a
     cd app/android && ./gradlew assembleRelease
     apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
     adb install -r app/build/outputs/apk/release/app-release.apk
 
 `google-services.json` must contain a client for `com.albadrmubasher.app`: without one the google-services
 plugin fails the build, and without the file it is skipped and push silently stops working. The current
-file is `~/.config/albadr-lessons/google-services.com.albadrmubasher.app.json`.
+file is `~/.config/albadrmubasher/google-services.com.albadrmubasher.app.json`.
 
 ## Google Play (fastlane)
 
 Everything Play-side goes through fastlane, run from the repo root. The listing (texts, icon, feature
 graphic, screenshots, changelogs) is in `fastlane/metadata/android/`. Secrets stay in
-`~/.config/albadr-lessons/`: `env` (upload key, read by the `build` lane) and `play-service-account.json`
+`~/.config/albadrmubasher/`: `env` (upload key, read by the `build` lane) and `play-service-account.json`
 (Play API key; override with `ALBADR_PLAY_JSON_KEY`). Play App Signing re-signs the bundle.
 
 Before each release, raise `versionCode` in `android/app/build.gradle` (Play refuses a code it has seen)
@@ -62,7 +62,7 @@ by `internal`. On its own, or to retry a failed publish:
 It needs `gh` logged in with write access to the repository, and the SDK build-tools (`aapt2`,
 `apksigner`) under `$ANDROID_HOME` (default `~/Android/Sdk`).
 
-The APK is signed by its own key, not the Play upload key: `~/.config/albadr-lessons/obtainium-apk.env`
+The APK is signed by its own key, not the Play upload key: `~/.config/albadrmubasher/obtainium-apk.env`
 (override with `ALBADR_GITHUB_APK_SIGNING_ENV`) and `obtainium-apk.jks` beside it, both backed up in Bitwarden
 ("Albadr Mubasher Obtainium APK signing key"). The lane overrides any signing variables already in the
 environment. Losing this key means Obtainium users must uninstall and reinstall; a Play install and an
@@ -94,7 +94,7 @@ The build number is the latest TestFlight build of `MARKETING_VERSION` plus one,
 `MARKETING_VERSION` is bumped by hand. The lane refuses an IPA whose bundle id or version differ from
 the project, or that is not signed for production APNs.
 
-Secrets stay outside the repository, in `~/.config/albadr-lessons/` on the Mac (copies in Bitwarden):
+Secrets stay outside the repository, in `~/.config/albadrmubasher/` on the Mac (copies in Bitwarden):
 
 | File | Content |
 | --- | --- |

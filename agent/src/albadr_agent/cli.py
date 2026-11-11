@@ -235,7 +235,7 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
         return 2
     base, token = os.environ.get("API_BASE"), os.environ.get("ADMIN_TOKEN")
     if not base or not token:
-        log.error("API_BASE and ADMIN_TOKEN must be set (see ~/.config/albadr-lessons/agent.env)")
+        log.error("API_BASE and ADMIN_TOKEN must be set (see ~/.config/albadrmubasher/agent.env)")
         return 1
     lock_path = Path(os.environ.get("ALBADR_AGENT_LOCK", DEFAULT_LOCK))
     with run_lock(lock_path) as acquired:
