@@ -13,3 +13,4 @@ keystore.properties
 .env.*
 *service-account*.json
 google-services*.json
+.worktrees/

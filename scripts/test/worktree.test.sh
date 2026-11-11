@@ -26,7 +26,7 @@ check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name";
 all() { local c; for c in "$@"; do eval "$c" || return 1; done; }
 
 repo="$scratch/proj"
-wts="$scratch/proj-worktrees"
+wts="$repo/.worktrees"
 git init -q -b main "$repo"
 git -C "$repo" config user.email t@t.t
 git -C "$repo" config user.name t
@@ -36,7 +36,7 @@ sed "s|^WH_INSTALL_CMD=.*|WH_INSTALL_CMD=''|" "$src/worktree.sh" > "$repo/script
 chmod +x "$repo/scripts/worktree.sh"
 # shellcheck disable=SC2016 # expands when the stub runs
 printf 'echo stub-log-line\n[ -z "${STUB_DIE:-}" ] || exit 3\nexec sleep 300\n' > "$repo/scripts/dev-server.sh"
-printf 'server/.dev.vars\n' > "$repo/.gitignore"
+printf '.worktrees/\nserver/.dev.vars\n' > "$repo/.gitignore"
 printf 'ADMIN_TOKEN=local\n' > "$repo/server/.dev.vars"
 git -C "$repo" add -A
 git -C "$repo" commit -q -m init
@@ -47,7 +47,9 @@ check "a new worktree generates the Android files its Gradle tests need" \
 
 # create
 out="$(cd "$repo" && "$wt_sh" create feat/ui 2>/dev/null)"
-check "create prints only the worktree path, beside the repo" [ "$out" = "$wts/feat-ui" ]
+check "create prints only the worktree path, in the repo's .worktrees/" [ "$out" = "$wts/feat-ui" ]
+check "the project ignores .worktrees/" git -C "$src/.." check-ignore -q .worktrees/feat-ui
+check "a new worktree leaves the main checkout clean" [ -z "$(git -C "$repo" status --porcelain)" ]
 check "create copies server/.dev.vars" grep -qx 'ADMIN_TOKEN=local' "$wts/feat-ui/server/.dev.vars"
 check "create refuses a branch too long for a host label" \
   bash -c "cd '$repo' && ! '$wt_sh' create $(printf 'b%.0s' $(seq 1 50)) 2>/dev/null"
@@ -181,7 +183,10 @@ git -C "$wts/feat-ui" add change.txt
 git -C "$wts/feat-ui" commit -q -m change
 mkdir -p "$wts/.logs" && : > "$wts/.logs/feat-ui.log"
 check "remove refuses an unmerged branch" bash -c "cd '$repo' && ! '$wt_sh' remove feat/ui 2>/dev/null"
+(cd "$repo/server" && exec sleep 300) &
+main_pid=$!; bg_pids+=("$main_pid")
 (cd "$repo" && "$wt_sh" remove feat-ui --force 2>/dev/null)
+check "remove leaves processes in the main checkout running" kill -0 "$main_pid"
 check "remove --force by slug deletes the worktree" [ ! -e "$wts/feat-ui" ]
 check "remove deletes the branch" bash -c "! git -C '$repo' show-ref --quiet refs/heads/feat/ui"
 check "remove deletes the worktree's log" [ ! -e "$wts/.logs/feat-ui.log" ]
@@ -199,6 +204,17 @@ for _ in $(seq 1 50); do wh_port_busy "$port" && break; sleep 0.1; done
 check "wh_free_port skips a busy port" [ "$(wh_free_port "$port")" -gt "$port" ]
 check "wh_port_owned_by sees a listener working in the dir" wh_port_owned_by "$port" "$src"
 check "wh_port_owned_by ignores a listener working elsewhere" bash -c "set -o pipefail; . '$src/lib/worktree-common.sh'; . '$src/lib/ports.sh'; wh_port_owned_by '$port' '$scratch'; [ \$? -eq 1 ]"
+mkdir -p "$scratch/main/.worktrees/x" "$scratch/main/server"
+for d in .worktrees/x server; do
+  p="$(wh_free_port $(( 20000 + RANDOM % 20000 )))"
+  (cd "$scratch/main/$d" && exec node -e "require('net').createServer().listen($p, '127.0.0.1')") &
+  bg_pids+=("$!")
+  for _ in $(seq 1 50); do wh_port_busy "$p" && break; sleep 0.1; done
+  if [ "$d" = server ]; then main_port="$p"; else nested_port="$p"; fi
+done
+check "wh_port_owned_by does not count a worktree's server as the main checkout's" \
+  bash -c "set -o pipefail; . '$src/lib/worktree-common.sh'; . '$src/lib/ports.sh'; wh_port_owned_by '$nested_port' '$scratch/main'; [ \$? -eq 1 ]"
+check "wh_port_owned_by still counts the main checkout's own subdirs" wh_port_owned_by "$main_port" "$scratch/main"
 s=$SECONDS
 check "wh_wait_own_port gives up when the server exits" bash -c ". '$src/lib/ports.sh'; ! wh_wait_own_port '$port' '$scratch' 999999 30"
 check "wh_wait_own_port gives up at once, not at the timeout" [ $((SECONDS - s)) -le 2 ]
