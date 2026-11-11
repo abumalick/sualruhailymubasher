@@ -2,7 +2,7 @@
 # Starts this checkout's Worker (API + its own local D1, migrated and seeded) and the
 # app's Vite dev server, which proxies /api to that Worker. In a worktree (WH_SLUG set
 # by `worktree.sh up`) the Worker gets a per-worktree port and Vite is served through
-# portless at https://lessons-radio-<worktree-dir>.dev.sageplex.com; in the main checkout
+# portless at https://albadrmubasher-<worktree-dir>.dev.sageplex.com; in the main checkout
 # both use their default ports. Every D1 command here is --local: wrangler.jsonc
 # names the production database. When either server exits, the other is stopped too.
 set -euo pipefail
@@ -53,7 +53,7 @@ if [ -n "${WH_SLUG:-}" ]; then
   # The explicit name (not `run --name`, which appends only the branch's last segment)
   # keeps feat/ui and fix/ui on different hosts.
   # shellcheck disable=SC2016 # $PORT is set by portless for the inner shell
-  wh_portless "lessons-radio-$WH_SLUG" sh -c 'pnpm exec vite --port "$PORT" --strictPort --host 127.0.0.1' &
+  wh_portless "albadrmubasher-$WH_SLUG" sh -c 'pnpm exec vite --port "$PORT" --strictPort --host 127.0.0.1' &
 else
   pnpm exec vite --strictPort --host 127.0.0.1 &
 fi

@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # ── Config (filled by the worktree-harness builder) ──────────────────────────
-WH_LABEL="lessons-radio"                 # portless/base label, e.g. package.json "portless"; empty -> no URL
+WH_LABEL="albadrmubasher"                 # portless/base label, e.g. package.json "portless"; empty -> no URL
 WH_TLD="dev.sageplex.com"                     # dev-host TLD (e.g. dev.example.com); empty -> localhost
 WH_PORT_MODE="portless"         # hash (export PORT from the band) | portless (portless assigns it) | none
 WH_PORT_BAND_START=""
