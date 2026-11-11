@@ -24,7 +24,7 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
   const ctx = liveContext(course, live.isLive, startedAt);
   const [loads, setLoads] = useState(0);
   const [sliding, setSliding] = useState(false);
-  const slide = useRef<ReturnType<typeof setTimeout>>();
+  const slide = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
     player.startEmbed(ctx.title, onClose);
     return () => {
@@ -32,7 +32,12 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
       player.endEmbed();
     };
   }, []);
+  useEffect(() => {
+    clearTimeout(slide.current);
+    setSliding(false);
+  }, [expanded]);
   const minimize = () => {
+    if (sliding) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return onCollapse();
     setSliding(true);
     slide.current = setTimeout(() => {

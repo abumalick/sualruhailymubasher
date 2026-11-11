@@ -214,7 +214,7 @@ it('minimizes with a down chevron that slides the sheet down before it becomes t
   vi.useFakeTimers();
   try {
     const onCollapse = vi.fn();
-    const { container } = render(sheet({ course: TAWHID, onCollapse }));
+    const { container, rerender } = render(sheet({ course: TAWHID, onCollapse }));
     const frame = container.querySelector('iframe')!;
     const button = screen.getByRole('button', { name: 'تصغير' });
     expect(button.querySelector('use')!.getAttribute('href')).toBe('#i-down');
@@ -223,8 +223,12 @@ it('minimizes with a down chevron that slides the sheet down before it becomes t
     expect(container.querySelector('.sheet')!.classList.contains('down')).toBe(true);
     expect(onCollapse).not.toHaveBeenCalled();
 
+    fireEvent.click(button);
     vi.advanceTimersByTime(SLIDE_MS);
     expect(onCollapse).toHaveBeenCalledTimes(1);
+
+    rerender(sheet({ course: TAWHID, onCollapse, expanded: false }));
+    expect(container.querySelector('.sheet')!.className).toBe('sheet min');
     expect(container.querySelector('iframe')).toBe(frame);
   } finally {
     vi.useRealTimers();
@@ -239,7 +243,29 @@ it('minimizes at once when the phone asks for reduced motion', () => {
     render(sheet({ onCollapse }));
     fireEvent.click(screen.getByRole('button', { name: 'تصغير' }));
     expect(onCollapse).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.sheet.down')).toBeNull();
   } finally {
     window.matchMedia = real;
+  }
+});
+
+it('a slide cut short by the app collapsing or closing the sheet never collapses it later', () => {
+  vi.useFakeTimers();
+  try {
+    const onCollapse = vi.fn();
+    const { container, rerender, unmount } = render(sheet({ onCollapse }));
+    fireEvent.click(screen.getByRole('button', { name: 'تصغير' }));
+    rerender(sheet({ onCollapse, expanded: false }));
+    rerender(sheet({ onCollapse }));
+    expect(container.querySelector('.sheet')!.className).toBe('sheet');
+    vi.advanceTimersByTime(SLIDE_MS);
+    expect(onCollapse).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'تصغير' }));
+    unmount();
+    vi.advanceTimersByTime(SLIDE_MS);
+    expect(onCollapse).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
   }
 });
