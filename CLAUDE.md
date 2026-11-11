@@ -44,12 +44,12 @@ Worktrees live inside the repo in `.worktrees/<branch-slug>` (gitignored).
   servers and `down <branch>` only stops them. Branch names need letters a-z or digits
   (folder and host names are built from them; an Arabic-only name is refused).
   A branch cut before the harness existed has no `scripts/dev-server.sh`: rebase it
-  onto `main` first. Branch names are capped at 49 characters (host-name limit).
+  onto `main` first. Branch names are capped at 48 characters (host-name limit).
 - **Servers** — each worktree runs its own `wrangler dev` with its own local D1
   (`server/.wrangler/state`, migrated and seeded from `server/seed/dev.sql` at every
   start) and its own Vite, which proxies `/api` to that Worker; Vite starts only once
   that worktree's own Worker holds its port and answers. App URL:
-  `https://lessons-radio-<worktree-dir>.dev.sageplex.com` (the API is under `/api`
+  `https://albadrmubasher-<worktree-dir>.dev.sageplex.com` (the API is under `/api`
   at the same URL). Course titles end in "(محلي)" so local data can't be mistaken for
   production. The Worker's own port is in the log (`api: http://127.0.0.1:<port>`),
   under `.worktrees/.logs/<slug>.log`, with the agent's settings for it.

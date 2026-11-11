@@ -52,7 +52,7 @@ check "the project ignores .worktrees/" git -C "$src/.." check-ignore -q .worktr
 check "a new worktree leaves the main checkout clean" [ -z "$(git -C "$repo" status --porcelain)" ]
 check "create copies server/.dev.vars" grep -qx 'ADMIN_TOKEN=local' "$wts/feat-ui/server/.dev.vars"
 check "create refuses a branch too long for a host label" \
-  bash -c "cd '$repo' && ! '$wt_sh' create $(printf 'b%.0s' $(seq 1 50)) 2>/dev/null"
+  bash -c "cd '$repo' && ! '$wt_sh' create $(printf 'b%.0s' $(seq 1 49)) 2>/dev/null"
 
 # up: URL per worktree dir, a branch without the harness is refused
 (cd "$repo" && "$wt_sh" up feat/ui --bg >/dev/null 2>&1)
@@ -73,7 +73,7 @@ url_of() { (cd "$repo" && "$wt_sh" create "$1" 2>&1 >/dev/null) | sed -n 's/^url
 fix_url="$(url_of fix/ui)"
 feat_url="$(url_of feat/ui)"
 check "each worktree's URL is named after its directory" \
-  all '[ "$feat_url" = https://lessons-radio-feat-ui.dev.sageplex.com ]' '[ "$fix_url" = https://lessons-radio-fix-ui.dev.sageplex.com ]'
+  all '[ "$feat_url" = https://albadrmubasher-feat-ui.dev.sageplex.com ]' '[ "$fix_url" = https://albadrmubasher-fix-ui.dev.sageplex.com ]'
 (cd "$repo" && "$wt_sh" remove fix/ui --force >/dev/null 2>&1)
 
 # dev-server.sh (pnpm and portless stubbed; the wrangler stub serves /api/health from
@@ -103,8 +103,8 @@ printf '#!/bin/sh\necho "$1" > "%s/portless-name"\n[ -z "$STUB_VITE_STAY" ] || e
 chmod +x "$dstubs/pnpm" "$dstubs/portless"
 run_ds() { set +e; env PATH="$dstubs:$PATH" WH_SLUG=feat-ui "$@" timeout 30 bash "$ds/scripts/dev-server.sh" >"$scratch/ds.log" 2>&1; DS_STATUS=$?; set -e; }
 run_ds
-check "dev-server.sh registers lessons-radio-<worktree-dir> with portless" \
-  grep -qx 'lessons-radio-feat-ui' "$scratch/portless-name"
+check "dev-server.sh registers albadrmubasher-<worktree-dir> with portless" \
+  grep -qx 'albadrmubasher-feat-ui' "$scratch/portless-name"
 check "dev-server.sh stops its Worker when Vite exits (status $DS_STATUS)" \
   all '[ "$DS_STATUS" -ne 124 ]' '[ -z "$(procs_in "$ds")" ]'
 rm -f "$scratch/portless-name"
@@ -117,7 +117,7 @@ check "dev-server.sh refuses to start Vite when another checkout answers on its 
   all '[ "$DS_STATUS" -ne 0 ]' '[ "$DS_STATUS" -ne 124 ]' '[ ! -e "$scratch/portless-name" ]'
 run_ds STUB_WRANGLER_EXIT_AFTER_HEALTH=1 STUB_VITE_STAY=1
 check "dev-server.sh stops Vite when its Worker exits, even before the wait (status $DS_STATUS)" \
-  all '[ "$DS_STATUS" -ne 0 ]' '[ "$DS_STATUS" -ne 124 ]' 'grep -qx lessons-radio-feat-ui "$scratch/portless-name"' '[ -z "$(procs_in "$ds")" ]'
+  all '[ "$DS_STATUS" -ne 0 ]' '[ "$DS_STATUS" -ne 124 ]' 'grep -qx albadrmubasher-feat-ui "$scratch/portless-name"' '[ -z "$(procs_in "$ds")" ]'
 
 # list: a process whose command line holds a newline does not break the output
 (cd "$wts/feat-ui" && exec bash -c $'sleep 300 # line one\n# line two') &

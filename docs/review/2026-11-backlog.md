@@ -306,7 +306,7 @@ References such as (Q3) point to [Decisions on the review questions](#decisions-
 
 ### A5. The production agent runs from the development working tree
 - **Impact:** Every 15 min, whatever is checked out in `agent/` (a feature branch, half-written code) runs against production with the admin token.
-- **Evidence:** `agent/systemd/albadr-agent.service`: `uv run --frozen --project …/lessons-radio/agent`.
+- **Evidence:** `agent/systemd/albadr-agent.service`: `uv run --frozen --project …/albadrmubasher/agent`.
 - **Direction:** Run from a dedicated checkout pinned to `main` (or a tool install from a tag), and update it explicitly.
 - **Effort:** S
 
