@@ -14,3 +14,18 @@ export declare function parseSigners(apksigner: string): string[];
 export declare function apkProblems(input: { badging: Badging; signers: string[]; expected: { versionCode?: string; versionName?: string } }): string[];
 export declare function releaseNotes(changelogs: { ar: string; en: string }): string;
 export declare function releaseArgs(input: { tag: string; asset: string; notesFile: string }): string[];
+export interface GithubApkIo {
+  gradle(): string;
+  badging(apk: string): string;
+  signers(apk: string): string;
+  releaseExists(tag: string): boolean;
+  changelog(versionCode: string | undefined, locale: string): string;
+  stage(apk: string, notes: string): { asset: string; notesFile: string };
+  createRelease(args: string[]): void;
+  log(line: string): void;
+}
+export declare const realIo: GithubApkIo;
+export declare function isReleaseNotFound(stderr: string): boolean;
+export declare function verify(apk: string, io?: GithubApkIo): Badging;
+export declare function check(io?: GithubApkIo): string;
+export declare function publish(apk: string, io?: GithubApkIo): void;

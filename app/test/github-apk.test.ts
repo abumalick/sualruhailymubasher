@@ -4,6 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   ASSET_NAME,
+  type GithubApkIo,
+  check,
+  isReleaseNotFound,
+  publish,
   REPO,
   SIGNER_SHA256,
   apkProblems,
@@ -88,15 +92,75 @@ describe('GitHub release', () => {
   });
 });
 
+describe('publishing', () => {
+  const GRADLE = 'versionCode 6\n        versionName "1.0.6"';
+  const fakeIo = (over: Partial<GithubApkIo> = {}) => {
+    const calls: string[] = [];
+    const io: GithubApkIo = {
+      gradle: () => GRADLE,
+      badging: () => BADGING,
+      signers: () => SIGNED_BY_SIDELOAD_KEY,
+      releaseExists: () => false,
+      changelog: (code, locale) => (code === '6' ? `${locale} notes` : ''),
+      stage: (_apk, notes) => {
+        calls.push(`stage ${notes}`);
+        return { asset: `.tmp/github-apk/${ASSET_NAME}`, notesFile: '.tmp/github-apk/notes.md' };
+      },
+      createRelease: (args) => void calls.push(`gh ${args.join(' ')}`),
+      log: () => {},
+      ...over,
+    };
+    return { io, calls };
+  };
+
+  it('creates the release with the APK and both changelogs', () => {
+    const { io, calls } = fakeIo();
+    publish('app-release.apk', io);
+    expect(calls).toEqual([
+      'stage ar notes\n\nen-US notes',
+      `gh release create v1.0.6 .tmp/github-apk/${ASSET_NAME} --repo ${REPO} --title v1.0.6 --notes-file .tmp/github-apk/notes.md --latest`,
+    ]);
+  });
+
+  it('never replaces a release that exists', () => {
+    const { io, calls } = fakeIo({ releaseExists: (tag) => tag === 'v1.0.6' });
+    expect(() => publish('app-release.apk', io)).toThrow(/already has v1\.0\.6/);
+    expect(calls).toEqual([]);
+  });
+
+  it('stops before staging or calling gh when the signer is wrong', () => {
+    const { io, calls } = fakeIo({ signers: () => SIGNED_BY_SIDELOAD_KEY.replace(SIGNER_SHA256, OTHER_KEY) });
+    expect(() => publish('app-release.apk', io)).toThrow(/cannot be published/);
+    expect(calls).toEqual([]);
+  });
+
+  it('stops when GitHub cannot be checked, rather than assuming the tag is free', () => {
+    const { io, calls } = fakeIo({ releaseExists: () => { throw new Error('cannot check'); } });
+    expect(() => publish('app-release.apk', io)).toThrow(/cannot check/);
+    expect(calls).toEqual([]);
+  });
+
+  it('checks the checkout’s tag before anything is built or promoted', () => {
+    expect(check(fakeIo().io)).toBe('v1.0.6');
+    expect(() => check(fakeIo({ releaseExists: () => true }).io)).toThrow(/already has v1\.0\.6/);
+  });
+
+  it('tells a missing release from other gh failures', () => {
+    expect(isReleaseNotFound('release not found\n')).toBe(true);
+    expect(isReleaseNotFound('HTTP 401: Bad credentials (https://api.github.com/graphql)\n')).toBe(false);
+    expect(isReleaseNotFound('error connecting to api.github.com\n')).toBe(false);
+  });
+});
+
 describe('fastlane github_apk lane', () => {
   const fastfile = readFileSync(`${root}fastlane/Fastfile.android`, 'utf8');
   const lane = (name: string) => fastfile.slice(fastfile.indexOf(`lane :${name} do`), fastfile.indexOf('\n  end\n', fastfile.indexOf(`lane :${name} do`)));
 
-  it('overrides any signing settings already in ENV with the sideload key', () => {
+  it('takes the sideload key from its own file and never keeps signing settings already in ENV', () => {
     const load = lane('load_github_apk_signing_env');
     expect(load).toMatch(/obtainium-apk\.env/);
     expect(load).toMatch(/ENV\[key\] = value/);
-    expect(load).not.toMatch(/\|\|=/);
+    expect(load).not.toMatch(/ENV\[k(ey)?\]\.to_s|ENV\[k(ey)?\]\s*\|\||\|\|=/);
   });
 
   it('builds a release APK, not the bundle, with push configured, and publishes it', () => {
@@ -107,9 +171,12 @@ describe('fastlane github_apk lane', () => {
     expect(apk).toMatch(/node scripts\/github-apk\.mjs publish #\{ANDROID_APK\}/);
   });
 
-  it('publishes after each production release, but not after a check or a draft', () => {
+  it('checks GitHub before promoting, and publishes after, except for a check or a draft', () => {
     const production = lane('production');
-    expect(production.indexOf('upload_to_play_store')).toBeLessThan(production.indexOf('github_apk'));
-    expect(production).toMatch(/github_apk unless options\[:validate_only\] \|\| options\[:status\] == "draft"/);
+    const promote = production.indexOf('upload_to_play_store');
+    expect(production.indexOf('github-apk.mjs check')).toBeGreaterThan(-1);
+    expect(production.indexOf('github-apk.mjs check')).toBeLessThan(promote);
+    expect(production.lastIndexOf('github_apk')).toBeGreaterThan(promote);
+    expect(production).toMatch(/publish_apk = !\(options\[:validate_only\] \|\| options\[:status\] == "draft"\)/);
   });
 });

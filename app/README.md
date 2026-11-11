@@ -51,9 +51,16 @@ access have no API: they are answered in the console (answers in `docs/store/goo
 Besides Play, each release is published as an APK on the public, releases-only repository
 [abumalick/albadrmubasher](https://github.com/abumalick/albadrmubasher) (no source there), which
 [Obtainium](https://github.com/ImranR98/Obtainium) follows. `fastlane android production` does it after the
-promotion (not for `validate_only:true` or `status:draft`); on its own, or to retry a failed publish:
+promotion (not for `validate_only:true` or `status:draft`), and before promoting it checks that the key is
+there and that GitHub has no release for this `versionName` yet, so Play is never released alone for a
+reason known in advance. The APK is built from the checkout, so run `production` from the commit uploaded
+by `internal`. On its own, or to retry a failed publish:
 
     fastlane android github_apk   # web build + cap sync, signed release APK, checks, GitHub release
+    node scripts/github-apk.mjs check   # only the GitHub check: is v<versionName> still free?
+
+It needs `gh` logged in with write access to the repository, and the SDK build-tools (`aapt2`,
+`apksigner`) under `$ANDROID_HOME` (default `~/Android/Sdk`).
 
 The APK is signed by its own key, not the Play upload key: `~/.config/albadr-lessons/obtainium-apk.env`
 (override with `ALBADR_GITHUB_APK_SIGNING_ENV`) and `obtainium-apk.jks` beside it, both backed up in Bitwarden
