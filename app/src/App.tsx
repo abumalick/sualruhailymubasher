@@ -1,7 +1,7 @@
 import type { CourseDTO, LessonDTO } from '@albadr/shared';
 import { useEffect, useState } from 'preact/hooks';
 import { startLive } from './audio/live';
-import { CLOSED, nextLivePlayer, type LiveEvent } from './logic/live';
+import { CLOSED, listeningLive, nextLivePlayer, type LiveEvent } from './logic/live';
 import { player } from './audio/player';
 import { useRoute } from './router';
 import { unfollowed } from './logic/follow';
@@ -32,6 +32,8 @@ export function App() {
   const [livePlayer, setLivePlayer] = useState(CLOSED);
   const [welcome, setWelcome] = useState(false);
   const send = (e: LiveEvent) => setLivePlayer((p) => nextLivePlayer(p, e));
+  const [playerSrc, setPlayerSrc] = useState(player.state.src);
+  useEffect(() => player.onChange((s) => setPlayerSrc(s.src)), []);
   useEffect(() => void boot(), []);
   useEffect(() => send({ type: 'navigate' }), [route]);
   useEffect(() => void (state && send({ type: 'state', live: state.live })), [state?.live]);
@@ -72,7 +74,7 @@ export function App() {
 
   let page = null;
   if (route.name === 'home') {
-    page = <Home state={state} ticks={ticks} now={now} error={error} onTick={onTick} onPlay={onPlay} onLive={onLive} onRetry={() => void refresh()} notice={notice()} />;
+    page = <Home state={state} ticks={ticks} now={now} error={error} onTick={onTick} onPlay={onPlay} onLive={onLive} listening={listeningLive(livePlayer, playerSrc)} onRetry={() => void refresh()} notice={notice()} />;
   } else if (route.name === 'courses') {
     page = <Courses state={state} notice={notice(true)} />;
   } else if (route.name === 'course') {

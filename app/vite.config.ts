@@ -1,6 +1,13 @@
 import { defineConfig } from 'vitest/config';
 import preact from '@preact/preset-vite';
 import { playwright } from '@vitest/browser-playwright';
+import type { BrowserCommand } from 'vitest/node';
+
+type Media = { colorScheme?: 'light' | 'dark' | null; reducedMotion?: 'reduce' | 'no-preference' | null };
+const emulateMedia: BrowserCommand<[Media]> = async (ctx, media) => {
+  if (ctx.provider.name !== 'playwright') throw new Error(`emulateMedia needs playwright, got ${ctx.provider.name}`);
+  await (ctx as unknown as { page: { emulateMedia: (m: Media) => Promise<void> } }).page.emulateMedia(media);
+};
 
 export default defineConfig({
   plugins: [preact()],
@@ -21,7 +28,13 @@ export default defineConfig({
         test: {
           name: 'visual',
           include: ['test/visual/**/*.test.{ts,tsx}'],
-          browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: 'chromium' }, { browser: 'webkit' }] },
+          browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright(),
+            instances: [{ browser: 'chromium' }, { browser: 'webkit' }],
+            commands: { emulateMedia },
+          },
         },
       },
     ],

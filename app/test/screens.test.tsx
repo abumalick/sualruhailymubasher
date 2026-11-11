@@ -85,14 +85,51 @@ describe('Home hero', () => {
   });
 
   it('live with a course names the slot; live without a course says only مباشر الآن', () => {
-    const onLive = vi.fn();
-    home(live('tafsir-saadi'), MON_0940, { onLive });
+    home(live('tafsir-saadi'), MON_0940);
     expect(screen.getByText('مباشر الآن · درس الفجر')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'استمع إلى البث' }));
-    expect(onLive).toHaveBeenCalled();
     cleanup();
     home(live(null), MON_0940);
     expect(screen.getByText('مباشر الآن')).toBeTruthy();
+  });
+
+  it('live hero: tag above a pulsing live disc and a worded listen button, both opening the broadcast', () => {
+    const onLive = vi.fn();
+    const { container } = home(live('tafsir-saadi'), MON_0940, { onLive });
+    const hero = container.querySelector('.hero')!;
+    const tag = hero.querySelector('.tag.live')!;
+    const disc = hero.querySelector('.disc')!;
+    expect(tag.compareDocumentPosition(disc) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(disc.classList.contains('live')).toBe(true);
+    expect(disc.classList.contains('pulse')).toBe(true);
+    const discBtn = disc.querySelector('button')!;
+    expect(discBtn.getAttribute('aria-hidden')).toBe('true');
+    expect(discBtn.tabIndex).toBe(-1);
+    expect(screen.getAllByRole('button', { name: /استمع إلى البث/ })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'استمع إلى البث المباشر' }));
+    fireEvent.click(discBtn);
+    expect(onLive).toHaveBeenCalledTimes(2);
+  });
+
+  it('live hero while already listening stops pulsing and says so', () => {
+    const onLive = vi.fn();
+    const { container } = home(live('tafsir-saadi'), MON_0940, { onLive, listening: true });
+    expect(container.querySelector('.disc')!.classList.contains('pulse')).toBe(false);
+    expect(screen.queryByRole('button', { name: 'استمع إلى البث المباشر' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'تستمع الآن إلى البث' }));
+    expect(onLive).toHaveBeenCalled();
+  });
+
+  it('other hero states keep the plain disc', () => {
+    const { container } = home(FIXTURE_STATE, MON_0940);
+    const disc = container.querySelector('.hero .disc')!;
+    expect(disc.classList.contains('live')).toBe(false);
+    expect(disc.querySelector('button')!.getAttribute('aria-hidden')).toBeNull();
+  });
+
+  it("today's list marks the lesson on air with the live pill", () => {
+    const { container } = home(live('tafsir-saadi'), new Date('2026-11-02T02:40:00Z'));
+    const pill = [...container.querySelectorAll('.pill')].find((e) => e.textContent === 'مباشر');
+    expect(pill?.classList.contains('live')).toBe(true);
   });
 
   it('a course without PDFs shows no book button', () => {
