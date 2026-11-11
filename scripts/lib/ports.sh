@@ -36,7 +36,8 @@ wh_port_owned_by() {
   pids="$(_wh_listen_pids "$port")" || return 2
   for pid in $pids; do
     cwd="$(_wh_cwd "$pid")"
-    case "$cwd" in "$dir" | "$dir"/*) return 0 ;; esac
+    # Worktrees live inside the main checkout, but their servers are not its own.
+    case "$cwd" in "$dir"/.worktrees | "$dir"/.worktrees/*) continue ;; "$dir" | "$dir"/*) return 0 ;; esac
   done
   return 1
 }

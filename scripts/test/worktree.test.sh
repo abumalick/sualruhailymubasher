@@ -183,7 +183,10 @@ git -C "$wts/feat-ui" add change.txt
 git -C "$wts/feat-ui" commit -q -m change
 mkdir -p "$wts/.logs" && : > "$wts/.logs/feat-ui.log"
 check "remove refuses an unmerged branch" bash -c "cd '$repo' && ! '$wt_sh' remove feat/ui 2>/dev/null"
+(cd "$repo/server" && exec sleep 300) &
+main_pid=$!; bg_pids+=("$main_pid")
 (cd "$repo" && "$wt_sh" remove feat-ui --force 2>/dev/null)
+check "remove leaves processes in the main checkout running" kill -0 "$main_pid"
 check "remove --force by slug deletes the worktree" [ ! -e "$wts/feat-ui" ]
 check "remove deletes the branch" bash -c "! git -C '$repo' show-ref --quiet refs/heads/feat/ui"
 check "remove deletes the worktree's log" [ ! -e "$wts/.logs/feat-ui.log" ]
@@ -201,6 +204,17 @@ for _ in $(seq 1 50); do wh_port_busy "$port" && break; sleep 0.1; done
 check "wh_free_port skips a busy port" [ "$(wh_free_port "$port")" -gt "$port" ]
 check "wh_port_owned_by sees a listener working in the dir" wh_port_owned_by "$port" "$src"
 check "wh_port_owned_by ignores a listener working elsewhere" bash -c "set -o pipefail; . '$src/lib/worktree-common.sh'; . '$src/lib/ports.sh'; wh_port_owned_by '$port' '$scratch'; [ \$? -eq 1 ]"
+mkdir -p "$scratch/main/.worktrees/x" "$scratch/main/server"
+for d in .worktrees/x server; do
+  p="$(wh_free_port $(( 20000 + RANDOM % 20000 )))"
+  (cd "$scratch/main/$d" && exec node -e "require('net').createServer().listen($p, '127.0.0.1')") &
+  bg_pids+=("$!")
+  for _ in $(seq 1 50); do wh_port_busy "$p" && break; sleep 0.1; done
+  if [ "$d" = server ]; then main_port="$p"; else nested_port="$p"; fi
+done
+check "wh_port_owned_by does not count a worktree's server as the main checkout's" \
+  bash -c "set -o pipefail; . '$src/lib/worktree-common.sh'; . '$src/lib/ports.sh'; wh_port_owned_by '$nested_port' '$scratch/main'; [ \$? -eq 1 ]"
+check "wh_port_owned_by still counts the main checkout's own subdirs" wh_port_owned_by "$main_port" "$scratch/main"
 s=$SECONDS
 check "wh_wait_own_port gives up when the server exits" bash -c ". '$src/lib/ports.sh'; ! wh_wait_own_port '$port' '$scratch' 999999 30"
 check "wh_wait_own_port gives up at once, not at the timeout" [ $((SECONDS - s)) -le 2 ]
