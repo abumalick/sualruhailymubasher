@@ -2,7 +2,7 @@
 ANDROID_DIR = "app/android"
 ANDROID_AAB = "app/android/app/build/outputs/bundle/release/app-release.aab"
 ANDROID_APK = "app/android/app/build/outputs/apk/release/app-release.apk"
-ANDROID_SECRETS = File.expand_path("~/.config/albadr-lessons")
+ANDROID_SECRETS = File.expand_path("~/.config/albadrmubasher")
 ANDROID_SIGNING_VARS = %w[ALBADR_KEYSTORE ALBADR_KEYSTORE_PASSWORD ALBADR_KEY_ALIAS ALBADR_KEY_PASSWORD].freeze
 
 platform :android do

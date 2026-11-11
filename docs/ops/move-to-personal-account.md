@@ -78,7 +78,7 @@ Pick a time away from pushes that fire in a fixed window: the prep reminders at 
    `wrangler deploy`. Confirm the schedules API on the personal account lists `* * * * *`, and
    `wrangler tail albadr-lessons` shows a scheduled event within two minutes. The freeze ends here.
 6. **Point the agent at the new host:** set `API_BASE=https://api.albadrmubasher.com` in
-   `~/.config/albadr-lessons/agent.env`, then `systemctl --user start albadr-agent.timer` and
+   `~/.config/albadrmubasher/agent.env`, then `systemctl --user start albadr-agent.timer` and
    `systemctl --user start --no-block albadr-agent.service` for an immediate pass; check
    `journalctl --user -t albadr-agent` for a clean run against the new host.
 7. **Ship the app** built from `main` (its API base is `https://api.albadrmubasher.com`). Until it is

@@ -4,7 +4,7 @@ node_modules/
 .dev.vars
 .wrangler/
 *.p8
-# Signing keys and service credentials live in ~/.config/albadr-lessons/, never here
+# Signing keys and service credentials live in ~/.config/albadrmubasher/, never here
 *.jks
 *.keystore
 key.properties

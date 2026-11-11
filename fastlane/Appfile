@@ -1,5 +1,5 @@
 # The Play service-account key stays outside the repo, with the app's other secrets.
-json_key_file(ENV.fetch("ALBADR_PLAY_JSON_KEY", File.expand_path("~/.config/albadr-lessons/play-service-account.json")))
+json_key_file(ENV.fetch("ALBADR_PLAY_JSON_KEY", File.expand_path("~/.config/albadrmubasher/play-service-account.json")))
 package_name("com.albadrmubasher.app")
 
 app_identifier("com.albadrmubasher.app")

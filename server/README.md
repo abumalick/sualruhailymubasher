@@ -12,14 +12,14 @@ pnpm --filter server exec wrangler deploy
 ## Secrets
 
 ```sh
-pnpm --filter server exec wrangler secret put ADMIN_TOKEN < ~/.config/albadr-lessons/admin-token
-pnpm --filter server exec wrangler secret put FCM_SERVICE_ACCOUNT < ~/.config/albadr-lessons/firebase-service-account.json
+pnpm --filter server exec wrangler secret put ADMIN_TOKEN < ~/.config/albadrmubasher/admin-token
+pnpm --filter server exec wrangler secret put FCM_SERVICE_ACCOUNT < ~/.config/albadrmubasher/firebase-service-account.json
 ```
 
 ## Backfill
 
 ```sh
-curl -X POST -H "Authorization: Bearer $(cat ~/.config/albadr-lessons/admin-token)" \
+curl -X POST -H "Authorization: Bearer $(cat ~/.config/albadrmubasher/admin-token)" \
   https://api.albadrmubasher.com/api/admin/run/ingest
 ```
 
