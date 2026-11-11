@@ -1,8 +1,10 @@
 import type { CourseDTO, LiveDTO } from '@albadr/shared';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { player } from '../audio/player';
 import { liveContext } from '../logic/live';
 import { Icon } from './Star';
+
+export const SLIDE_MS = 220;
 
 export interface LiveSheetProps {
   live: LiveDTO;
@@ -16,13 +18,33 @@ export interface LiveSheetProps {
 }
 
 // The sheet always has exactly two children, the header/bar div then the iframe, and only their contents and
-// classes change: moving or re-inserting the iframe reloads Mixlr and cuts the audio.
+// classes change: moving or re-inserting the iframe reloads Mixlr and cuts the audio. Only the reload button
+// re-inserts it on purpose, by changing its key, when the Mixlr page gets stuck.
 export function LiveSheet({ live, course, startedAt, expanded, inBook = false, onExpand, onCollapse, onClose }: LiveSheetProps) {
   const ctx = liveContext(course, live.isLive, startedAt);
+  const [loads, setLoads] = useState(0);
+  const [sliding, setSliding] = useState(false);
+  const slide = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
     player.startEmbed(ctx.title, onClose);
-    return () => player.endEmbed();
+    return () => {
+      clearTimeout(slide.current);
+      player.endEmbed();
+    };
   }, []);
+  useEffect(() => {
+    clearTimeout(slide.current);
+    setSliding(false);
+  }, [expanded]);
+  const minimize = () => {
+    if (sliding) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return onCollapse();
+    setSliding(true);
+    slide.current = setTimeout(() => {
+      setSliding(false);
+      onCollapse();
+    }, SLIDE_MS);
+  };
   const bookLink = (short: boolean) =>
     ctx.book && (
       <a class="chip" href={ctx.book} aria-label={ctx.bookLabel} onClick={onCollapse}>
@@ -32,21 +54,24 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
     );
   const stop = (
     <button class="x" aria-label="إيقاف البث" onClick={onClose}>
-      <Icon id="i-pause" />
+      <Icon id="i-stop" />
     </button>
   );
   return (
-    <div class={expanded ? 'sheet' : 'sheet min'} role={expanded ? 'dialog' : 'region'} aria-label="البث المباشر">
+    <div class={!expanded ? 'sheet min' : sliding ? 'sheet down' : 'sheet'} role={expanded ? 'dialog' : 'region'} aria-label="البث المباشر">
       {expanded ? (
         <div class="lhead">
           <div class="bar">
-            <button class="back" aria-label="تصغير" onClick={onCollapse}>
-              <Icon id="i-back" />
+            <button class="back" aria-label="تصغير" onClick={minimize}>
+              <Icon id="i-down" />
             </button>
             <div class="t">
               <b>{ctx.title}</b>
               <span aria-live="polite">{ctx.status.live ? ctx.header : `${ctx.header} · ${ctx.status.text}`}</span>
             </div>
+            <button class="rl" aria-label="إعادة تحميل البث" onClick={() => setLoads((n) => n + 1)}>
+              <Icon id="i-rev" />
+            </button>
             {stop}
           </div>
           {ctx.start && (
@@ -70,7 +95,7 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
           {stop}
         </div>
       )}
-      <iframe src={live.embedUrl} allow="autoplay" title="البث المباشر" />
+      <iframe key={loads} src={live.embedUrl} allow="autoplay" title="البث المباشر" />
     </div>
   );
 }

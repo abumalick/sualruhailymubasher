@@ -28,7 +28,7 @@ vi.stubGlobal('Audio', FakeAudio);
 
 import type { CourseDTO } from '@albadr/shared';
 import { player } from '../src/audio/player';
-import { LiveSheet, type LiveSheetProps } from '../src/ui/LiveSheet';
+import { LiveSheet, SLIDE_MS, type LiveSheetProps } from '../src/ui/LiveSheet';
 import { TAFSIR, TAWHID } from './live-state';
 
 const live = { isLive: true, mode: 'embed' as const, embedUrl: 'about:blank#mixlr', streamUrl: null, courseId: null, startedAt: null };
@@ -169,4 +169,103 @@ it('the bar button is named by the course and lesson, and the status is announce
   const button = screen.getByRole('button', { name: /التعليق على شرح كتاب التوحيد.*مباشر · الدرس ١٥/ });
   expect(button.getAttribute('aria-label')).toBeNull();
   expect(container.querySelector('.lbar .m')!.getAttribute('aria-live')).toBe('polite');
+});
+
+it('reloads a stuck Mixlr page in place, without closing the broadcast or its media session', () => {
+  const onClose = vi.fn();
+  const { container, rerender } = render(sheet({ course: TAWHID, onClose }));
+  const root = container.querySelector('.sheet')!;
+  const [head, frame] = [...root.children];
+  vi.clearAllMocks();
+
+  fireEvent.click(screen.getByRole('button', { name: 'إعادة تحميل البث' }));
+
+  const reloaded = container.querySelector('iframe')!;
+  expect(reloaded).not.toBe(frame);
+  expect(reloaded.getAttribute('src')).toBe(live.embedUrl);
+  expect(reloaded.getAttribute('allow')).toBe('autoplay');
+  expect(frame.isConnected).toBe(false);
+  expect(root.children.length).toBe(2);
+  expect(root.children[0]).toBe(head);
+  expect(root.children[1]).toBe(reloaded);
+  expect(onClose).not.toHaveBeenCalled();
+  expect(session.setMetadata).not.toHaveBeenCalled();
+  expect(session.setPlaybackState).not.toHaveBeenCalled();
+
+  rerender(sheet({ course: TAWHID, onClose, expanded: false }));
+  rerender(sheet({ course: TAWHID, onClose }));
+  expect(container.querySelector('iframe')).toBe(reloaded);
+});
+
+it('offers the reload even when the lesson start is unknown', () => {
+  render(sheet({ course: undefined }));
+  expect(screen.getByRole('button', { name: 'إعادة تحميل البث' })).toBeTruthy();
+});
+
+it('the stop button shows a stop square, in the sheet and in the bar, since it ends the broadcast rather than pausing it', () => {
+  const { container, rerender } = render(sheet({ course: TAWHID }));
+  const icon = () => container.querySelector('.x use')!.getAttribute('href');
+  expect(icon()).toBe('#i-stop');
+  rerender(sheet({ course: TAWHID, expanded: false }));
+  expect(icon()).toBe('#i-stop');
+});
+
+it('minimizes with a down chevron that slides the sheet down before it becomes the bar, keeping the player', () => {
+  vi.useFakeTimers();
+  try {
+    const onCollapse = vi.fn();
+    const { container, rerender } = render(sheet({ course: TAWHID, onCollapse }));
+    const frame = container.querySelector('iframe')!;
+    const button = screen.getByRole('button', { name: 'تصغير' });
+    expect(button.querySelector('use')!.getAttribute('href')).toBe('#i-down');
+
+    fireEvent.click(button);
+    expect(container.querySelector('.sheet')!.classList.contains('down')).toBe(true);
+    expect(onCollapse).not.toHaveBeenCalled();
+
+    fireEvent.click(button);
+    vi.advanceTimersByTime(SLIDE_MS);
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+
+    rerender(sheet({ course: TAWHID, onCollapse, expanded: false }));
+    expect(container.querySelector('.sheet')!.className).toBe('sheet min');
+    expect(container.querySelector('iframe')).toBe(frame);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('minimizes at once when the phone asks for reduced motion', () => {
+  const real = window.matchMedia;
+  window.matchMedia = ((q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)' })) as typeof window.matchMedia;
+  try {
+    const onCollapse = vi.fn();
+    render(sheet({ onCollapse }));
+    fireEvent.click(screen.getByRole('button', { name: 'تصغير' }));
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.sheet.down')).toBeNull();
+  } finally {
+    window.matchMedia = real;
+  }
+});
+
+it('a slide cut short by the app collapsing or closing the sheet never collapses it later', () => {
+  vi.useFakeTimers();
+  try {
+    const onCollapse = vi.fn();
+    const { container, rerender, unmount } = render(sheet({ onCollapse }));
+    fireEvent.click(screen.getByRole('button', { name: 'تصغير' }));
+    rerender(sheet({ onCollapse, expanded: false }));
+    rerender(sheet({ onCollapse }));
+    expect(container.querySelector('.sheet')!.className).toBe('sheet');
+    vi.advanceTimersByTime(SLIDE_MS);
+    expect(onCollapse).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'تصغير' }));
+    unmount();
+    vi.advanceTimersByTime(SLIDE_MS);
+    expect(onCollapse).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
 });

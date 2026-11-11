@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 
 const prefs = vi.hoisted(() => new Map<string, string>());
@@ -123,7 +123,7 @@ it('opening the book from the live sheet keeps the Mixlr iframe mounted and coll
 it('tapping the hero again after collapsing re-expands the same sheet without reloading Mixlr', async () => {
   const frame = await openLive('kitab-tawhid');
   fireEvent.click(screen.getByRole('button', { name: 'تصغير' }));
-  expect(screen.queryByRole('dialog')).toBeNull();
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'تستمع الآن إلى البث' }));
   expect(screen.getByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
   expect(screen.getByTitle('البث المباشر')).toBe(frame);
