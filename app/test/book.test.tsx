@@ -31,6 +31,7 @@ vi.mock('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url', () => ({ default: 'wor
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { getPdf, dropPdf, proxyUrl } from '../src/pdf/cache';
 import { Book } from '../src/ui/Book';
+import { trackEntry } from '../src/router';
 
 const course = FIXTURE_STATE.courses[0];
 const url = course.pdfUrls[0];
@@ -40,7 +41,7 @@ const bytes = new Uint8Array([37, 80, 68, 70, 45, 49]);
 const b64 = btoa(String.fromCharCode(...bytes));
 
 const book = (page: number, marker = false, extra = {}) => (
-  <Book course={course} pdfIndex={0} page={page} marker={marker} ticks={none} onTick={vi.fn()} {...extra} />
+  <Book course={course} pdfIndex={0} page={page} marker={marker} ticks={none} onTick={vi.fn()} back="#/course/x" {...extra} />
 );
 
 beforeEach(() => {
@@ -143,6 +144,20 @@ describe('Book', () => {
     await screen.findByText('ص ١٠ / ٢٠');
     await waitFor(() => expect(rendered).toEqual([10]));
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('the back arrow returns to the page the reader came from, not always the course page', async () => {
+    const back = vi.spyOn(history, 'back').mockImplementation(() => {});
+    history.replaceState(null, '', '#/');
+    trackEntry();
+    history.pushState(null, '', '#/book/x/0/10');
+    trackEntry();
+    render(book(10, false, { back: '#/' }));
+    const arrow = screen.getByRole('link', { name: 'رجوع' });
+    expect(arrow.getAttribute('href')).toBe('#/');
+    fireEvent.click(arrow);
+    expect(back).toHaveBeenCalledOnce();
+    back.mockRestore();
   });
 
   it('draws the page on a left-to-right canvas, since pdf.js positions every glyph from its left edge', async () => {

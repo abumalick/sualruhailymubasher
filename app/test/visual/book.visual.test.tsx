@@ -56,7 +56,7 @@ it('renders an Arabic page with embedded subset fonts like poppler does, inside 
   document.body.style.width = '1000px';
   const course = { ...FIXTURE_STATE.courses[0], pdfUrls: ['https://example.invalid/tawhid-1.pdf'], next: null };
   const { container } = render(
-    <Book course={course} pdfIndex={0} page={1} marker={false} ticks={{ read: new Set(), reviewed: new Set() }} onTick={() => {}} />,
+    <Book course={course} pdfIndex={0} page={1} marker={false} ticks={{ read: new Set(), reviewed: new Set() }} onTick={() => {}} back="#/" />,
   );
 
   const canvas = await vi.waitFor(
@@ -98,7 +98,7 @@ it('each pager arrow points the way it turns the page in the RTL app', async () 
   document.body.style.width = '400px';
   const course = { ...FIXTURE_STATE.courses[0], pdfUrls: ['https://example.invalid/tawhid-1.pdf'], next: null };
   const { container } = render(
-    <Book course={course} pdfIndex={0} page={1} marker={false} ticks={{ read: new Set(), reviewed: new Set() }} onTick={() => {}} />,
+    <Book course={course} pdfIndex={0} page={1} marker={false} ticks={{ read: new Set(), reviewed: new Set() }} onTick={() => {}} back="#/" />,
   );
   const [right, left] = await vi.waitFor(
     () => {

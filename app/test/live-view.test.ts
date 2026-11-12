@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CourseDTO } from '@albadr/shared';
-import { CLOSED, listeningLive, liveContext, liveLesson, nextLivePlayer, type LiveEvent, type LivePlayer } from '../src/logic/live';
+import { bookBack, CLOSED, listeningLive, liveContext, liveLesson, nextLivePlayer, type LiveEvent, type LivePlayer } from '../src/logic/live';
 import { endedState, liveDTO, STARTED, TAFSIR, TAWHID, TAWHID_14 } from './live-state';
 
 const open = (courseId: string): LivePlayer => ({ view: 'expanded', courseId, startedAt: STARTED[courseId] });
@@ -159,5 +159,17 @@ describe('listeningLive', () => {
   it('is false with the sheet closed and nothing or a recording in the player', () => {
     expect(listeningLive(CLOSED, null)).toBe(false);
     expect(listeningLive(CLOSED, recording)).toBe(false);
+  });
+});
+
+describe('bookBack', () => {
+  const listening: LivePlayer = { view: 'collapsed', courseId: 'tafsir-saadi', startedAt: STARTED['tafsir-saadi'] };
+  it('leads back to the live lesson on Home while that lesson is on', () => {
+    expect(bookBack('tafsir-saadi', listening)).toBe('#/');
+    expect(bookBack('tafsir-saadi', { ...listening, view: 'expanded' })).toBe('#/');
+  });
+  it('leads to the course page for any other book', () => {
+    expect(bookBack('kitab-tawhid', listening)).toBe('#/course/kitab-tawhid');
+    expect(bookBack('tafsir-saadi', CLOSED)).toBe('#/course/tafsir-saadi');
   });
 });
