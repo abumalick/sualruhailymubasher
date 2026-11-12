@@ -18,6 +18,7 @@ import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import type { Ticks } from '../src/logic/ticks';
 import { Course } from '../src/ui/Course';
+import { trackEntry } from '../src/router';
 import { Courses } from '../src/ui/Courses';
 import { Home } from '../src/ui/Home';
 import { liveState, TAFSIR, TAWHID } from './live-state';
@@ -247,6 +248,21 @@ describe('Course page', () => {
     );
   });
   const titles = () => screen.getAllByText(/^الدرس [٠-٩]+$/).map((e) => e.textContent);
+
+  it("the back arrow returns to the page the reader came from, such as Home's lessons of the day during a broadcast", () => {
+    vi.mocked(api.fetchLessons).mockResolvedValue([]);
+    const back = vi.spyOn(history, 'back').mockImplementation(() => {});
+    history.replaceState(null, '', '#/');
+    trackEntry();
+    history.pushState(null, '', '#/course/tafsir-saadi');
+    trackEntry();
+    render(<Course course={tafsir} ticks={none()} onTick={noop} onPlay={noop} />);
+    const arrow = screen.getByRole('link', { name: 'رجوع' });
+    expect(arrow.getAttribute('href')).toBe('#/courses');
+    fireEvent.click(arrow);
+    expect(back).toHaveBeenCalledOnce();
+    back.mockRestore();
+  });
 
   it('lists recordings newest first with reviewed ticks and loads older ones at the end', async () => {
     vi.mocked(api.fetchLessons).mockResolvedValue([lesson(440), lesson(439)]);

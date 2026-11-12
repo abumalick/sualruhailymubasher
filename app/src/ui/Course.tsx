@@ -4,6 +4,7 @@ import { fetchLessons } from '../api';
 import type { TickKind, Ticks } from '../logic/ticks';
 import { ar, arText, bookHref, bookLabel, clock12, editionPage, pageSuffix, printedPage, schedule, slotName, weekdayOf } from './format';
 import { nativeUI } from '../platform';
+import { Back } from './Back';
 import { Icon, Tick } from './Star';
 
 const PAGE = 20;
@@ -63,9 +64,7 @@ export function Course({ course, ticks, onTick, onPlay }: Props) {
   return (
     <>
       <div class="bar">
-        <a class="back" href="#/courses" aria-label="رجوع">
-          <Icon id="i-back" />
-        </a>
+        <Back fallback="#/courses" />
         <div class="t">
           <b>{course.title}</b>
           <span>

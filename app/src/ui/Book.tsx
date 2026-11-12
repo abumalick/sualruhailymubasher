@@ -3,8 +3,8 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { dropPdf, getPdf } from '../pdf/cache';
 import { nativeUI } from '../platform';
-import { goBack } from '../router';
 import { ar, arText, passageRange, printedPage } from './format';
+import { Back } from './Back';
 import { Icon, Tick } from './Star';
 import type { TickKind, Ticks } from '../logic/ticks';
 
@@ -128,17 +128,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick,
   return (
     <div class="book">
       <div class="pdfbar">
-        <a
-          class="back"
-          href={back}
-          aria-label="رجوع"
-          onClick={(e) => {
-            e.preventDefault();
-            goBack(back);
-          }}
-        >
-          <Icon id="i-back" />
-        </a>
+        <Back fallback={back} />
         <div class="t">
           <b>{arText(course.title)}</b>
           {range && <span>{range}</span>}
