@@ -1,7 +1,8 @@
 import type { CourseDTO, LessonDTO } from '@albadr/shared';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { startLive } from './audio/live';
-import { bookBack, CLOSED, listeningLive, nextLivePlayer, type LiveEvent } from './logic/live';
+import { onBackButton } from './backButton';
+import { backAction, bookBack, CLOSED, listeningLive, nextLivePlayer, type LiveEvent } from './logic/live';
 import { player } from './audio/player';
 import { useRoute } from './router';
 import { unfollowed } from './logic/follow';
@@ -35,6 +36,17 @@ export function App() {
   const [playerSrc, setPlayerSrc] = useState(player.state.src);
   useEffect(() => player.onChange((s) => setPlayerSrc(s.src)), []);
   useEffect(() => void boot(), []);
+  const current = useRef(livePlayer);
+  current.current = livePlayer;
+  useEffect(
+    () =>
+      onBackButton((canGoBack) => {
+        const action = backAction(current.current, canGoBack);
+        if (action === 'collapse') send({ type: 'collapse' });
+        else if (action === 'back') history.back();
+      }),
+    [],
+  );
   useEffect(() => send({ type: 'navigate' }), [route]);
   useEffect(() => void (state && send({ type: 'state', live: state.live })), [state?.live]);
   useEffect(() => {

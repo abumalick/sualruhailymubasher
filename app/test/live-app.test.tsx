@@ -10,6 +10,15 @@ vi.mock('@capacitor/preferences', () => ({
     keys: async () => ({ keys: [] }),
   },
 }));
+const backButton = vi.hoisted(() => ({ press: null as ((canGoBack: boolean) => void) | null }));
+vi.mock('../src/backButton', () => ({
+  onBackButton: (handler: (canGoBack: boolean) => void) => {
+    backButton.press = handler;
+    return () => {
+      backButton.press = null;
+    };
+  },
+}));
 vi.mock('../src/api', () => ({ loadCachedState: vi.fn(), fetchState: vi.fn(), fetchLessons: vi.fn() }));
 vi.mock('../src/ui/Book', () => ({
   Book: ({ page, back }: { page: number; back: string }) => (
@@ -135,6 +144,21 @@ it("the book's back arrow falls back to the live lesson on Home only for the cou
   fireEvent.click(screen.getByRole('button', { name: 'إيقاف البث' }));
   await go('#/book/kitab-tawhid/0/280');
   expect(document.querySelector('.book')!.getAttribute('data-back')).toBe('#/course/kitab-tawhid');
+});
+
+it("Android's back button shrinks the open live player without reloading Mixlr or leaving the page", async () => {
+  const frame = await openLive('kitab-tawhid');
+  const back = vi.spyOn(history, 'back').mockImplementation(() => {});
+  act(() => backButton.press!(true));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.getByRole('region', { name: 'البث المباشر' })).toBeTruthy();
+  expect(screen.getByTitle('البث المباشر')).toBe(frame);
+  expect(location.hash).toBe('#/');
+  expect(back).not.toHaveBeenCalled();
+
+  act(() => backButton.press!(true));
+  expect(back).toHaveBeenCalledOnce();
+  back.mockRestore();
 });
 
 it('tapping the hero again after collapsing re-expands the same sheet without reloading Mixlr', async () => {
