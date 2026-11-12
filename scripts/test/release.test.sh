@@ -177,5 +177,33 @@ out="$scratch/notes"
 check "Play notes list the Android entry only" [ "$(cat "$out/play/en-US.txt")" = "• Android fix" ]
 check "TestFlight notes list the iOS entry only" [ "$(cat "$out/ios/en-US.txt")" = "• iOS fix" ]
 
+# Store releases
+v="$(version_now)"
+reset
+rm -f "$record.calls"
+out="$(real store android 2>&1)" || true
+check "a store release of a version not yet on internal testing is refused" grep -q 'store-android: FAILED' "$record.notify"
+check "and the message names the missing tag" grep -qF "release/play-internal/$v" <<<"$out"
+check "and nothing is sent to Play" bash -c "[ ! -e '$record.calls' ] || ! grep -q '^fastlane' '$record.calls'"
+
+real run github-apk play-internal testflight >/dev/null 2>&1
+reset
+rm -f "$record.calls"
+real store both >/dev/null 2>&1
+check "store both releases Android and iOS, each reported" \
+  bash -c "grep -q 'store-android: ok' '$record.notify' && grep -q 'store-ios: ok' '$record.notify'"
+check "Android uploads the listing, then promotes to production" \
+  [ "$(grep '^fastlane android' "$record.calls" | tr '\n' ' ')" = "fastlane android upload_metadata fastlane android production " ]
+check "iOS uploads the listing, then submits with the notes, on the Mac" \
+  grep -q "^ssh .*albadrmubasher-release.*fastlane ios metadata && fastlane ios submit notes_dir:.tmp/release-notes/ios" "$record.calls"
+check "both stores are tagged" bash -c "git -C '$repo' rev-parse -q --verify release/play/$v >/dev/null && git -C '$repo' rev-parse -q --verify release/appstore/$v >/dev/null"
+check "the next store notes start after this release" bash -c "
+  cd '$repo' && node scripts/release.mjs notes play HEAD '$scratch/next' >/dev/null && [ \"\$(cat '$scratch/next/en-US.txt')\" = 'Improvements and fixes.' ]"
+
+reset
+STUB_SLEEP=1 RELEASE_STEPS_FILE="$scratch/steps.sh" rel run 'server+web' >/dev/null 2>&1
+check "steps joined with + run at the same time" \
+  [ "$(sed -n 's/^start web //p' "$record")" -lt "$(sed -n 's/^end server //p' "$record")" ]
+
 if [ "$failures" -ne 0 ]; then echo "release: $failures failed"; exit 1; fi
 echo "release: all tests passed"

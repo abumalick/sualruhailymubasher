@@ -188,12 +188,9 @@ describe('fastlane github_apk lane', () => {
     expect(internal).not.toMatch(/skip_upload_changelogs/);
   });
 
-  it('checks GitHub before promoting, and publishes after, except for a check or a draft', () => {
+  it('promotes to production without touching GitHub, whose APK went out with the version bump', () => {
     const production = lane('production');
-    const promote = production.indexOf('upload_to_play_store');
-    expect(production.indexOf('github-apk.mjs check')).toBeGreaterThan(-1);
-    expect(production.indexOf('github-apk.mjs check')).toBeLessThan(promote);
-    expect(production.lastIndexOf('github_apk')).toBeGreaterThan(promote);
-    expect(production).toMatch(/publish_apk = !\(options\[:validate_only\] \|\| options\[:status\] == "draft"\)/);
+    expect(production).toMatch(/track_promote_to: "production"/);
+    expect(production).not.toMatch(/github/);
   });
 });

@@ -121,6 +121,12 @@ describe('App Store submission', () => {
     expect(submitLane).toMatch(/app_version: ios_marketing_version/);
   });
 
+  it('sends the What’s New text release.sh wrote for each App Store language', () => {
+    expect(submitLane).toMatch(/lane :submit do \|options\|/);
+    expect(submitLane).toMatch(/%w\[ar-SA en-US\]/);
+    expect(submitLane).toMatch(/release_notes: notes/);
+  });
+
   it('declares the third-party content, the only content-rights answer deliver sends', () => {
     expect(submitLane).toMatch(/submission_information: \{ content_rights_contains_third_party_content: true \}/);
   });

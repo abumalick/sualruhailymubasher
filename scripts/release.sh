@@ -3,6 +3,8 @@
 #   after-merge <pre> <post>   called by worktree.sh finish: queues what the merge ships, returns at once
 #   run <step>...              queues chosen steps again (a retry): server web github-apk play-internal testflight
 #   bump [patch|minor|major]   lands a version-only commit on main through worktree.sh finish, which ships it
+#   store android|ios|both     sends the version on internal testing / TestFlight to store review (both: in parallel)
+# Steps joined with + (store-android+store-ios) run at the same time.
 # Jobs run one at a time as transient systemd user units, in a worktree detached at main's HEAD.
 # SC2029: the Mac paths are meant to expand here, before ssh sends them
 # shellcheck disable=SC2029
@@ -138,6 +140,28 @@ step_testflight() {
   tag_channel testflight
 }
 
+on_test_track() { # <test channel> <store>
+  shipped "$1" && return 0
+  say "version $(version) is not on $2's test track yet (no release/$1/$(version) tag): run release.sh bump first"
+  return 1
+}
+
+step_store_android() {
+  on_test_track play-internal Play || return 1
+  shipped play && return "$SKIPPED"
+  fastlane android upload_metadata
+  fastlane android production
+  tag_channel play
+}
+
+step_store_ios() {
+  on_test_track testflight "the App Store" || return 1
+  shipped appstore && return "$SKIPPED"
+  ios_notes appstore
+  on_mac "fastlane ios metadata && fastlane ios submit notes_dir:.tmp/release-notes/ios"
+  tag_channel appstore
+}
+
 notify() {
   local msg
   msg="$(cat)"
@@ -181,7 +205,7 @@ cmd_bump() {
 }
 
 cmd_job() {
-  local s rc failed=0 sha results=()
+  local s rc i group failed=0 sha results=() parallel=() pids=()
   mkdir -p "$state"
   exec 9>"$state/job.lock"
   flock 9
@@ -194,18 +218,29 @@ cmd_job() {
   sha="$(git rev-parse --short HEAD)"
   say "== release job at $sha: $*"
   if ! (prepare_build); then failed=1; results+=("prepare: FAILED"); fi
-  for s in "$@"; do
-    if [ "$failed" = 1 ]; then results+=("$s: not run"); continue; fi
-    say "== $s"
-    set +e
-    (set -e; "step_${s//-/_}")
-    rc=$?
-    set -e
-    case "$rc" in
-      0) results+=("$s: ok") ;;
-      "$SKIPPED") results+=("$s: skipped") ;;
-      *) results+=("$s: FAILED"); failed=1 ;;
-    esac
+  for group in "$@"; do
+    IFS=+ read -r -a parallel <<<"$group"
+    if [ "$failed" = 1 ]; then
+      for s in "${parallel[@]}"; do results+=("$s: not run"); done
+      continue
+    fi
+    pids=()
+    for s in "${parallel[@]}"; do
+      say "== $s"
+      (set -e; "step_${s//-/_}") &
+      pids+=("$!")
+    done
+    for i in "${!parallel[@]}"; do
+      set +e
+      wait "${pids[$i]}"
+      rc=$?
+      set -e
+      case "$rc" in
+        0) results+=("${parallel[$i]}: ok") ;;
+        "$SKIPPED") results+=("${parallel[$i]}: skipped") ;;
+        *) results+=("${parallel[$i]}: FAILED"); failed=1 ;;
+      esac
+    done
   done
   printf 'Albadr release at %s (%s)\n%s\n' "$sha" "$(git log -1 --format=%s)" "$(printf '%s\n' "${results[@]}")" | tee /dev/stderr | notify
   return "$failed"
@@ -222,6 +257,12 @@ case "$cmd" in
   after-merge) cmd_after_merge "${1:?pre-merge commit required}" "${2:?post-merge commit required}" ;;
   run) [ $# -gt 0 ] || die "usage: release.sh run <step>..."; queue "$@" ;;
   bump) cmd_bump "$@" ;;
+  store)
+    case "${1:-}" in
+      android|ios) queue "store-$1" ;;
+      both) queue store-android+store-ios ;;
+      *) die "usage: release.sh store android|ios|both" ;;
+    esac ;;
   job) cmd_job "$@" ;;
-  *) die "usage: release.sh after-merge <pre> <post> | run <step>... | bump [patch|minor|major]" ;;
+  *) die "usage: release.sh after-merge <pre> <post> | run <step>... | bump [patch|minor|major] | store android|ios|both" ;;
 esac

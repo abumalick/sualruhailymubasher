@@ -91,14 +91,8 @@ platform :android do
     )
   end
 
-  desc "Promote the current internal-testing release to production (sent to review), then publish the sideload APK on GitHub. validate_only:true checks without sending; status:draft while the app has never been published"
+  desc "Promote the current internal-testing release to production (sent to review). validate_only:true checks without sending; status:draft while the app has never been published"
   lane :production do |options|
-    publish_apk = !(options[:validate_only] || options[:status] == "draft")
-    # Fail before promoting when the GitHub release could not follow (key missing, tag taken, gh logged out)
-    if publish_apk
-      load_github_apk_signing_env
-      sh("cd .. && node scripts/github-apk.mjs check")
-    end
     upload_to_play_store(
       track: "internal",
       track_promote_to: "production",
@@ -110,7 +104,5 @@ platform :android do
       sync_image_upload: true,
       validate_only: options[:validate_only] || false
     )
-    # A draft or a check has released nothing; a failed publish is retried with `fastlane android github_apk`
-    github_apk if publish_apk
   end
 end
