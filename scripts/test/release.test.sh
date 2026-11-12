@@ -44,13 +44,13 @@ exec "$@"
 EOF
 chmod +x "$scratch/systemd-run"
 cat > "$scratch/steps.sh" <<'EOF'
-prepare_build() { :; }
-stub() { echo "start $1 $(date +%s%N)" >> "$RECORD"; sleep "${STUB_SLEEP:-0}"; echo "end $1 $(date +%s%N)" >> "$RECORD"; }
+prepare_build() { [ -z "${FAIL_PREPARE:-}" ] || false; :; }
+stub() { echo "start $1 $(date +%s%N)" >> "$RECORD"; echo "output of $1" >&2; sleep "${STUB_SLEEP:-0}"; echo "end $1 $(date +%s%N)" >> "$RECORD"; }
 step_server() { stub server; [ -z "${FAIL_SERVER:-}" ]; }
 step_web() { stub web; }
-step_github_apk() { stub github-apk; return "$SKIPPED"; }
+step_github_apk() { stub github-apk; skipped; }
 step_play_internal() { stub play-internal; }
-step_testflight() { stub testflight; }
+step_testflight() { stub testflight; [ -z "${EXIT_10:-}" ] || exit 10; }
 EOF
 cat > "$scratch/notify" <<'EOF'
 #!/usr/bin/env bash
@@ -204,6 +204,49 @@ reset
 STUB_SLEEP=1 RELEASE_STEPS_FILE="$scratch/steps.sh" rel run 'server+web' >/dev/null 2>&1
 check "steps joined with + run at the same time" \
   [ "$(sed -n 's/^start web //p' "$record")" -lt "$(sed -n 's/^end server //p' "$record")" ]
+
+# Fixes from review
+reset
+log="$scratch/job.log"
+(cd "$repo" && bash scripts/release.sh job web >>"$log" 2>>"$log") || true
+check "the job log keeps every step's output, not only the summary" grep -q "output of web" "$log"
+
+reset
+EXIT_10=1 rel run testflight >/dev/null 2>&1 || true
+check "a step failing with exit code 10 is reported as failed, never as skipped" grep -q "testflight: FAILED" "$record.notify"
+
+reset
+FAIL_PREPARE=1 rel run web >/dev/null 2>&1 || true
+check "a failing command inside the build preparation fails the job" \
+  bash -c "grep -q 'prepare: FAILED' '$record.notify' && grep -q 'web: not run' '$record.notify'"
+
+reset
+main_before="$(git -C "$repo" rev-parse main)"
+git -C "$repo" checkout -q -b feat-version main
+(cd "$repo" && node scripts/release.mjs bump patch >/dev/null && echo z > app/src/a.ts && git add -A && git commit -q -m "feature that raises the version")
+git -C "$repo" checkout -q main
+(cd "$repo" && bash scripts/worktree.sh finish feat-version >/dev/null 2>&1) || true
+check "finish refuses a feature branch that raises the version, before merging it" \
+  [ "$(git -C "$repo" rev-parse main)" = "$main_before" ]
+git -C "$repo" branch -q -D feat-version
+
+# A feature merged between the bump and the store release belongs to the next version
+reset
+rel bump >/dev/null 2>&1
+real run github-apk play-internal testflight >/dev/null 2>&1
+v="$(version_now)"
+echo '{ "platforms": ["android", "ios"], "ar": "ميزة لاحقة", "en": "Later feature" }' > "$repo/changes/later.json"
+git -C "$repo" add -A
+git -C "$repo" commit -q -m later
+real store both >/dev/null 2>&1
+check "store tags sit on the commit the version was built from" bash -c "
+  [ \"\$(git -C '$repo' rev-parse release/play/$v^{commit})\" = \"\$(git -C '$repo' rev-parse release/play-internal/$v^{commit})\" ] &&
+  [ \"\$(git -C '$repo' rev-parse release/appstore/$v^{commit})\" = \"\$(git -C '$repo' rev-parse release/testflight/$v^{commit})\" ]"
+(cd "$repo" && node scripts/release.mjs notes play HEAD "$scratch/after-store" >/dev/null)
+check "a feature merged after the build is announced with the next version" \
+  grep -q "Later feature" "$scratch/after-store/en-US.txt"
+check "the copy to the Mac leaves the Android build and its secrets behind" \
+  grep -q "^rsync .*--exclude /app/android/" "$record.calls"
 
 if [ "$failures" -ne 0 ]; then echo "release: $failures failed"; exit 1; fi
 echo "release: all tests passed"

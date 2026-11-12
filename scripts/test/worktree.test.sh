@@ -35,6 +35,7 @@ cp "$src/lib/worktree-common.sh" "$src/lib/ports.sh" "$repo/scripts/lib/"
 # The deploy hook only records what it was given, so finish never deploys from a test
 sed -e "s|^WH_INSTALL_CMD=.*|WH_INSTALL_CMD=''|" \
   -e "s|^WH_DEPLOY_CMD=.*|WH_DEPLOY_CMD='echo \"\$WH_PRE \$(git rev-parse HEAD)\" > $scratch/deployed'|" \
+  -e "s|^WH_PRE_MERGE_CMD=.*|WH_PRE_MERGE_CMD='git diff --quiet \"\$(git merge-base main \"\$WH_BRANCH\")\" \"\$WH_BRANCH\" -- veto.txt'|" \
   "$src/worktree.sh" > "$repo/scripts/worktree.sh"
 chmod +x "$repo/scripts/worktree.sh"
 # shellcheck disable=SC2016 # expands when the stub runs
@@ -247,6 +248,18 @@ check "wh_port_owned_by says it cannot tell without ss or lsof" \
   env PATH="$scratch/no-tools" "$BASH" -c "$libs; wh_port_owned_by '$port' '$src'; [ \$? -eq 2 ]"
 check "wh_wait_own_port skips the check with a note without ss or lsof" \
   env PATH="$scratch/no-tools" "$BASH" -c "$libs; [[ \$(wh_wait_own_port '$port' '$scratch' \$\$ 5 2>&1) == *'neither ss nor lsof'* ]]"
+
+# finish: a failing pre-merge check refuses the branch before anything is merged
+veto_wt="$(cd "$repo" && "$wt_sh" create feat/veto 2>/dev/null)"
+echo no > "$veto_wt/veto.txt"
+git -C "$veto_wt" add veto.txt
+git -C "$veto_wt" commit -q -m veto
+main_before_veto="$(git -C "$repo" rev-parse main)"
+(cd "$repo" && "$wt_sh" finish feat/veto >/dev/null 2>&1) && fail "finish refuses a branch its pre-merge check rejects" || pass "finish refuses a branch its pre-merge check rejects"
+check "and main is left as it was" [ "$(git -C "$repo" rev-parse main)" = "$main_before_veto" ]
+check "the project's check refuses a branch that raises the version" \
+  grep -q "^WH_PRE_MERGE_CMD='node scripts/release.mjs plan" "$src/worktree.sh"
+(cd "$repo" && "$wt_sh" remove feat/veto --force >/dev/null 2>&1)
 
 # finish: the deploy hook gets main before and after the merge
 pre_finish="$(git -C "$repo" rev-parse main)"
