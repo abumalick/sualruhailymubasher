@@ -72,6 +72,24 @@ Worktrees live inside the repo in `.worktrees/<branch-slug>` (gitignored).
   `create`/`up` a worktree another agent owns.
 <!-- worktree-harness:end -->
 
+## Releases
+
+`scripts/release.sh` deploys and releases from this machine; nothing runs in CI.
+
+- **Every merge** (`worktree.sh finish`) deploys the server (with pending D1 migrations) and the web when it
+  changes `app/`, `server/`, `shared/` or `web/`. The job runs in the background as a systemd user unit,
+  builds in `.worktrees/.release/build` at main's HEAD, logs to `.worktrees/.logs/release-*.log` and sends
+  the owner one Telegram message with each step's result.
+- **Change entries**: a branch with a change users can see adds `changes/<branch>.json` before it is
+  finished (format in `changes/README.md`). Store notes are built from them, per platform.
+- **Feature branches never change the version.** After a `finish`, ask the owner: "release a test build
+  now?". Only on yes, run `scripts/release.sh bump` (from the main checkout's folder: it builds its own
+  commit and finishes it). That ships the GitHub APK, Play internal testing and TestFlight.
+- **Store review** only on the owner's explicit request: `scripts/release.sh store android|ios|both`
+  (listing, committed screenshots, then production review / App Review).
+- A failed step is re-run with `scripts/release.sh run <step>`; a channel that already shipped the version
+  is skipped. Each shipped channel is a local tag `release/<channel>/<version>`.
+
 <!-- superpowers-usage:begin -->
 ## Use superpowers for the work (when installed)
 

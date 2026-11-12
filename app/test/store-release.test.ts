@@ -121,8 +121,25 @@ describe('App Store submission', () => {
     expect(submitLane).toMatch(/app_version: ios_marketing_version/);
   });
 
+  it('sends the What’s New text release.sh wrote for each App Store language', () => {
+    expect(submitLane).toMatch(/lane :submit do \|options\|/);
+    expect(submitLane).toMatch(/%w\[ar-SA en-US\]/);
+    expect(submitLane).toMatch(/release_notes: notes/);
+  });
+
   it('declares the third-party content, the only content-rights answer deliver sends', () => {
     expect(submitLane).toMatch(/submission_information: \{ content_rights_contains_third_party_content: true \}/);
+  });
+});
+
+describe('TestFlight upload', () => {
+  const fastfile = readFileSync(`${root}fastlane/Fastfile.ios`, 'utf8');
+  const betaLane = fastfile.slice(fastfile.indexOf('lane :beta do'), fastfile.indexOf('lane :metadata do'));
+
+  it('gives testers the notes file release.sh wrote, resolved from the repo root', () => {
+    expect(betaLane).toMatch(/lane :beta do \|options\|/);
+    expect(betaLane).toMatch(/File\.read\(File\.expand_path\(options\[:changelog_file\], IOS_ROOT\)\)/);
+    expect(betaLane).toMatch(/upload_to_testflight\([^)]*changelog:/);
   });
 });
 

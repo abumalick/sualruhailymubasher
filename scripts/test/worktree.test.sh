@@ -32,7 +32,11 @@ git -C "$repo" config user.email t@t.t
 git -C "$repo" config user.name t
 mkdir -p "$repo/scripts/lib" "$repo/server"
 cp "$src/lib/worktree-common.sh" "$src/lib/ports.sh" "$repo/scripts/lib/"
-sed "s|^WH_INSTALL_CMD=.*|WH_INSTALL_CMD=''|" "$src/worktree.sh" > "$repo/scripts/worktree.sh"
+# The deploy hook only records what it was given, so finish never deploys from a test
+sed -e "s|^WH_INSTALL_CMD=.*|WH_INSTALL_CMD=''|" \
+  -e "s|^WH_DEPLOY_CMD=.*|WH_DEPLOY_CMD='echo \"\$WH_PRE \$(git rev-parse HEAD)\" > $scratch/deployed'|" \
+  -e "s|^WH_PRE_MERGE_CMD=.*|WH_PRE_MERGE_CMD='git diff --quiet \"\$(git merge-base main \"\$WH_BRANCH\")\" \"\$WH_BRANCH\" -- veto.txt'|" \
+  "$src/worktree.sh" > "$repo/scripts/worktree.sh"
 chmod +x "$repo/scripts/worktree.sh"
 # shellcheck disable=SC2016 # expands when the stub runs
 printf 'echo stub-log-line\n[ -z "${STUB_DIE:-}" ] || exit 3\nexec sleep 300\n' > "$repo/scripts/dev-server.sh"
@@ -42,6 +46,8 @@ git -C "$repo" add -A
 git -C "$repo" commit -q -m init
 wt_sh="$repo/scripts/worktree.sh"
 check "the scratch harness installs nothing" grep -qx "WH_INSTALL_CMD=''" "$wt_sh"
+check "a merge hands the release script main's commits before and after it" \
+  grep -q "^WH_DEPLOY_CMD='bash scripts/release.sh after-merge \"\$WH_PRE\" HEAD'" "$src/worktree.sh"
 check "a new worktree generates the Android files its Gradle tests need" \
   grep -q "^WH_INSTALL_CMD=.*pnpm --filter app build.*cap sync android" "$src/worktree.sh"
 
@@ -242,6 +248,29 @@ check "wh_port_owned_by says it cannot tell without ss or lsof" \
   env PATH="$scratch/no-tools" "$BASH" -c "$libs; wh_port_owned_by '$port' '$src'; [ \$? -eq 2 ]"
 check "wh_wait_own_port skips the check with a note without ss or lsof" \
   env PATH="$scratch/no-tools" "$BASH" -c "$libs; [[ \$(wh_wait_own_port '$port' '$scratch' \$\$ 5 2>&1) == *'neither ss nor lsof'* ]]"
+
+# finish: a failing pre-merge check refuses the branch before anything is merged
+veto_wt="$(cd "$repo" && "$wt_sh" create feat/veto 2>/dev/null)"
+echo no > "$veto_wt/veto.txt"
+git -C "$veto_wt" add veto.txt
+git -C "$veto_wt" commit -q -m veto
+main_before_veto="$(git -C "$repo" rev-parse main)"
+(cd "$repo" && "$wt_sh" finish feat/veto >/dev/null 2>&1) && fail "finish refuses a branch its pre-merge check rejects" || pass "finish refuses a branch its pre-merge check rejects"
+check "and main is left as it was" [ "$(git -C "$repo" rev-parse main)" = "$main_before_veto" ]
+check "the project's check refuses a branch that raises the version" \
+  grep -q "^WH_PRE_MERGE_CMD='node scripts/release.mjs plan" "$src/worktree.sh"
+(cd "$repo" && "$wt_sh" remove feat/veto --force >/dev/null 2>&1)
+
+# finish: the deploy hook gets main before and after the merge
+pre_finish="$(git -C "$repo" rev-parse main)"
+fin_wt="$(cd "$repo" && "$wt_sh" create feat/ship 2>/dev/null)"
+echo shipped > "$fin_wt/shipped.txt"
+git -C "$fin_wt" add shipped.txt
+git -C "$fin_wt" commit -q -m ship
+(cd "$repo" && "$wt_sh" finish feat/ship >/dev/null 2>&1) || true
+check "finish runs the deploy hook with main before and after the merge" \
+  [ "$(cat "$scratch/deployed" 2>/dev/null)" = "$pre_finish $(git -C "$repo" rev-parse main)" ]
+check "finish merged the branch" [ -f "$repo/shipped.txt" ]
 
 if [ "$failures" -ne 0 ]; then echo "worktree harness: $failures failed"; exit 1; fi
 echo "worktree harness: all tests passed"

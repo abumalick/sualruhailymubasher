@@ -151,10 +151,11 @@ platform :ios do
     ios_build_store_ipa(number)
   end
 
-  desc "Build and upload to TestFlight"
-  lane :beta do
+  desc "Build and upload to TestFlight. changelog_file: the testers' notes, relative to the repo root"
+  lane :beta do |options|
+    changelog = options[:changelog_file] && File.read(File.expand_path(options[:changelog_file], IOS_ROOT))
     ipa = build
-    upload_to_testflight(api_key: ios_api_key, ipa: ipa, skip_waiting_for_build_processing: true)
+    upload_to_testflight(api_key: ios_api_key, ipa: ipa, changelog: changelog, skip_waiting_for_build_processing: true)
   end
 
   desc "Upload the listing, age rating, review notes and screenshots (no binary, no submission)"
@@ -182,7 +183,9 @@ platform :ios do
   # Declaring third-party content (the Sheikh's recordings, books and broadcast) states that the owner
   # holds the rights to it, which the owner confirmed. Approval releases the version at once.
   desc "Submit the latest TestFlight build of the current version for App Review, released when approved"
-  lane :submit do
+  lane :submit do |options|
+    # notes_dir: release.sh's What's New text, one file per App Store language, relative to the repo root
+    notes = options[:notes_dir] && %w[ar-SA en-US].to_h { |l| [l, File.read(File.expand_path("#{options[:notes_dir]}/#{l}.txt", IOS_ROOT))] }
     # Without build_number, deliver waits for the newest build of app_version to finish processing
     deliver(
       api_key: ios_api_key,
@@ -193,7 +196,8 @@ platform :ios do
       skip_screenshots: true,
       submit_for_review: true,
       automatic_release: true,
-      submission_information: { content_rights_contains_third_party_content: true }
+      submission_information: { content_rights_contains_third_party_content: true },
+      **(notes ? { release_notes: notes } : {})
     )
   end
 

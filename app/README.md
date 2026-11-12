@@ -29,14 +29,14 @@ graphic, screenshots, changelogs) is in `fastlane/metadata/android/`. Secrets st
 `~/.config/albadrmubasher/`: `env` (upload key, read by the `build` lane) and `play-service-account.json`
 (Play API key; override with `ALBADR_PLAY_JSON_KEY`). Play App Signing re-signs the bundle.
 
-Before each release, raise `versionCode` in `android/app/build.gradle` (Play refuses a code it has seen)
-and `versionName` (the GitHub APK release is tagged with it, see below),
-and add `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt`.
+Releases normally go through `scripts/release.sh` (see "Releases" in the root `CLAUDE.md`): `bump` raises
+`versionCode` and `versionName` together and writes the changelogs from `changes/`. The lanes below are what
+it runs, and still work by hand.
 
     fastlane android build                 # signed bundle only
     fastlane android validate_credentials  # the key reaches the Play Console
     fastlane android upload_metadata       # listing and images, no release
-    fastlane android internal              # build + upload to internal testing with the listing
+    fastlane android internal              # build + upload the bundle and its changelogs to internal testing
     fastlane android production validate_only:true   # check the promotion without sending it
     fastlane android production            # promote the internal release to production review
 
@@ -50,11 +50,8 @@ access have no API: they are answered in the console (answers in `docs/store/goo
 
 Besides Play, each release is published as an APK on the public, releases-only repository
 [abumalick/albadrmubasher](https://github.com/abumalick/albadrmubasher) (no source there), which
-[Obtainium](https://github.com/ImranR98/Obtainium) follows. `fastlane android production` does it after the
-promotion (not for `validate_only:true` or `status:draft`), and before promoting it checks that the key is
-there and that GitHub has no release for this `versionName` yet, so Play is never released alone for a
-reason known in advance. The APK is built from the checkout, so run `production` from the commit uploaded
-by `internal`. On its own, or to retry a failed publish:
+[Obtainium](https://github.com/ImranR98/Obtainium) follows. `scripts/release.sh` publishes it with every
+version bump, before the Play internal upload. On its own, or to retry a failed publish:
 
     fastlane android github_apk   # web build + cap sync, signed release APK, checks, GitHub release
     node scripts/github-apk.mjs check   # only the GitHub check: is v<versionName> still free?
@@ -71,7 +68,8 @@ Obtainium install cannot update each other.
 `scripts/github-apk.mjs` refuses to publish unless the APK's package and versions match `build.gradle` and
 its only signer is the certificate pinned in `SIGNER_SHA256`. The release is tagged `v<versionName>`
 (Obtainium compares it with the installed versionName), carries one asset, `albadr-mubasher.apk`, with the
-Play changelogs as notes, and is marked latest. A tag that already exists is never replaced, so raise
+notes `scripts/release.sh` wrote to `.tmp/release-notes/github/` (the Android entries since the previous
+GitHub release), and is marked latest. A tag that already exists is never replaced, so raise
 `versionName` together with `versionCode` for every release.
 
 ## iOS release (macOS, fastlane)

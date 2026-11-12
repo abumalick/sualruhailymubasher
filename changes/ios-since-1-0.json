@@ -1,0 +1,5 @@
+{
+  "platforms": ["ios"],
+  "ar": "زر تشغيل البث المباشر في الصفحة الرئيسية أوضح. زر لإعادة تحميل صفحة البث إذا توقفت، وزر الإيقاف بعلامة مربع. تصغير نافذة البث بسهم للأسفل. أسهم تقليب صفحات الكتاب في الاتجاه الصحيح.",
+  "en": "A clearer play button for the live broadcast on the home screen. A reload button for a stuck broadcast page, and a stop button with a stop square. Minimize the live sheet with a down arrow. The book's page arrows now point the way they turn the page."
+}

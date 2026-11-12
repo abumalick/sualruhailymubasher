@@ -20,8 +20,10 @@ WH_INSTALL_CMD='pnpm install && pnpm --filter app build && pnpm --filter app exe
 WH_UP_CMD='bash scripts/dev-server.sh'                          # server-start cmd, run from the worktree (empty = print only)
 WH_FINISH_MODEL="merge-main"              # pr | merge-main | merge-branch | land
 WH_INTEGRATION_BRANCH="${WH_INTEGRATION_BRANCH:-main}" # branches start from it and finish into it (e.g. main, demo)
-WH_DEPLOY_CMD=''                  # run from the main checkout after merge; empty = skip
+WH_DEPLOY_CMD='bash scripts/release.sh after-merge "$WH_PRE" HEAD'  # run from the main checkout after merge ($WH_PRE = main before it); empty = skip
 WH_DEPLOY_VERIFY=''            # run to confirm deploy; empty = skip
+# Run from the main checkout before merging $WH_BRANCH; failing refuses the merge. Only release.sh bump may raise the version.
+WH_PRE_MERGE_CMD='node scripts/release.mjs plan "$(git merge-base main "$WH_BRANCH")" "$WH_BRANCH" >/dev/null'  # empty = skip
 # ─────────────────────────────────────────────────────────────────────────────
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -414,6 +416,9 @@ _finish_merge() {
   fetch_origin
   base="$(base_ref)"
   _check_main_checkout "$branch" "$base"
+  if [ -n "$WH_PRE_MERGE_CMD" ]; then
+    ( cd "$main_root" && WH_BRANCH="$branch" eval "$WH_PRE_MERGE_CMD" ) || die "pre-merge check refused $branch; nothing was merged"
+  fi
   g checkout --quiet "$ib" >&2 || die "cannot switch the main checkout to $ib"
   if ! _ff_from_origin; then _restore "$orig"; die "local $ib has diverged from origin/$ib — reconcile it first"; fi
   pre="$(g rev-parse HEAD)"
@@ -479,6 +484,7 @@ cmd_finish() {
 # The main checkout is on the integration branch with the merge applied.
 cmd_post_merge() {
   local branch="$1" orig="$2" pre="$3"
+  export WH_PRE="$pre"
   _lock_take
   if has_origin && ! g push --quiet origin "$ib" >&2; then
     # Undo the local merge, so a re-run fetches and merges again instead of finding

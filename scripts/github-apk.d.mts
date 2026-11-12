@@ -19,7 +19,7 @@ export interface GithubApkIo {
   badging(apk: string): string;
   signers(apk: string): string;
   releaseExists(tag: string): boolean;
-  changelog(versionCode: string | undefined, locale: string): string;
+  changelog(locale: string): string;
   stage(apk: string, notes: string): { asset: string; notesFile: string };
   createRelease(args: string[]): void;
   log(line: string): void;
