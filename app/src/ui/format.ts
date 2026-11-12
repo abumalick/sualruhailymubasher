@@ -50,6 +50,16 @@ export function passageLine(course: Pick<CourseDTO, 'pageOffsets'>, next: NextPa
   return end === null ? start : `${start} · إلى نحو ص ${ar(end)}`;
 }
 
+// The next lesson's estimated pages, only when the book is open at its start: a book opened elsewhere (the lesson on
+// air once next has moved past it, a review) would show another lesson's range.
+export function passageRange(course: Pick<CourseDTO, 'pageOffsets' | 'next'>, pdfIndex: number, page: number): string {
+  const next = course.next;
+  if (!next || next.pdfIndex !== pdfIndex || next.startPage !== page) return '';
+  const start = printedPage(course, next.pdfIndex, next.startPage);
+  const end = printedPage(course, next.pdfIndex, next.estEndPage);
+  return start !== null && end !== null ? `ص ${ar(start)} إلى نحو ${ar(end)}` : '';
+}
+
 export function editionPage(course: CourseDTO, page: number | null): string | null {
   if (course.pdfUrls.length > 0 || !course.edition || page === null) return null;
   return `ص ${ar(page)} · ${course.edition}`;

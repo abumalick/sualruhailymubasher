@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { dropPdf, getPdf } from '../pdf/cache';
 import { nativeUI } from '../platform';
 import { goBack } from '../router';
-import { ar, arText, printedPage } from './format';
+import { ar, arText, passageRange, printedPage } from './format';
 import { Icon, Tick } from './Star';
 import type { TickKind, Ticks } from '../logic/ticks';
 
@@ -121,9 +121,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick,
 
   const next = course.next;
   const showTick = next !== null;
-  const rangeStart = marker && next ? printedPage(course, next.pdfIndex, next.startPage) : null;
-  const rangeEnd = marker && next ? printedPage(course, next.pdfIndex, next.estEndPage) : null;
-  const range = rangeStart !== null && rangeEnd !== null ? `ص ${ar(rangeStart)} إلى نحو ${ar(rangeEnd)}` : '';
+  const range = marker ? passageRange(course, pdfIndex, requested) : '';
   const shown = printedPage(course, pdfIndex, current);
   const last = printedPage(course, pdfIndex, total) ?? total;
 
@@ -169,7 +167,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick,
         )}
         {pdf && (
           <div class="pg">
-            {marker && current === clamp(requested, total) && <span class="mkbanner">بداية الدرس القادم تقريبًا</span>}
+            {marker && current === clamp(requested, total) && <span class="mkbanner">بداية الدرس تقريبًا</span>}
             {/* pdf.js draws glyph by glyph from the left; an inherited RTL direction right-anchors each one and garbles Arabic. */}
             <canvas ref={canvas} dir="ltr" />
           </div>

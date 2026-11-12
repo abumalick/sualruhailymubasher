@@ -167,11 +167,11 @@ describe('Book', () => {
   });
 
   it('shows the printed page number when the PDF has front matter, still opening the PDF page asked for', async () => {
-    render(book(10, true, { course: { ...course, pageOffsets: [2] } }));
+    render(book(10, true, { course: { ...course, pageOffsets: [2], next: { ...course.next!, startPage: 10, estEndPage: 12 } } }));
     await screen.findByText('ص ٨ / ١٨');
     await waitFor(() => expect(rendered).toEqual([10]));
     expect(document.querySelector('.pdfbar .pill')!.textContent).toBe('ص ٨');
-    expect(screen.getByText('ص ٣١٠ إلى نحو ٣١٢')).toBeTruthy();
+    expect(screen.getByText('ص ٨ إلى نحو ١٠')).toBeTruthy();
   });
 
   it('a front-matter page has no printed number', async () => {
@@ -201,11 +201,11 @@ describe('Book', () => {
 
   it('shows the marker banner only when opened from a prepare item', async () => {
     const { unmount } = render(book(10, true));
-    await screen.findByText('بداية الدرس القادم تقريبًا');
+    await screen.findByText('بداية الدرس تقريبًا');
     unmount();
     render(book(10));
     await screen.findByText('ص ١٠ / ٢٠');
-    expect(screen.queryByText('بداية الدرس القادم تقريبًا')).toBeNull();
+    expect(screen.queryByText('بداية الدرس تقريبًا')).toBeNull();
   });
 
   it('footer قرأتُه ticks the next lesson read', async () => {
