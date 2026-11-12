@@ -18,6 +18,7 @@ import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import type { Ticks } from '../src/logic/ticks';
 import { Course } from '../src/ui/Course';
+import { trackEntry } from '../src/router';
 import { Courses } from '../src/ui/Courses';
 import { Home } from '../src/ui/Home';
 import { liveState, TAFSIR, TAWHID } from './live-state';
@@ -130,6 +131,19 @@ describe('Home hero', () => {
     const { container } = home(live('tafsir-saadi'), new Date('2026-11-02T02:40:00Z'));
     const pill = [...container.querySelectorAll('.pill')].find((e) => e.textContent === 'مباشر');
     expect(pill?.classList.contains('live')).toBe(true);
+  });
+
+  it("during a broadcast, the lesson on air in today's list opens the live player instead of leaving for its course page", () => {
+    const onLive = vi.fn();
+    home(live('tafsir-saadi'), new Date('2026-11-02T02:40:00Z'), { onLive });
+    expect(screen.queryByRole('link', { name: /شرح تفسير السعدي/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /بعد الفجر.*مباشر/ }));
+    expect(onLive).toHaveBeenCalledOnce();
+  });
+
+  it('a course of the day that is not on air still opens its course page', () => {
+    home(live('tafsir-saadi'), new Date('2026-11-02T02:40:00Z'));
+    expect(screen.getByRole('link', { name: /كتاب التوحيد/ }).getAttribute('href')).toBe('#/course/kitab-tawhid');
   });
 
   it('a course without PDFs shows no book button', () => {
@@ -247,6 +261,21 @@ describe('Course page', () => {
     );
   });
   const titles = () => screen.getAllByText(/^الدرس [٠-٩]+$/).map((e) => e.textContent);
+
+  it("the back arrow returns to the page the reader came from, such as Home's lessons of the day during a broadcast", () => {
+    vi.mocked(api.fetchLessons).mockResolvedValue([]);
+    const back = vi.spyOn(history, 'back').mockImplementation(() => {});
+    history.replaceState(null, '', '#/');
+    trackEntry();
+    history.pushState(null, '', '#/course/tafsir-saadi');
+    trackEntry();
+    render(<Course course={tafsir} ticks={none()} onTick={noop} onPlay={noop} />);
+    const arrow = screen.getByRole('link', { name: 'رجوع' });
+    expect(arrow.getAttribute('href')).toBe('#/courses');
+    fireEvent.click(arrow);
+    expect(back).toHaveBeenCalledOnce();
+    back.mockRestore();
+  });
 
   it('lists recordings newest first with reviewed ticks and loads older ones at the end', async () => {
     vi.mocked(api.fetchLessons).mockResolvedValue([lesson(440), lesson(439)]);

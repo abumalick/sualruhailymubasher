@@ -1,7 +1,8 @@
 import type { CourseDTO, LessonDTO } from '@albadr/shared';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { startLive } from './audio/live';
-import { CLOSED, listeningLive, nextLivePlayer, type LiveEvent } from './logic/live';
+import { onBackButton } from './backButton';
+import { backAction, bookBack, CLOSED, listeningLive, nextLivePlayer, type LiveEvent } from './logic/live';
 import { player } from './audio/player';
 import { useRoute } from './router';
 import { unfollowed } from './logic/follow';
@@ -35,6 +36,17 @@ export function App() {
   const [playerSrc, setPlayerSrc] = useState(player.state.src);
   useEffect(() => player.onChange((s) => setPlayerSrc(s.src)), []);
   useEffect(() => void boot(), []);
+  const current = useRef(livePlayer);
+  current.current = livePlayer;
+  useEffect(
+    () =>
+      onBackButton((canGoBack) => {
+        const action = backAction(current.current, canGoBack);
+        if (action === 'collapse') send({ type: 'collapse' });
+        else if (action === 'back') history.back();
+      }),
+    [],
+  );
   useEffect(() => send({ type: 'navigate' }), [route]);
   useEffect(() => void (state && send({ type: 'state', live: state.live })), [state?.live]);
   useEffect(() => {
@@ -97,7 +109,7 @@ export function App() {
     body = !course && hidden(route.id) ? (
       <NotFollowed />
     ) : course ? (
-      <Book key={`${course.id}/${route.pdfIndex}`} course={course} pdfIndex={route.pdfIndex} page={route.page} marker={route.marker} ticks={ticks} onTick={onTick} />
+      <Book key={`${course.id}/${route.pdfIndex}`} course={course} pdfIndex={route.pdfIndex} page={route.page} marker={route.marker} ticks={ticks} onTick={onTick} back={bookBack(course.id, livePlayer)} />
     ) : state ? (
       <div class="booker">
         <p class="quiet">تعذّر تحميل الكتاب</p>

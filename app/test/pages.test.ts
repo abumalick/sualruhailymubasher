@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { printedPage } from '../src/ui/format';
+import { passageRange, printedPage } from '../src/ui/format';
+import { TAWHID, TAWHID_14 } from './live-state';
 
 const tawhid = { pageOffsets: [2, 2, 2] };
 
@@ -31,5 +32,17 @@ describe('printedPage', () => {
 
   it('an unknown page stays unknown', () => {
     expect(printedPage(tawhid, 0, null)).toBeNull();
+  });
+});
+
+describe('passageRange', () => {
+  it("gives the next lesson's pages when the book opens at its start", () => {
+    expect(passageRange(TAWHID, 0, 280)).toBe('ص ٢٧٨ إلى نحو ٢٨٣');
+  });
+
+  it('gives nothing for another start, such as the lesson on air once next has moved past it', () => {
+    expect(passageRange(TAWHID, 0, TAWHID_14.startPage!)).toBe('');
+    expect(passageRange(TAWHID, 1, 280)).toBe('');
+    expect(passageRange({ ...TAWHID, next: null }, 0, 280)).toBe('');
   });
 });

@@ -145,17 +145,21 @@ function Body(p: HomeProps & { state: StateDTO; model: HomeModel }) {
         <Section title="دروس اليوم">
           {model.today.map((t) => {
             const c = course(t.courseId);
-            return (
+            const title = (
+              <div class="t">
+                <span class="k">بعد {slotName(c.slot)}</span>
+                <span class="b">{c.title}</span>
+              </div>
+            );
+            return t.status === 'live' ? (
+              <button class="lesson" onClick={p.onLive}>
+                {title}
+                <span class="pill live">مباشر</span>
+              </button>
+            ) : (
               <a class="lesson" href={`#/course/${c.id}`}>
-                <div class="t">
-                  <span class="k">بعد {slotName(c.slot)}</span>
-                  <span class="b">{c.title}</span>
-                </div>
-                {t.status === 'live' ? (
-                  <span class="pill live">مباشر</span>
-                ) : (
-                  <span class="pill o">{t.status === 'done' ? 'انتهى' : clock12(t.time)}</span>
-                )}
+                {title}
+                <span class="pill o">{t.status === 'done' ? 'انتهى' : clock12(t.time)}</span>
               </a>
             );
           })}
