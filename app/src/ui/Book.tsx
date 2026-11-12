@@ -174,13 +174,13 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick 
         {pdf && (
           <div class="pager">
             <button class="chip" aria-label="الصفحة السابقة" disabled={current <= 1} onClick={() => go(-1)}>
-              ›
+              <Icon id="i-back" />
             </button>
             <span>
               ص {shown === null ? '—' : ar(shown)} / {ar(last)}
             </span>
             <button class="chip" aria-label="الصفحة التالية" disabled={current >= total} onClick={() => go(1)}>
-              ‹
+              <Icon id="i-back" class="fwd" />
             </button>
           </div>
         )}
