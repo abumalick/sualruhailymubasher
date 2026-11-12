@@ -20,7 +20,7 @@ WH_INSTALL_CMD='pnpm install && pnpm --filter app build && pnpm --filter app exe
 WH_UP_CMD='bash scripts/dev-server.sh'                          # server-start cmd, run from the worktree (empty = print only)
 WH_FINISH_MODEL="merge-main"              # pr | merge-main | merge-branch | land
 WH_INTEGRATION_BRANCH="${WH_INTEGRATION_BRANCH:-main}" # branches start from it and finish into it (e.g. main, demo)
-WH_DEPLOY_CMD=''                  # run from the main checkout after merge; empty = skip
+WH_DEPLOY_CMD='bash scripts/release.sh after-merge "$WH_PRE" HEAD'  # run from the main checkout after merge ($WH_PRE = main before it); empty = skip
 WH_DEPLOY_VERIFY=''            # run to confirm deploy; empty = skip
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -479,6 +479,7 @@ cmd_finish() {
 # The main checkout is on the integration branch with the merge applied.
 cmd_post_merge() {
   local branch="$1" orig="$2" pre="$3"
+  export WH_PRE="$pre"
   _lock_take
   if has_origin && ! g push --quiet origin "$ib" >&2; then
     # Undo the local merge, so a re-run fetches and merges again instead of finding
