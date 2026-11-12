@@ -25,6 +25,7 @@ cp "$src/../app/android/app/build.gradle" "$repo/app/android/app/"
 for l in ar en-US; do mkdir -p "$repo/fastlane/metadata/android/$l/changelogs"; touch "$repo/fastlane/metadata/android/$l/changelogs/.keep"; done
 cp "$src/../app/ios/App/App.xcodeproj/project.pbxproj" "$repo/app/ios/App/App.xcodeproj/"
 printf '.worktrees/\n.tmp/\n' > "$repo/.gitignore"
+printf '[tools]\nnode = "22"\n' > "$repo/mise.toml"
 echo a > "$repo/app/src/a.ts"
 echo a > "$repo/agent/a.py"
 git -C "$repo" add -A
@@ -44,7 +45,7 @@ exec "$@"
 EOF
 chmod +x "$scratch/systemd-run"
 cat > "$scratch/steps.sh" <<'EOF'
-prepare_build() { [ -z "${FAIL_PREPARE:-}" ] || false; :; }
+prepare_build() { echo prepare >> "$RECORD.mise"; [ -z "${FAIL_PREPARE:-}" ] || false; :; }
 stub() { echo "start $1 $(date +%s%N)" >> "$RECORD"; echo "output of $1" >&2; sleep "${STUB_SLEEP:-0}"; echo "end $1 $(date +%s%N)" >> "$RECORD"; }
 step_server() { stub server; [ -z "${FAIL_SERVER:-}" ]; }
 step_web() { stub web; }
@@ -57,7 +58,7 @@ cat > "$scratch/notify" <<'EOF'
 cat >> "$RECORD.notify"
 EOF
 chmod +x "$scratch/notify"
-export RECORD="$record" RELEASE_SYSTEMD_RUN="$scratch/systemd-run" RELEASE_STEPS_FILE="$scratch/steps.sh" \
+export MISE_TRUSTED_CONFIG_PATHS="$scratch" RECORD="$record" RELEASE_SYSTEMD_RUN="$scratch/systemd-run" RELEASE_STEPS_FILE="$scratch/steps.sh" \
   RELEASE_NOTIFY_CMD="$scratch/notify" ALBADR_SECRETS="$scratch/no-secrets"
 rel() { (cd "$repo" && bash scripts/release.sh "$@"); }
 reset() { rm -f "$record" "$record.units" "$record.notify"; }
@@ -204,6 +205,17 @@ reset
 STUB_SLEEP=1 RELEASE_STEPS_FILE="$scratch/steps.sh" rel run 'server+web' >/dev/null 2>&1
 check "steps joined with + run at the same time" \
   [ "$(sed -n 's/^start web //p' "$record")" -lt "$(sed -n 's/^end server //p' "$record")" ]
+
+# A fresh build worktree's mise config is untrusted until trusted: every mise shim (node, pnpm, tdl) fails before
+mkdir -p "$scratch/mise-bin"
+# shellcheck disable=SC2016 # the stub expands $* and $RECORD when it runs
+printf '#!/usr/bin/env bash\necho "mise $*" >> "$RECORD.mise"\n' > "$scratch/mise-bin/mise"
+chmod +x "$scratch/mise-bin/mise"
+reset
+rm -f "$record.mise"
+(cd "$repo" && PATH="$scratch/mise-bin:$PATH" bash scripts/release.sh run web >/dev/null 2>&1)
+check "the job trusts the build worktree's mise config before running anything" \
+  [ "$(head -n 2 "$record.mise" | tr '\n' ' ')" = "mise trust $repo/.worktrees/.release/build/mise.toml prepare " ]
 
 # Fixes from review
 reset

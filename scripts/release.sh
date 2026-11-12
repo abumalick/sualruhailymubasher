@@ -216,6 +216,8 @@ cmd_job() {
   git -C "$main_root" worktree remove --force "$build" 2>/dev/null || rm -rf "$build"
   git -C "$main_root" worktree prune
   git -C "$main_root" worktree add --quiet --detach "$build" main
+  # A new path starts untrusted, and every mise shim (node, pnpm, tdl) then refuses to run in it
+  if command -v mise >/dev/null 2>&1 && [ -f "$build/mise.toml" ]; then mise trust "$build/mise.toml" >&2 || say "warning: mise trust failed"; fi
   # shellcheck disable=SC2064
   trap "git -C '$main_root' worktree remove --force '$build' 2>/dev/null || true" EXIT
   cd "$build"
