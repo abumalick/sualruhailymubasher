@@ -1,0 +1,1 @@
+Book reader: the page-turn arrows now point the right way.
