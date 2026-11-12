@@ -72,7 +72,6 @@ Worktrees live inside the repo in `.worktrees/<branch-slug>` (gitignored).
   `create`/`up` a worktree another agent owns.
 <!-- worktree-harness:end -->
 
-<!-- superpowers-usage:begin -->
 ## Releases
 
 `scripts/release.sh` deploys and releases from this machine; nothing runs in CI.
@@ -91,6 +90,7 @@ Worktrees live inside the repo in `.worktrees/<branch-slug>` (gitignored).
 - A failed step is re-run with `scripts/release.sh run <step>`; a channel that already shipped the version
   is skipped. Each shipped channel is a local tag `release/<channel>/<version>`.
 
+<!-- superpowers-usage:begin -->
 ## Use superpowers for the work (when installed)
 
 The `superpowers` skills auto-load at session start; this reinforces them and covers
