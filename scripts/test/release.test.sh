@@ -45,7 +45,7 @@ exec "$@"
 EOF
 chmod +x "$scratch/systemd-run"
 cat > "$scratch/steps.sh" <<'EOF'
-prepare_build() { [ -z "${FAIL_PREPARE:-}" ] || false; :; }
+prepare_build() { echo prepare >> "$RECORD.mise"; [ -z "${FAIL_PREPARE:-}" ] || false; :; }
 stub() { echo "start $1 $(date +%s%N)" >> "$RECORD"; echo "output of $1" >&2; sleep "${STUB_SLEEP:-0}"; echo "end $1 $(date +%s%N)" >> "$RECORD"; }
 step_server() { stub server; [ -z "${FAIL_SERVER:-}" ]; }
 step_web() { stub web; }
@@ -215,7 +215,7 @@ reset
 rm -f "$record.mise"
 (cd "$repo" && PATH="$scratch/mise-bin:$PATH" bash scripts/release.sh run web >/dev/null 2>&1)
 check "the job trusts the build worktree's mise config before running anything" \
-  grep -qx "mise trust $repo/.worktrees/.release/build/mise.toml" "$record.mise"
+  [ "$(head -n 2 "$record.mise" | tr '\n' ' ')" = "mise trust $repo/.worktrees/.release/build/mise.toml prepare " ]
 
 # Fixes from review
 reset
