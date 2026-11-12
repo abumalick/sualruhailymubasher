@@ -52,3 +52,60 @@ export function bumpVersion({ gradle, pbxproj, kind }) {
     version,
   };
 }
+
+const PLATFORMS = ['android', 'ios', 'web'];
+
+export function parseEntry(file, json) {
+  let entry;
+  try {
+    entry = JSON.parse(json);
+  } catch (e) {
+    throw new Error(`${file}: not valid JSON (${e.message})`);
+  }
+  const { platforms, ar, en } = entry ?? {};
+  if (!Array.isArray(platforms) || !platforms.length) throw new Error(`${file}: "platforms" must list at least one of ${PLATFORMS.join(', ')}`);
+  const unknown = platforms.filter((p) => !PLATFORMS.includes(p));
+  if (unknown.length) throw new Error(`${file}: unknown platform ${unknown.join(', ')} (use ${PLATFORMS.join(', ')})`);
+  for (const [key, text] of [['ar', ar], ['en', en]]) {
+    if (typeof text !== 'string' || !text.trim()) throw new Error(`${file}: "${key}" must be a non-empty text`);
+  }
+  return { file, platforms, ar: ar.trim(), en: en.trim() };
+}
+
+export const FALLBACK_NOTES = { ar: 'تحسينات وإصلاحات.', en: 'Improvements and fixes.' };
+const CUT = '• …';
+
+export function composeNotes(entries, platform, lang, limit) {
+  const bullets = entries.filter((e) => e.platforms.includes(platform)).map((e) => `• ${e[lang]}`);
+  if (!bullets.length) return FALLBACK_NOTES[lang];
+  const all = bullets.join('\n');
+  if (all.length <= limit) return all;
+  const kept = [];
+  for (const b of bullets) {
+    if ([...kept, b, CUT].join('\n').length > limit) break;
+    kept.push(b);
+  }
+  return [...kept, CUT].join('\n');
+}
+
+// Each channel's notes start after the last release of the store it leads to
+export const CHANNELS = {
+  github: { platform: 'android', cursor: 'github' },
+  'play-internal': { platform: 'android', cursor: 'play' },
+  play: { platform: 'android', cursor: 'play' },
+  testflight: { platform: 'ios', cursor: 'appstore' },
+  appstore: { platform: 'ios', cursor: 'appstore' },
+};
+
+const numeric = (version) => version.split('.').map(Number);
+
+export function latestTag(tags, cursor) {
+  const prefix = `release/${cursor}/`;
+  const ours = tags.filter((t) => t.startsWith(prefix) && /^\d+(\.\d+)*$/.test(t.slice(prefix.length)));
+  ours.sort((a, b) => {
+    const [x, y] = [numeric(a.slice(prefix.length)), numeric(b.slice(prefix.length))];
+    for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0);
+    return 0;
+  });
+  return ours.at(-1) ?? null;
+}
