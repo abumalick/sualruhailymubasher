@@ -174,6 +174,12 @@ describe('Book', () => {
     expect(screen.getByText('ص ٨ إلى نحو ١٠')).toBeTruthy();
   });
 
+  it("opened at the lesson on air rather than the next lesson's start, it shows no other lesson's range", async () => {
+    render(book(10, true));
+    await screen.findByText('بداية الدرس تقريبًا');
+    expect(document.querySelector('.pdfbar')!.textContent).not.toContain('إلى نحو');
+  });
+
   it('a front-matter page has no printed number', async () => {
     render(book(2, false, { course: { ...course, pageOffsets: [2] } }));
     await screen.findByText('ص — / ١٨');
