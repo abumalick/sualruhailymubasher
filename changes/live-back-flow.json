@@ -1,0 +1,5 @@
+{
+  "platforms": ["android", "ios", "web"],
+  "ar": "أثناء البث المباشر يبقيك التطبيق مع الدرس: زر الرجوع في الكتاب وصفحة الدرس يعيدك إلى حيث كنت، والدرس المباشر في «دروس اليوم» يفتح البث، وزر الرجوع في أندرويد يصغّر نافذة البث أولًا.",
+  "en": "During a live lesson the app keeps you on the lesson: the back arrow in the book and on a course page returns you where you were, the live lesson in today's list opens the broadcast, and Android's back button first shrinks the live player."
+}
