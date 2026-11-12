@@ -9,6 +9,7 @@ vi.mock('../../src/pdf/cache', () => ({
 }));
 
 import { FIXTURE_STATE } from '../../src/dev/fixture-state';
+import '../../src/styles/app.css';
 import { Book } from '../../src/ui/Book';
 
 const SAMPLE_WIDTH = 400;
@@ -83,3 +84,34 @@ it('renders an Arabic page with embedded subset fonts like poppler does, inside 
     expect(d).toBeLessThan(0.3);
   }, { timeout: 40_000, interval: 250 });
 }, 60_000);
+
+// i-back draws a chevron pointing right; a mirrored one (scaleX(-1)) points left.
+function pointsLeft(button: Element): boolean {
+  const svg = button.querySelector('svg');
+  if (!svg) throw new Error('no chevron icon in the pager button');
+  const t = getComputedStyle(svg).transform;
+  return t !== 'none' && new DOMMatrix(t).a < 0;
+}
+
+it('each pager arrow points the way it turns the page in the RTL app', async () => {
+  document.documentElement.dir = 'rtl';
+  document.body.style.width = '400px';
+  const course = { ...FIXTURE_STATE.courses[0], pdfUrls: ['https://example.invalid/tawhid-1.pdf'], next: null };
+  const { container } = render(
+    <Book course={course} pdfIndex={0} page={1} marker={false} ticks={{ read: new Set(), reviewed: new Set() }} onTick={() => {}} />,
+  );
+  const [right, left] = await vi.waitFor(
+    () => {
+      const buttons = [...container.querySelectorAll('.pager button')];
+      if (buttons.length !== 2) throw new Error('pager not shown yet');
+      return buttons.sort((a, b) => b.getBoundingClientRect().left - a.getBoundingClientRect().left);
+    },
+    { timeout: 20_000 },
+  );
+  expect(right.getAttribute('aria-label')).toBe('الصفحة السابقة');
+  expect(left.getAttribute('aria-label')).toBe('الصفحة التالية');
+  expect(right.textContent!.trim()).toBe('');
+  expect(left.textContent!.trim()).toBe('');
+  expect(pointsLeft(right)).toBe(false);
+  expect(pointsLeft(left)).toBe(true);
+}, 30_000);
