@@ -126,6 +126,17 @@ describe('App Store submission', () => {
   });
 });
 
+describe('TestFlight upload', () => {
+  const fastfile = readFileSync(`${root}fastlane/Fastfile.ios`, 'utf8');
+  const betaLane = fastfile.slice(fastfile.indexOf('lane :beta do'), fastfile.indexOf('lane :metadata do'));
+
+  it('gives testers the notes file release.sh wrote, resolved from the repo root', () => {
+    expect(betaLane).toMatch(/lane :beta do \|options\|/);
+    expect(betaLane).toMatch(/File\.read\(File\.expand_path\(options\[:changelog_file\], IOS_ROOT\)\)/);
+    expect(betaLane).toMatch(/upload_to_testflight\([^)]*changelog:/);
+  });
+});
+
 describe('listing uploads', () => {
   it('keep the version released on approval, so a later upload never turns it back to manual', () => {
     expect(readFileSync(`${root}fastlane/Deliverfile`, 'utf8')).toMatch(/^automatic_release true$/m);

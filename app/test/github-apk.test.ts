@@ -86,7 +86,7 @@ describe('GitHub release', () => {
     expect(args[args.indexOf('--repo') + 1]).toBe(REPO);
   });
 
-  it('uses the Play changelogs as release notes', () => {
+  it('joins the Arabic and English release notes', () => {
     expect(releaseNotes({ ar: 'تحسينات\n', en: 'Improvements\n' })).toBe('تحسينات\n\nImprovements');
     expect(releaseNotes({ ar: '', en: 'Improvements' })).toBe('Improvements');
   });
@@ -101,7 +101,7 @@ describe('publishing', () => {
       badging: () => BADGING,
       signers: () => SIGNED_BY_SIDELOAD_KEY,
       releaseExists: () => false,
-      changelog: (code, locale) => (code === '6' ? `${locale} notes` : ''),
+      changelog: (locale) => `${locale} notes`,
       stage: (_apk, notes) => {
         calls.push(`stage ${notes}`);
         return { asset: `.tmp/github-apk/${ASSET_NAME}`, notesFile: '.tmp/github-apk/notes.md' };
@@ -113,7 +113,7 @@ describe('publishing', () => {
     return { io, calls };
   };
 
-  it('creates the release with the APK and both changelogs', () => {
+  it('creates the release with the APK and both languages’ notes', () => {
     const { io, calls } = fakeIo();
     publish('app-release.apk', io);
     expect(calls).toEqual([
@@ -152,6 +152,14 @@ describe('publishing', () => {
   });
 });
 
+describe('release notes source', () => {
+  it('reads the notes release.sh generated for the GitHub channel, not the Play changelogs', () => {
+    const source = readFileSync(`${root}scripts/github-apk.mjs`, 'utf8');
+    expect(source).toMatch(/\.tmp\/release-notes\/github\/\$\{locale\}\.txt/);
+    expect(source).not.toMatch(/changelogs\//);
+  });
+});
+
 describe('fastlane github_apk lane', () => {
   const fastfile = readFileSync(`${root}fastlane/Fastfile.android`, 'utf8');
   const lane = (name: string) => fastfile.slice(fastfile.indexOf(`lane :${name} do`), fastfile.indexOf('\n  end\n', fastfile.indexOf(`lane :${name} do`)));
@@ -169,6 +177,15 @@ describe('fastlane github_apk lane', () => {
     expect(apk).toMatch(/check_google_services/);
     expect(apk).toMatch(/gradle\(task: "assemble", build_type: "Release"/);
     expect(apk).toMatch(/node scripts\/github-apk\.mjs publish #\{ANDROID_APK\}/);
+  });
+
+  it('uploads only the bundle and its notes to internal testing; the listing goes up with a store release', () => {
+    const internal = lane('internal');
+    expect(internal).not.toMatch(/sync_image_upload/);
+    for (const skip of ['skip_upload_metadata', 'skip_upload_images', 'skip_upload_screenshots']) {
+      expect(internal).toMatch(new RegExp(`${skip}: true`));
+    }
+    expect(internal).not.toMatch(/skip_upload_changelogs/);
   });
 
   it('checks GitHub before promoting, and publishes after, except for a check or a draft', () => {

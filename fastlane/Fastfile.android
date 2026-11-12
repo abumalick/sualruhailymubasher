@@ -77,15 +77,17 @@ platform :android do
     upload_to_play_store(skip_upload_aab: true, skip_upload_apk: true, skip_upload_changelogs: true, sync_image_upload: true)
   end
 
-  desc "Build and upload to internal testing with the listing. status:draft while the app has never been published"
+  desc "Build and upload the bundle to internal testing with its changelogs; the listing goes up with a store release. status:draft while the app has never been published"
   lane :internal do |options|
     build
     upload_to_play_store(
       track: "internal",
       aab: ANDROID_AAB,
       skip_upload_apk: true,
-      release_status: options[:status] || "completed",
-      sync_image_upload: true
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      release_status: options[:status] || "completed"
     )
   end
 

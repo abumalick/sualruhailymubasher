@@ -151,10 +151,11 @@ platform :ios do
     ios_build_store_ipa(number)
   end
 
-  desc "Build and upload to TestFlight"
-  lane :beta do
+  desc "Build and upload to TestFlight. changelog_file: the testers' notes, relative to the repo root"
+  lane :beta do |options|
+    changelog = options[:changelog_file] && File.read(File.expand_path(options[:changelog_file], IOS_ROOT))
     ipa = build
-    upload_to_testflight(api_key: ios_api_key, ipa: ipa, skip_waiting_for_build_processing: true)
+    upload_to_testflight(api_key: ios_api_key, ipa: ipa, changelog: changelog, skip_waiting_for_build_processing: true)
   end
 
   desc "Upload the listing, age rating, review notes and screenshots (no binary, no submission)"

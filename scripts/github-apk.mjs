@@ -80,8 +80,9 @@ export const realIo = {
       throw new Error(`cannot check ${REPO} for ${tag}: ${String(e.stderr ?? e.message).trim()}`);
     }
   },
-  changelog: (versionCode, locale) => {
-    const path = join(ROOT, `fastlane/metadata/android/${locale}/changelogs/${versionCode}.txt`);
+  // Written by scripts/release.sh: the Android entries since the previous GitHub release
+  changelog: (locale) => {
+    const path = join(ROOT, `.tmp/release-notes/github/${locale}.txt`);
     return existsSync(path) ? readFileSync(path, 'utf8') : '';
   },
   stage: (apk, notes) => {
@@ -120,10 +121,10 @@ export function check(io = realIo) {
 }
 
 export function publish(apk, io = realIo) {
-  const { versionCode, versionName } = verify(apk, io);
+  const { versionName } = verify(apk, io);
   const tag = releaseTag(versionName);
   assertNewTag(tag, io);
-  const notes = releaseNotes({ ar: io.changelog(versionCode, 'ar'), en: io.changelog(versionCode, 'en-US') });
+  const notes = releaseNotes({ ar: io.changelog('ar'), en: io.changelog('en-US') });
   const { asset, notesFile } = io.stage(apk, notes);
   io.createRelease(releaseArgs({ tag, asset, notesFile }));
 }
