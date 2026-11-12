@@ -133,6 +133,19 @@ describe('Home hero', () => {
     expect(pill?.classList.contains('live')).toBe(true);
   });
 
+  it("during a broadcast, the lesson on air in today's list opens the live player instead of leaving for its course page", () => {
+    const onLive = vi.fn();
+    home(live('tafsir-saadi'), new Date('2026-11-02T02:40:00Z'), { onLive });
+    expect(screen.queryByRole('link', { name: /شرح تفسير السعدي/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /بعد الفجر.*مباشر/ }));
+    expect(onLive).toHaveBeenCalledOnce();
+  });
+
+  it('a course of the day that is not on air still opens its course page', () => {
+    home(live('tafsir-saadi'), new Date('2026-11-02T02:40:00Z'));
+    expect(screen.getByRole('link', { name: /كتاب التوحيد/ }).getAttribute('href')).toBe('#/course/kitab-tawhid');
+  });
+
   it('a course without PDFs shows no book button', () => {
     const state = { ...FIXTURE_STATE, courses: [{ ...tafsir, pdfUrls: [] }, FIXTURE_STATE.courses[1]] };
     home(state, MON_2110);

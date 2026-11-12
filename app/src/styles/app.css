@@ -86,6 +86,7 @@ button:disabled { cursor: default; }
 .card .m, .lesson .m { font: 400 11px var(--ui); color: var(--soft); }
 .lesson { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; }
 .lesson + .lesson { border-top: 1px solid var(--line); }
+button.lesson { width: 100%; text-align: start; }
 .lesson .t { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .lesson svg.fwd { width: 16px; height: 16px; flex: none; stroke: var(--gold-hi); transform: scaleX(-1); }
 .pill { font: 600 11px var(--ui); padding: 3px 9px; border-radius: 99px; white-space: nowrap; background: var(--btn); color: var(--btn-fg); }
