@@ -1,0 +1,5 @@
+{
+  "platforms": ["android", "ios", "web"],
+  "ar": "إصلاحات في الجولة التعريفية: لا تبقى الشاشة فارغة إذا تعذّرت قراءة الإعدادات، ويُغلق تنبيه البث الجولة ليظهر المشغّل، وتبدأ الدروس الجديدة بكل تنبيهاتها إن لم يسبقها درس في وقتها.",
+  "en": "Tour fixes: the screen no longer stays blank if settings can't be read, a broadcast notification closes the tour to show the player, and a new lesson in a time slot with no earlier lesson starts with all its notifications on."
+}

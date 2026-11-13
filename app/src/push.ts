@@ -2,9 +2,9 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { FirebaseMessaging, Importance } from '@capacitor-firebase/messaging';
 import { LIVE_TAG, type PushData, type StateDTO } from '@albadr/shared';
-import { routeForPush } from './logic/topics';
+import { tapNavigation } from './logic/topics';
 import { subscriptionPlan, type Prefs } from './logic/prefs';
-import { navigate } from './router';
+import { navigate, parseRoute, replaceRoute } from './router';
 import { currentData, currentState, markTapped, requestLive, watchData, watchFreshState, type AppData } from './store';
 import { loadCachedState } from './api';
 
@@ -113,8 +113,9 @@ export async function initPush(): Promise<void> {
     if (!isPushData(data)) return;
     markTapped();
     if (data.kind === 'live' || data.kind === 'live-other') requestLive({ courseId: data.kind === 'live' ? (data.courseId ?? null) : null });
-    const route = routeForPush(data, currentState() ?? (await loadCachedState()));
-    if (route) navigate(route);
+    const onTour = parseRoute(location.hash).name === 'welcome';
+    const to = tapNavigation(data, currentState() ?? (await loadCachedState()), onTour);
+    if (to) (to.replace ? replaceRoute : navigate)(to.path);
   });
   watchFreshState((state) => {
     if (!state.live.isLive) void clearLiveNotification();

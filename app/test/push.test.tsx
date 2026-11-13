@@ -22,6 +22,10 @@ const fm = vi.hoisted(() => ({
   removeDeliveredNotifications: vi.fn(async (_: { notifications: unknown[] }) => {}),
 }));
 
+vi.mock('../src/router', async (actual) => {
+  const router = await actual<typeof import('../src/router')>();
+  return { ...router, replaceRoute: vi.fn(router.replaceRoute) };
+});
 vi.mock('@capacitor-firebase/messaging', () => ({ FirebaseMessaging: fm, Importance: { High: 4 } }));
 const st = vi.hoisted(() => ({
   fresh: [] as ((s: unknown) => void)[],
@@ -57,6 +61,7 @@ import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import type { Prefs } from '../src/logic/prefs';
 import { topicsFor } from '../src/logic/topics';
 import { initPush, syncTopics } from '../src/push';
+import { replaceRoute } from '../src/router';
 import { Notifications } from '../src/ui/Notifications';
 
 const ids = FIXTURE_STATE.courses.map((c) => c.id);
@@ -239,6 +244,7 @@ describe('tapping a notification', () => {
     expect(requestLive).toHaveBeenCalledWith({ courseId: 'kitab-tawhid' });
     expect(markTapped).toHaveBeenCalledOnce();
     expect(location.hash).toBe('#/course/kitab-tawhid');
+    expect(replaceRoute).not.toHaveBeenCalled();
   });
 
   it('a live-other notification asks for the player and stays on the current page', async () => {
@@ -246,6 +252,14 @@ describe('tapping a notification', () => {
     await tap({ kind: 'live-other', number: '' });
     expect(requestLive).toHaveBeenCalledWith({ courseId: null });
     expect(location.hash).toBe('#/course/tafsir-saadi');
+  });
+
+  it('a live-other notification during the tour closes it, without leaving it in the history', async () => {
+    location.hash = '#/welcome';
+    await tap({ kind: 'live-other', number: '' });
+    expect(requestLive).toHaveBeenCalledWith({ courseId: null });
+    expect(replaceRoute).toHaveBeenCalledWith('#/');
+    expect(location.hash).toBe('#/');
   });
 
   it('a recording notification asks for no player', async () => {

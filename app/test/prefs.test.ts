@@ -46,11 +46,17 @@ describe('reconcilePrefs', () => {
     expect(kindsOf(reconcilePrefs(off, [book('b3', TAFSIR)]), 'b3')).toEqual(['live', 'rec']);
   });
 
-  it('a course in a slot nobody had gets nothing', () => {
-    const p: Prefs = { wanted: topicsFor(['tafsir-saadi']), known: [['tafsir-saadi', 'fajr']] };
+  it('a course in a slot with no history starts with every notification on', () => {
+    const p: Prefs = { wanted: [], known: [['tafsir-saadi', 'fajr']] };
     const next = reconcilePrefs(p, [TAFSIR, TAWHID]);
-    expect(kindsOf(next, 'kitab-tawhid')).toEqual([]);
+    expect(kindsOf(next, 'kitab-tawhid')).toEqual(['live', 'rec', 'prep']);
+    expect(kindsOf(next, 'tafsir-saadi')).toEqual([]);
     expect(next.known.map(([id]) => id)).toEqual(['tafsir-saadi', 'kitab-tawhid']);
+  });
+
+  it('a new book in a slot whose lesson was left unticked stays silent', () => {
+    const p: Prefs = { wanted: topicsFor(['tafsir-saadi']), known: [['tafsir-saadi', 'fajr'], ['kitab-tawhid', 'maghrib']] };
+    expect(kindsOf(reconcilePrefs(p, [TAFSIR, book('tawhid-2', TAWHID)]), 'tawhid-2')).toEqual([]);
   });
 });
 

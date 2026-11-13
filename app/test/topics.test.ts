@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { routeForPush, topicsFor } from '../src/logic/topics';
+import { routeForPush, tapNavigation, topicsFor } from '../src/logic/topics';
 
 describe('topics', () => {
   it('subscribes to every default topic', () => {
@@ -46,5 +46,19 @@ describe('routeForPush', () => {
     const noPdf = { ...state, courses: [{ ...course, pdfUrls: [], next: { ...course.next!, startPage: 12 } }] };
     expect(routeForPush({ kind: 'prep', courseId: course.id, number: '2' }, noPdf)).toBe(`#/course/${course.id}`);
     expect(routeForPush({ kind: 'prep', courseId: course.id, number: '2' }, null)).toBe(`#/course/${course.id}`);
+  });
+});
+
+describe('tapNavigation', () => {
+  const course = FIXTURE_STATE.courses[0];
+
+  it('outside the tour, a tap pushes its page and live-other stays put', () => {
+    expect(tapNavigation({ kind: 'rec', courseId: course.id, number: '1' }, FIXTURE_STATE, false)).toEqual({ path: `#/course/${course.id}`, replace: false });
+    expect(tapNavigation({ kind: 'live-other', number: '0' }, FIXTURE_STATE, false)).toBeNull();
+  });
+
+  it('during the tour, any tap closes it: live-other goes home, and the tour leaves the history', () => {
+    expect(tapNavigation({ kind: 'live-other', number: '0' }, FIXTURE_STATE, true)).toEqual({ path: '#/', replace: true });
+    expect(tapNavigation({ kind: 'live', courseId: course.id, number: '1' }, FIXTURE_STATE, true)).toEqual({ path: `#/course/${course.id}`, replace: true });
   });
 });

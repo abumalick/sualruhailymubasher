@@ -57,6 +57,8 @@ import { player } from '../src/audio/player';
 import { endedState, liveState } from './live-state';
 import { clearLive, currentData, refresh, requestLive } from '../src/store';
 import { seedPrefs } from './seed';
+import { tapNavigation } from '../src/logic/topics';
+import { navigate, parseRoute, replaceRoute } from '../src/router';
 
 const go = (hash: string) =>
   act(() => {
@@ -265,6 +267,8 @@ describe('the live notification', () => {
     vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
     render(<App />);
     await screen.findByText('روابط');
+    // Let the boot's own fetch settle, so the tap's fetch is the one answered below.
+    await act(() => refresh());
     pendingFetch();
     await tap('kitab-tawhid', '#/course/kitab-tawhid');
     await act(async () => answer(quiet()));
@@ -310,6 +314,24 @@ describe('the live notification', () => {
     await act(async () => answer(liveState(null)));
     await waitFor(() => expect(location.hash).toMatch(/^#\/course\//));
     expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
+  });
+
+  it('a live-other tap during the tour replay closes the tour and shows the player', async () => {
+    location.hash = '#/welcome';
+    vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
+    render(<App />);
+    await screen.findByRole('heading', { name: 'أيَّ الدروس تحضر؟' });
+    pendingFetch();
+    // The push handler's own lines (asking for the player, applying the route) are covered by push.test.tsx.
+    await act(() => {
+      requestLive({ courseId: null });
+      const to = tapNavigation({ kind: 'live-other', number: '' }, currentData().state, parseRoute(location.hash).name === 'welcome');
+      if (to) (to.replace ? replaceRoute : navigate)(to.path);
+      dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    await act(async () => answer(liveState(null)));
+    expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'أيَّ الدروس تحضر؟' })).toBeNull();
   });
 
   it('a live-other tap opens the player and keeps the current tab', async () => {
