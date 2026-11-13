@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const prefs = vi.hoisted(() => new Map<string, string>());
 vi.mock('@capacitor/preferences', () => ({
@@ -42,6 +42,9 @@ async function mount() {
   const { App } = await import('../src/App');
   render(<App />);
 }
+
+// The first import transforms the whole app; done once here, a busy machine can't push it past a test's wait.
+beforeAll(() => import('../src/App'), 30_000);
 
 beforeEach(() => {
   prefs.clear();

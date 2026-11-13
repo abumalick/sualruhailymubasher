@@ -85,7 +85,13 @@ export async function boot(): Promise<void> {
   if (!fixture) await refresh();
 }
 
-const readPolicy = () => loadCachedPolicy().catch(() => null);
+const readPolicy = async () => {
+  try {
+    return await loadCachedPolicy();
+  } catch {
+    return null;
+  }
+};
 
 let inflight: Promise<void> | null = null;
 let freshFetches = 0;
