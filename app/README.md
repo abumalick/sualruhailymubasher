@@ -76,8 +76,8 @@ GitHub release), and is marked latest. A tag that already exists is never replac
 
 Everything goes through fastlane, from the repository root on the Mac (`fastlane/Fastfile.ios`):
 
-    fastlane ios beta        # web build + cap sync, archive, export, checks, upload to TestFlight
-    fastlane ios build       # the same without the upload (IPA in .tmp/ios-build)
+    fastlane ios beta build_number:<versionCode>   # web build + cap sync, archive, export, checks, upload to TestFlight
+    fastlane ios build build_number:<versionCode>  # the same without the upload (IPA in .tmp/ios-build)
     fastlane ios metadata    # listing (fastlane/metadata/ios), age rating, review notes, screenshots
     fastlane ios privacy     # App Privacy answers (fastlane/app_privacy_details.json), Apple ID login, see below
     fastlane ios store_setup # once, for the first release: free, every territory
@@ -88,9 +88,11 @@ Screenshots come from the web build with real lessons from the production API:
 `scripts/store-screenshots.sh ios` writes `fastlane/screenshots/ios/ar-SA/` (1320x2868, the 6.9-inch
 iPhone); `android` writes Play's `fastlane/metadata/android/ar/images/phoneScreenshots/` (1080x1920).
 
-The build number is Android's `versionCode`, so both platforms built from one commit carry the same
-version and build number. The lane refuses to build when TestFlight already has that number or a higher
-one for `MARKETING_VERSION` (a version that already shipped needs a bump). The lane refuses an IPA whose bundle id or version differ from
+The build number is Android's `versionCode`, passed as `build_number:` (`release.sh` reads it, since the
+Mac's copy has no `app/android/`), so both platforms built from one commit carry the same version and
+build number. The lane refuses a number TestFlight already has for `MARKETING_VERSION`: when that build
+is this commit's (an upload that succeeded before the step could tag it), tag `release/testflight/<version>`
+by hand; a build Apple rejected while processing still uses its number, so the version needs a bump. The lane refuses an IPA whose bundle id or version differ from
 the project, or that is not signed for production APNs.
 
 Secrets stay outside the repository, in `~/.config/albadrmubasher/` on the Mac (copies in Bitwarden):

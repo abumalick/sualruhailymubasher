@@ -165,15 +165,18 @@ describe('TestFlight upload', () => {
   const fastfile = readFileSync(`${root}fastlane/Fastfile.ios`, 'utf8');
   const buildLane = fastfile.slice(fastfile.indexOf('lane :build do'), fastfile.indexOf('lane :beta do'));
 
-  it('numbers the build with Android versionCode, so both platforms of a commit carry the same version and build', () => {
-    expect(fastfile).toMatch(/def ios_build_number\n\s+File\.read\("#\{IOS_ROOT\}\/app\/android\/app\/build\.gradle"\)\[\/versionCode \(\\d\+\)\/, 1\]/);
-    expect(buildLane).toMatch(/number = ios_build_number/);
+  it('numbers the build with the versionCode release.sh passes, since the Mac has no app/android/', () => {
+    expect(fastfile).not.toMatch(/build\.gradle/);
+    expect(buildLane).toMatch(/lane :build do \|options\|/);
+    expect(buildLane).toMatch(/number = Integer\(options\[:build_number\]\.to_s, exception: false\) \|\| UI\.user_error!/);
     expect(buildLane).toMatch(/ios_build_store_ipa\(number\)/);
+    expect(fastfile).toMatch(/ipa = build\(build_number: options\[:build_number\]\)/);
   });
 
-  it('refuses a number TestFlight already has for this version, instead of an upload Apple rejects', () => {
+  it('refuses a number TestFlight already has for this version, before the slow web build', () => {
     expect(buildLane).toMatch(/latest_testflight_build_number\([^)]*version: ios_marketing_version/);
-    expect(buildLane).toMatch(/UI\.user_error!/);
+    expect(buildLane.indexOf('if uploaded == number')).toBeLessThan(buildLane.indexOf('ios_build_web_and_sync'));
+    expect(buildLane).toMatch(/elsif uploaded > number/);
   });
 
   const betaLane = fastfile.slice(fastfile.indexOf('lane :beta do'), fastfile.indexOf('lane :metadata do'));
