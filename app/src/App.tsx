@@ -9,7 +9,6 @@ import { unfollowed } from './logic/follow';
 import { boot, nowOverride, refresh, toggleTick, useAppData, viewOf } from './store';
 import { Book } from './ui/Book';
 import { Lesson } from './ui/Lesson';
-import { Courses } from './ui/Courses';
 import { Chooser, FollowNotice, NotFollowed } from './ui/Follow';
 import { Links } from './ui/Links';
 import { Home } from './ui/Home';
@@ -17,6 +16,7 @@ import { LiveSheet } from './ui/LiveSheet';
 import { MiniPlayer } from './ui/MiniPlayer';
 import { Notifications } from './ui/Notifications';
 import { About } from './ui/About';
+import { More } from './ui/More';
 import { nativeUI } from './platform';
 import { ar, arText } from './ui/format';
 import { NavBar } from './ui/NavBar';
@@ -87,8 +87,8 @@ export function App() {
   let page = null;
   if (route.name === 'home') {
     page = <Home state={state} ticks={ticks} now={now} error={error} onTick={onTick} onPlay={onPlay} onLive={onLive} listening={listeningLive(livePlayer, playerSrc)} onRetry={() => void refresh()} notice={notice()} />;
-  } else if (route.name === 'courses') {
-    page = <Courses state={state} notice={notice(true)} />;
+  } else if (route.name === 'more') {
+    page = <More state={data.state} follow={follow ?? null} />;
   } else if (route.name === 'course') {
     const course = state?.courses.find((c) => c.id === route.id);
     if (course && state) {
@@ -101,7 +101,7 @@ export function App() {
   } else if (route.name === 'notifications') {
     page = native ? <Notifications state={state} notice={notice(true)} /> : <About native={false} />;
   } else if (route.name === 'about') {
-    page = <About native={native} back={native ? '#/links' : undefined} />;
+    page = <About native={native} />;
   } else if (route.name === 'follow') {
     if (follow) page = <Chooser key={follow.ids.join()} state={data.state} follow={follow} first={false} />;
   } else if (route.name === 'links') {

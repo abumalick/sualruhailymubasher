@@ -1,4 +1,5 @@
 import { APP_NAME, CONTACT_EMAIL, MIXLR_URL, PRIVACY_URL, SHEIKH_SITE, STORES } from '../site';
+import { Back } from './Back';
 import { Icon } from './Star';
 
 function Row({ title, sub, href }: { title: string; sub: string; href: string }) {
@@ -15,15 +16,11 @@ function Row({ title, sub, href }: { title: string; sub: string; href: string })
   );
 }
 
-export function About({ native, back }: { native: boolean; back?: string }) {
+export function About({ native }: { native: boolean }) {
   return (
     <>
       <div class="bar">
-        {back && (
-          <a class="back" href={back} aria-label="رجوع">
-            <Icon id="i-back" />
-          </a>
-        )}
+        <Back fallback="#/more" />
         <div class="t">
           <b>عن التطبيق</b>
           <span>{APP_NAME}</span>

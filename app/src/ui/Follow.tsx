@@ -6,6 +6,7 @@ import { nativeUI } from '../platform';
 import { navigate } from '../router';
 import { chooseCourses, dismissFollowHint, refresh } from '../store';
 import { clock12, schedule, slotName } from './format';
+import { Back } from './Back';
 import { Icon } from './Star';
 
 export function Chooser({ state, follow, first, onHold }: { state: StateDTO | null; follow: Follow | null; first: boolean; onHold?: (hold: boolean) => void }) {
@@ -42,9 +43,7 @@ export function Chooser({ state, follow, first, onHold }: { state: StateDTO | nu
         </div>
       ) : (
         <div class="bar">
-          <a class="back" href="#/" aria-label="رجوع">
-            <Icon id="i-back" />
-          </a>
+          <Back fallback="#/more" />
           <div class="t">
             <b>الدروس التي تتابعها</b>
             <span>{nativeUI() ? 'يتغيّر معها ما تراه وما يصلك من تنبيهات' : 'يتغيّر معها ما تراه'}</span>

@@ -2,6 +2,7 @@ import { courseTopic, LIVE_OTHER_TOPIC, type CourseDTO, type StateDTO } from '@a
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { askPermission, loadTopics, pushPermission, setTopic } from '../push';
+import { Back } from './Back';
 import { slotName } from './format';
 
 const REMINDER = {
@@ -44,6 +45,7 @@ export function Notifications({ state, notice }: { state: StateDTO | null; notic
   return (
     <>
       <div class="bar">
+        <Back fallback="#/more" />
         <div class="t">
           <b>التنبيهات</b>
           <span>اختر ما يصلك من كل درس تتابعه</span>

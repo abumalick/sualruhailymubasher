@@ -25,7 +25,6 @@ import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { followOnly } from '../src/logic/follow';
 import { About } from '../src/ui/About';
-import { Links } from '../src/ui/Links';
 import { tabs } from '../src/ui/NavBar';
 
 const tabLabels = () => [...document.querySelectorAll('.nav a')].map((a) => a.textContent);
@@ -102,11 +101,11 @@ describe('App on the web', () => {
     expect(document.querySelector('.nav a.on')!.textContent).toBe('عن التطبيق');
   });
 
-  it('#/about opens the About page without a back button', async () => {
+  it('#/about opens the About page with a way back to المزيد', async () => {
     await app('#/about');
     await screen.findByText(/هذا تطبيق غير رسمي/);
     expect(document.documentElement.classList.contains('web')).toBe(true);
-    expect(screen.queryByRole('link', { name: 'رجوع' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/more');
   });
 
   it('the course chooser does not promise notifications', async () => {
@@ -132,23 +131,11 @@ describe('App in the mobile app', () => {
     await screen.findByText(/هذا تطبيق غير رسمي/);
     expect(document.querySelector('.nav a.on')!.textContent).toBe('روابط');
     expect(document.documentElement.classList.contains('web')).toBe(false);
-    expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/links');
+    expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/more');
   });
 
   it('the course chooser still mentions notifications', async () => {
     await app('#/follow');
     await screen.findByText('يتغيّر معها ما تراه وما يصلك من تنبيهات');
-  });
-});
-
-describe('notification links outside the tab', () => {
-  it('روابط lists عن التطبيق in the mobile app only (the web has it as a tab)', () => {
-    platform.native = true;
-    const { unmount } = render(<Links state={FIXTURE_STATE} />);
-    expect(screen.getByRole('link', { name: /عن التطبيق/ }).getAttribute('href')).toBe('#/about');
-    unmount();
-    platform.native = false;
-    render(<Links state={FIXTURE_STATE} />);
-    expect(screen.queryByRole('link', { name: /عن التطبيق/ })).toBeNull();
   });
 });
