@@ -212,3 +212,15 @@ button.lesson { width: 100%; text-align: start; }
   .web .scroll { padding-inline: calc((100% - 720px) / 2); }
   .web .nav { padding-inline: calc((100% - 560px) / 2); }
 }
+.ob .obtop { display: flex; align-items: center; justify-content: space-between; min-height: 30px; }
+.ob .obtop .chip { margin-inline-start: auto; }
+.ob .intro { padding-top: 4px; }
+.ob .pick b { display: inline-flex; align-items: center; gap: 6px; }
+.ob .pick b svg.slot { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.dots i.on { width: 20px; border-radius: 99px; background: var(--gold); }
+.frame { position: relative; border: 1px dashed var(--line); border-radius: 18px; padding: 22px 12px 14px; }
+.frame > :not(.flabel) { pointer-events: none; }
+.frame .flabel { position: absolute; top: -9px; inset-inline-start: 14px; padding: 0 8px; background: var(--bg); font: 600 11px var(--ui); color: var(--gold-hi); }
+.ob .notifs .lesson { min-height: 44px; }

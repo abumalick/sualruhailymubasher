@@ -86,3 +86,8 @@ export function summary(all: CourseDTO[], ids: string[]): string {
   const names = picked.map((c) => courseLabel(c, all)).join(' و');
   return picked.length === 1 ? `${names} فقط` : names;
 }
+
+export const REMINDER: Record<Slot, string> = {
+  fajr: 'مساء اليوم السابق · ٩:٠٠ م',
+  maghrib: 'عصر يوم الدرس · ٣:٣٠ م',
+};

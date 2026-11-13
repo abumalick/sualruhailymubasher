@@ -37,11 +37,12 @@ describe('routes', () => {
 });
 
 describe('المزيد', () => {
-  it('in the mobile app lists notifications, links and about', () => {
+  it('in the mobile app lists notifications, the tour, links and about', () => {
     platform.native = true;
     render(<More />);
     expect(rows()).toEqual([
       ['التنبيهات', '#/notifications'],
+      ['كيف يعمل التطبيق', '#/welcome'],
       ['روابط', '#/links'],
       ['عن التطبيق', '#/about'],
     ]);
@@ -49,7 +50,7 @@ describe('المزيد', () => {
 
   it('on the web leaves notifications out', () => {
     render(<More />);
-    expect(rows().map((r) => r[0])).toEqual(['روابط', 'عن التطبيق']);
+    expect(rows().map((r) => r[0])).toEqual(['كيف يعمل التطبيق', 'روابط', 'عن التطبيق']);
   });
 });
 

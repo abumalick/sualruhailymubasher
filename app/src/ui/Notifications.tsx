@@ -3,14 +3,9 @@ import { useEffect, useState } from 'preact/hooks';
 import type { Prefs } from '../logic/prefs';
 import { askPermission, pushPermission } from '../push';
 import { Back } from './Back';
-import { slotName } from './format';
+import { REMINDER, slotName } from './format';
 
-const REMINDER = {
-  fajr: 'مساء اليوم السابق · ٩:٠٠ م',
-  maghrib: 'عصر يوم الدرس · ٣:٣٠ م',
-};
-
-function Toggle({ label, hint, on, onToggle }: { label: string; hint?: string; on: boolean; onToggle: () => void }) {
+export function Toggle({ label, hint, on, onToggle }: { label: string; hint?: string; on: boolean; onToggle: () => void }) {
   return (
     <div class="lesson">
       <div class="t">

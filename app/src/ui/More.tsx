@@ -24,6 +24,7 @@ export function More() {
       </div>
       <div class="card more">
         {nativeUI() && <Row href="#/notifications" icon="i-bell" title="التنبيهات" hint="اختر ما يصلك من كل درس" />}
+        <Row href="#/welcome" icon="i-info" title="كيف يعمل التطبيق" hint="جولة قصيرة في التطبيق" />
         <Row href="#/links" icon="i-link" title="روابط" hint="الموقع والقنوات والمجتمعات" />
         <Row href="#/about" icon="i-info" title="عن التطبيق" hint="المصادر وسياسة الخصوصية" />
       </div>

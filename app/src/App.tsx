@@ -4,14 +4,14 @@ import { startLive } from './audio/live';
 import { onBackButton } from './backButton';
 import { backAction, bookBack, CLOSED, listeningLive, nextLivePlayer, type LiveEvent } from './logic/live';
 import { player } from './audio/player';
-import { parseRoute, replaceRoute, useRoute } from './router';
+import { navigate, parseRoute, replaceRoute, useRoute } from './router';
 import { attended } from './logic/prefs';
 import { defaultTab, lessonTabs } from './logic/tabs';
-import { boot, clearLive, nowOverride, refresh, setWanted, toggleTick, useAppData } from './store';
+import { boot, clearLive, finishOnboarding, nowOverride, refresh, setWanted, toggleTick, useAppData } from './store';
 import { liveIntentAction } from './logic/liveIntent';
 import { Book } from './ui/Book';
 import { Lesson } from './ui/Lesson';
-import { Chooser } from './ui/Follow';
+import { Onboarding } from './ui/Onboarding';
 import { Links } from './ui/Links';
 import { LiveSheet } from './ui/LiveSheet';
 import { MiniPlayer } from './ui/MiniPlayer';
@@ -31,16 +31,17 @@ export function App() {
   const data = useAppData();
   const { ticks, error, prefs, onboarded, state } = data;
   const [livePlayer, setLivePlayer] = useState(CLOSED);
-  const [welcome, setWelcome] = useState(false);
   const send = (e: LiveEvent) => setLivePlayer((p) => nextLivePlayer(p, e));
   const [playerSrc, setPlayerSrc] = useState(player.state.src);
   useEffect(() => player.onChange((s) => setPlayerSrc(s.src)), []);
   useEffect(() => void boot(), []);
   const current = useRef(livePlayer);
   current.current = livePlayer;
+  const onboardingBack = useRef<(() => void) | null>(null);
   useEffect(
     () =>
       onBackButton((canGoBack) => {
+        if (onboardingBack.current) return onboardingBack.current();
         const action = backAction(current.current, canGoBack);
         if (action === 'collapse') send({ type: 'collapse' });
         else if (action === 'back') history.back();
@@ -98,12 +99,20 @@ export function App() {
     if (action === 'open') startLive(state, () => send({ type: 'open', live: { ...state.live, isLive: true, courseId: intent.courseId } }));
   }, [route, data.intent, state]);
   if (onboarded === undefined) return <div class="shell" />;
-  if (!onboarded || welcome) {
+  if (!onboarded || route.name === 'welcome') {
     return (
       <div class="shell">
         <Defs />
         <div class="scroll">
-          <Chooser state={state} onHold={setWelcome} />
+          <Onboarding
+            state={state}
+            prefs={prefs ?? null}
+            now={nowOverride() ?? new Date()}
+            replay={!!onboarded}
+            backRef={onboardingBack}
+            onLeave={() => navigate('#/more')}
+            onDone={(p) => void finishOnboarding(p).then(() => navigate('#/'))}
+          />
         </div>
       </div>
     );
