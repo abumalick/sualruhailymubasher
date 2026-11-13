@@ -119,6 +119,7 @@ async function show(width: number, s: (typeof screens)[string]) {
     await userEvent.click(page.getByRole('button', { name: 'متابعة' }));
     await expect.poll(() => container.querySelector('h3')!.textContent).not.toBe(heading);
   }
+  for (const a of container.querySelector('.obstep')?.getAnimations() ?? []) a.finish();
   await fontsLoaded();
   if (s.ready) await expect.poll(() => container.querySelector(s.ready!), { timeout: 20_000 }).toBeTruthy();
   return container;

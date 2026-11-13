@@ -2,24 +2,25 @@ import type { StateDTO } from '@albadr/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { bookBack, liveContext } from '../logic/live';
 import type { Card } from '../logic/onboarding';
-import { previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, screenOffset, type Destination, type Play } from '../logic/preview';
+import { PHONE_HEIGHT, phonePan, PREVIEW_DURATION, previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, STATUS_BAR, type Destination, type Frame, type Play } from '../logic/preview';
 import { BookBar, BookFoot } from './Book';
 import { NextCard, RecordingCard } from './cards';
-import { clock12, dayWord, passageRange, printedPage, slotName } from './format';
+import { ar, arText, clock12, dayWord, passageRange, printedPage, slotName } from './format';
 import { LessonHead, Sec } from './Lesson';
 import { LiveHead } from './LiveSheet';
+import { PlayerBar } from './MiniPlayer';
 import { Icon } from './Star';
 
 const noop = () => {};
 
 const SPOKEN: Record<Play, string> = {
-  live: 'صورة توضيحية: يصلك تنبيه عند بدء البث، فيفتح مشغّل البث المباشر.',
-  review: 'صورة توضيحية: يصلك تنبيه عند نشر التسجيل، فيفتح الدرس على التسجيل.',
-  book: 'صورة توضيحية: يصلك تذكير قبل الدرس، فيفتح الكتاب على مقطع الدرس القادم.',
+  live: 'صورة توضيحية: يصلك تنبيه عند بدء البث، فيفتح مشغّل البث المباشر، وتضغط زر التشغيل فتستمع.',
+  review: 'صورة توضيحية: يصلك تنبيه عند نشر التسجيل، فيفتح الدرس، فتستمع إلى التسجيل ثم تعلّم عليه «راجعتُه».',
+  book: 'صورة توضيحية: يصلك تذكير قبل الدرس، فيفتح الكتاب على مقطع الدرس القادم، فتقرؤه ثم تعلّم عليه «قرأتُه».',
   page: 'صورة توضيحية: يصلك تذكير قبل الدرس، فيفتح صفحة الدرس على الدرس القادم.',
 };
 
-function useReducedMotion(): boolean {
+export function useReducedMotion(): boolean {
   const query = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   const [reduced, setReduced] = useState(!!query?.matches);
   useEffect(() => {
@@ -49,47 +50,76 @@ function useFrame(play: Play, step: string, reduced: boolean) {
   return previewAt(play, elapsed, reduced).frame;
 }
 
-// The live player as it opens over the lesson; Mixlr's own player is drawn, never loaded.
-function LivePlayer({ card, state }: { card: Card; state: StateDTO }) {
+// The live player as it opens over the lesson. Mixlr's player is drawn as its embed looks on air, never loaded.
+function LivePlayer({ card, state, playing }: { card: Card; state: StateDTO; playing: boolean }) {
   const startedAt = state.live.isLive && state.live.courseId === card.course.id ? state.live.startedAt : null;
   return (
     <div class="sheet">
       <div class="lhead">
         <LiveHead ctx={liveContext(card.course, true, startedAt)} onMinimize={noop} onReload={noop} onCollapse={noop} onClose={noop} />
       </div>
-      <div class="pv-mixlr">
-        <span>
-          <Icon id="play" />
-        </span>
-        <b>
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-        </b>
+      <div class="pv-mixlr" data-playing={playing ? '' : undefined}>
+        <div class="mx-top">
+          <img src="/favicon.png" alt="" />
+          <b>{MIXLR_CHANNEL}</b>
+        </div>
+        <div class="mx-mid">
+          <img src="/favicon.png" alt="" />
+          <b>{MIXLR_CHANNEL}</b>
+          <span class="mx-live">
+            <span>Live</span>
+            <span>Event</span>
+          </span>
+        </div>
+        <div class="mx-ctl">
+          <i class="mx-wave">
+            {WAVE.map((h, i) => (
+              <i key={i} style={`--h:${h}`} />
+            ))}
+          </i>
+          <span class="mx-side" />
+          <span class="mx-play">
+            <Icon id={playing ? 'i-stop' : 'play'} />
+          </span>
+          <span class="mx-side" />
+        </div>
       </div>
     </div>
   );
 }
 
-// The book open at the next passage; its page is drawn, never downloaded.
-function BookPage({ card, to }: { card: Card; to: Extract<Destination, { kind: 'book' }> }) {
+const WAVE = [0.3, 0.55, 0.8, 0.45, 1, 0.6, 0.35, 0.7, 0.9, 0.4, 0.65, 0.25, 0.85, 0.5, 0.75, 0.3, 0.95, 0.55, 0.4, 0.8, 0.6, 0.35, 0.7, 0.45, 0.9, 0.3, 0.6, 0.5, 0.75, 0.4];
+
+// The channel's name on Mixlr, as its embed shows it.
+const MIXLR_CHANNEL = 'دروس عبد الرزاق البدر';
+
+// The book open at the next passage, «قرأتُه» in its footer; its page is drawn, never downloaded.
+function BookPage({ card, to, read }: { card: Card; to: Extract<Destination, { kind: 'book' }>; read: boolean }) {
   const { course } = card;
   return (
-    <div class="book">
+    <div class="book pv-tickable">
       <BookBar course={course} range={to.marker ? passageRange(course, to.pdfIndex, to.page) : ''} shown={printedPage(course, to.pdfIndex, to.page)} back={bookBack(course.id)} />
       <div class="pdfwrap">
         <div class="pg pv-page">
           {to.marker && <span class="mkbanner">بداية الدرس تقريبًا</span>}
-          {Array.from({ length: 14 }, (_, i) => (
+          {Array.from({ length: 30 }, (_, i) => (
             <i key={i} />
           ))}
         </div>
       </div>
-      <BookFoot tick={null} />
+      <BookFoot tick={course.next ? { done: read, onTick: noop } : null} />
     </div>
   );
+}
+
+const INERT = { toggle: noop, skip: noop, seek: noop };
+
+// The app's player bar, playing the recording to its end.
+function RecordingPlayer({ card, frame }: { card: Card; frame: Frame }) {
+  if (card.kind !== 'recording' || !(frame.playing || frame.ended)) return null;
+  const { course, lesson } = card;
+  const src = { url: lesson.recordingUrl ?? '', title: `${course.title} · الدرس ${ar(lesson.number)}`, subtitle: arText(lesson.startPoint), kind: 'recording' as const, courseId: course.id };
+  return <PlayerBar s={{ src, playing: frame.playing, position: frame.ended ? PREVIEW_DURATION : 0, duration: PREVIEW_DURATION, error: null }} act={INERT} />;
 }
 
 // A picture of what the notification does: it looks real, plays by itself, and nothing in it can be tapped or focused.
@@ -101,22 +131,22 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
   const frame = useFrame(play, `${card.kind}:${course.id}`, reduced);
   const notice = previewNotice(card, state.live);
   const panel = useRef<HTMLElement>(null);
-  const [geo, setGeo] = useState<{ scale: number; bannerScale: number; offset: number } | null>(null);
+  const [geo, setGeo] = useState<{ scale: number; bannerScale: number; pan: number } | null>(null);
 
   useLayoutEffect(() => {
     const el = panel.current!;
     const measure = () => {
       const { scale, bannerScale } = previewGeometry(el.clientWidth);
       const target = el.querySelector<HTMLElement>('.pv-target');
-      const banner = el.querySelector<HTMLElement>('.pv-banner')!;
-      setGeo({ scale, bannerScale, offset: target ? screenOffset(target.offsetTop, frame.still, scale, banner.offsetHeight) : 0 });
+      const bottom = frame.focus === 'bottom' ? PHONE_HEIGHT : frame.focus === 'target' && target ? STATUS_BAR + target.offsetTop + target.offsetHeight + 12 : null;
+      setGeo({ scale, bannerScale, pan: phonePan(el.clientHeight, scale, bottom) });
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [course.id, card.kind, frame.still]);
+  }, [course.id, card.kind, frame.focus]);
 
   const block = (e: Event) => {
     e.preventDefault();
@@ -126,8 +156,7 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
   const latest = course.latest[0];
   const recording = card.kind === 'recording' ? card.lesson : latest?.recordingUrl ? latest : null;
   const onPage = (kind: Card['kind']) => (to.kind === 'lesson' && card.kind === kind ? (play === 'review' ? 'pv-target pv-tickable' : 'pv-target') : undefined);
-  const scrolled = to.kind === 'lesson' && frame.opened;
-  const style = geo ? `--s:${geo.scale};--bs:${geo.bannerScale};--pv-y:${scrolled ? geo.offset : 0}px` : undefined;
+  const style = geo ? `--s:${geo.scale};--bs:${geo.bannerScale};--pv-pan:${geo.pan}px` : undefined;
   return (
     <>
       <p class="sr">{SPOKEN[play]}</p>
@@ -141,6 +170,8 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
         data-to={to.kind}
         data-banner={frame.banner}
         data-tap={frame.tap ?? undefined}
+        data-focus={frame.focus}
+        data-playing={frame.playing ? '' : undefined}
         data-spot={frame.spot ? '' : undefined}
         data-fade={frame.fade ? '' : undefined}
         data-still={frame.still ? '' : undefined}
@@ -171,8 +202,9 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
                   </>
                 )}
               </div>
-              {frame.opened && to.kind === 'live' && <LivePlayer card={card} state={state} />}
-              {frame.opened && to.kind === 'book' && <BookPage card={card} to={to} />}
+              {frame.opened && to.kind === 'live' && <LivePlayer card={card} state={state} playing={frame.playing} />}
+              {frame.opened && to.kind === 'book' && <BookPage card={card} to={to} read={frame.done} />}
+              {frame.opened && <RecordingPlayer card={card} frame={frame} />}
             </div>
           </div>
         </div>

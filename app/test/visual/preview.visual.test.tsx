@@ -89,13 +89,64 @@ it('the phone is drawn smaller than the screen, and what it opens stays inside i
   expect(book.right).toBeLessThanOrEqual(screen.right + 0.5);
 });
 
-it('with reduced motion the still frame puts the recording card just under the notification, highlighted, with nothing moving', async () => {
+// Where the story ends, the control it taps sits inside the picture, above its caption.
+const END: Record<'live' | 'rec' | 'prep', string> = { live: '.mx-play', rec: '.pv-target .chip[aria-pressed]', prep: '.pdffoot .chip[aria-pressed]' };
+
+for (const width of [320, 390]) {
+  for (const step of ['live', 'rec', 'prep'] as const) {
+    it(`${step} at ${width}px with reduced motion rests in the app, the control it tapped in view above the caption, the notification gone, nothing moving`, async () => {
+      await commands.emulateMedia({ reducedMotion: 'reduce' });
+      const pv = await show(step, width);
+      const panel = pv.getBoundingClientRect();
+      const cap = pv.querySelector<HTMLElement>('.pv-cap')!.getBoundingClientRect();
+      const control = pv.querySelector<HTMLElement>(END[step])!.getBoundingClientRect();
+      expect(control.top).toBeGreaterThanOrEqual(panel.top);
+      expect(control.bottom).toBeLessThanOrEqual(cap.top);
+      expect(control.left).toBeGreaterThanOrEqual(panel.left);
+      expect(control.right).toBeLessThanOrEqual(panel.right);
+      expect(getComputedStyle(pv.querySelector('.pv-banner')!).opacity).toBe('0');
+      expect(getComputedStyle(pv.querySelector('.pv-app')!).opacity).toBe('1');
+      expect(document.getAnimations().filter((a) => pv.contains((a.effect as KeyframeEffect).target as Node))).toEqual([]);
+    });
+  }
+
+  it(`rec at ${width}px: the app's player bar sits at the bottom of the phone, in view, under the ticked card`, async () => {
+    await commands.emulateMedia({ reducedMotion: 'reduce' });
+    const pv = await show('rec', width);
+    const cap = pv.querySelector<HTMLElement>('.pv-cap')!.getBoundingClientRect();
+    const bar = pv.querySelector<HTMLElement>('.pv-app > .mp')!.getBoundingClientRect();
+    const screen = pv.querySelector<HTMLElement>('.pv-screen')!.getBoundingClientRect();
+    const card = pv.querySelector<HTMLElement>('.pv-target')!.getBoundingClientRect();
+    expect(Math.abs(bar.bottom - screen.bottom)).toBeLessThan(1);
+    expect(bar.top).toBeLessThan(cap.top);
+    expect(card.bottom).toBeLessThanOrEqual(bar.top);
+  });
+
+  it(`at ${width}px the tapped controls are in view when the ghost finger presses them`, async () => {
+    for (const [step, ms, sel] of [
+      ['live', 5500, '.mx-play'],
+      ['rec', 5500, '.pv-target button.chip.pri'],
+      ['rec', 8700, '.pv-target .chip[aria-pressed]'],
+      ['prep', 5700, '.pdffoot .chip[aria-pressed]'],
+    ] as const) {
+      cleanup();
+      start = Date.now();
+      const pv = await show(step, width);
+      await at(ms);
+      const panel = pv.getBoundingClientRect();
+      const cap = pv.querySelector<HTMLElement>('.pv-cap')!.getBoundingClientRect();
+      const control = pv.querySelector<HTMLElement>(sel)!.getBoundingClientRect();
+      expect(control.top, `${step} ${sel}`).toBeGreaterThanOrEqual(panel.top);
+      expect(control.bottom, `${step} ${sel}`).toBeLessThanOrEqual(cap.top);
+    }
+  });
+}
+
+it('the drawn Mixlr player is never loaded, and the app’s big red play button never appears', async () => {
   await commands.emulateMedia({ reducedMotion: 'reduce' });
-  const pv = await show('rec', 390);
-  const banner = pv.querySelector<HTMLElement>('.pv-banner')!.getBoundingClientRect();
-  const card = pv.querySelector<HTMLElement>('.pv-target')!.getBoundingClientRect();
-  expect(card.top).toBeGreaterThanOrEqual(banner.bottom);
-  expect(card.top - banner.bottom).toBeLessThan(30);
-  expect(pv.dataset.spot).toBe('');
-  expect(document.getAnimations().filter((a) => pv.contains((a.effect as KeyframeEffect).target as Node))).toEqual([]);
+  const pv = await show('live', 390);
+  expect(pv.querySelector('iframe')).toBeNull();
+  expect(document.querySelector('.disc, .go-live')).toBeNull();
+  const play = pv.querySelector<HTMLElement>('.mx-play')!.getBoundingClientRect();
+  expect(play.width).toBeLessThan(40);
 });

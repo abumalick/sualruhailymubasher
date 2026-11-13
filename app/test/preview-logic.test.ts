@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { liveIntentAction } from '../src/logic/liveIntent';
 import { cardFor } from '../src/logic/onboarding';
-import { BEATS, PLAYS, previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, screenOffset, still } from '../src/logic/preview';
+import { BEATS, CAPTION_ROOM, PHONE_HEIGHT, phonePan, PLAYS, previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, still } from '../src/logic/preview';
 import { routeForPush } from '../src/logic/topics';
 import { bookHref } from '../src/ui/format';
 
@@ -43,7 +43,7 @@ describe('previewDestination', () => {
 });
 
 describe('previewPlay', () => {
-  it('only shows the live player and the book; on the lesson page highlights the card, and ticks only the recording', () => {
+  it('plays the live player, reads the book, reviews the recording, and only shows the lesson page of a bookless course', () => {
     const rec = cardFor('rec', [tafsir], quiet)!;
     const prep = cardFor('prep', [tafsir], quiet)!;
     expect(previewPlay(cardFor('live', [tafsir], quiet)!, { kind: 'live' })).toBe('live');
@@ -55,7 +55,7 @@ describe('previewPlay', () => {
 
 describe('previewAt', () => {
   it('opens on a quiet phone, then the notification slides down small, then grows to be read', () => {
-    expect(at('live', 0)).toMatchObject({ banner: 'hidden', opened: false, spot: false, tap: null });
+    expect(at('live', 0)).toMatchObject({ banner: 'hidden', opened: false, spot: false, tap: null, focus: 'top' });
     expect(at('live', 700).banner).toBe('small');
     expect(at('live', 1400).banner).toBe('big');
   });
@@ -66,33 +66,50 @@ describe('previewAt', () => {
     expect(at('live', 3700)).toMatchObject({ banner: 'gone', opened: true });
   });
 
-  it('the live player and the book are only shown: nothing is highlighted, pressed or ticked in them', () => {
-    for (const to of ['live', 'book'] as const) {
-      for (let ms = 0; ms < loop(to); ms += 100) {
-        const f = at(to, ms);
-        expect(f.spot).toBe(false);
-        expect(f.tap).not.toBe('tick');
-        expect(f.done).toBe(false);
-      }
+  it('live: the player opens at its top, then the phone shows Mixlr’s controls, the play button is tapped and it plays', () => {
+    expect(at('live', 3700)).toMatchObject({ focus: 'top', playing: false });
+    expect(at('live', 4500)).toMatchObject({ focus: 'bottom', playing: false, tap: null });
+    expect(at('live', 5500)).toMatchObject({ focus: 'bottom', tap: 'play', playing: false });
+    expect(at('live', 5900)).toMatchObject({ tap: null, playing: true });
+  });
+
+  it('live: nothing is highlighted or ticked, and nothing plays before the tap on play', () => {
+    for (let ms = 0; ms < loop('live'); ms += 100) {
+      const f = at('live', ms);
+      expect(f.spot).toBe(false);
+      expect(f.done).toBe(false);
+      if (f.playing) expect(ms).toBeGreaterThanOrEqual(BEATS.live.find((b) => b.name === 'playing')!.at);
     }
   });
 
-  it('on the lesson page the recording card is highlighted, then a ghost tap ticks it', () => {
-    expect(at('review', 4400)).toMatchObject({ opened: true, spot: true, tap: null, done: false });
-    expect(at('review', 6100)).toMatchObject({ spot: true, tap: 'tick', done: false });
-    expect(at('review', 6500)).toMatchObject({ spot: true, tap: null, done: true });
+  it('book: opens at the passage, then the phone shows the footer with «قرأتُه» not yet ticked, then it is tapped and ticked', () => {
+    expect(at('book', 3700)).toMatchObject({ focus: 'top', done: false });
+    expect(at('book', 4500)).toMatchObject({ focus: 'bottom', done: false, tap: null });
+    expect(at('book', 5700)).toMatchObject({ tap: 'tick', done: false });
+    expect(at('book', 6100)).toMatchObject({ tap: null, done: true });
+    for (let ms = 0; ms < loop('book'); ms += 100) expect(at('book', ms).playing).toBe(false);
+  });
+
+  it('review: the recording card is highlighted, «استمع» is tapped, the player plays it to the end, then «راجعتُه» is ticked', () => {
+    expect(at('review', 4400)).toMatchObject({ opened: true, spot: true, focus: 'target', tap: null, playing: false, done: false });
+    expect(at('review', 5500)).toMatchObject({ tap: 'listen', playing: false });
+    expect(at('review', 5900)).toMatchObject({ tap: null, playing: true, ended: false, focus: 'bottom' });
+    expect(at('review', 8100)).toMatchObject({ playing: false, ended: true, done: false });
+    expect(at('review', 8700)).toMatchObject({ tap: 'tick', ended: true, done: false });
+    expect(at('review', 9100)).toMatchObject({ tap: null, ended: true, done: true });
   });
 
   it('a preparation reminder that opens the lesson page only highlights the card: «قرأتُه» is never ticked', () => {
-    expect(at('page', 4400)).toMatchObject({ opened: true, spot: true });
+    expect(at('page', 4400)).toMatchObject({ opened: true, spot: true, focus: 'target' });
     for (let ms = 0; ms < loop('page'); ms += 100) {
       expect(at('page', ms).tap).not.toBe('tick');
       expect(at('page', ms).done).toBe(false);
+      expect(at('page', ms).playing).toBe(false);
     }
   });
 
-  it('fades out at the end of a play, still ticked, and starts again', () => {
-    expect(at('review', loop('review') - 100)).toMatchObject({ fade: true, done: true });
+  it('fades out at the end of a play, in its end state, and starts again', () => {
+    expect(at('review', loop('review') - 100)).toMatchObject({ fade: true, done: true, ended: true });
     expect(at('review', loop('review') + 100)).toEqual(at('review', 100));
   });
 
@@ -109,11 +126,21 @@ describe('previewAt', () => {
     for (const ms of [0, 1400, 5000]) expect(previewAt('book', ms, true)).toEqual({ frame: still('book'), wait: null });
   });
 
-  it('the still frame shows the notification above what it opened, with no tap; only the lesson card is highlighted', () => {
-    expect(still('live')).toEqual({ banner: 'big', opened: true, spot: false, tap: null, done: false, fade: false, still: true });
-    expect(still('review').spot).toBe(true);
-    expect(still('page').spot).toBe(true);
-    expect(still('book').spot).toBe(false);
+  it('the still frame is the end of the story, in the app: no notification, no tap, nothing fading', () => {
+    for (const to of ['live', 'review', 'page', 'book'] as const) {
+      const f = still(to);
+      expect(f.banner === 'hidden' || f.banner === 'gone').toBe(true);
+      expect(f).toMatchObject({ opened: true, tap: null, fade: false, still: true });
+      const lastBeforeOut = BEATS[to].find((b) => b.name === 'out')!.at - 1;
+      expect({ ...f, still: false }).toEqual({ ...at(to, lastBeforeOut), tap: null });
+    }
+  });
+
+  it('the still frames: live plays, the recording is listened to and ticked, the book’s passage is ticked read', () => {
+    expect(still('live')).toMatchObject({ focus: 'bottom', playing: true, done: false, spot: false });
+    expect(still('review')).toMatchObject({ focus: 'bottom', playing: false, ended: true, done: true, spot: true });
+    expect(still('book')).toMatchObject({ focus: 'bottom', done: true, spot: false });
+    expect(still('page')).toMatchObject({ focus: 'target', done: false, spot: true });
   });
 
   it('waits exactly until the next beat', () => {
@@ -122,10 +149,11 @@ describe('previewAt', () => {
     expect(previewAt('live', second - 100, false).wait).toBe(100);
   });
 
-  it('every beat table starts at 0, rises, and ends on the loop length', () => {
+  it('every beat table starts at 0, rises, fades out, and ends on the loop length', () => {
     for (const list of Object.values(BEATS)) {
       expect(list[0].at).toBe(0);
       for (let i = 1; i < list.length; i++) expect(list[i].at).toBeGreaterThan(list[i - 1].at);
+      expect(list.at(-2)!.name).toBe('out');
       expect(list.at(-1)!.name).toBe('end');
     }
   });
@@ -149,20 +177,23 @@ describe('previewGeometry', () => {
   });
 });
 
-describe('screenOffset', () => {
-  it('scrolls the card to the top of the phone screen once opened', () => {
-    expect(screenOffset(400, false, 0.45, 80)).toBe(-386);
+describe('phonePan', () => {
+  const panelY = (screenY: number, scale: number, pan: number) => 14 + 5 + screenY * scale + pan;
+
+  it('leaves the phone where it is when nothing below has to be shown', () => {
+    expect(phonePan(340, 0.47, null)).toBe(0);
   });
 
-  it('never scrolls past the top of the lesson page', () => {
-    expect(screenOffset(5, false, 0.45, 80)).toBe(0);
-    expect(screenOffset(0, true, 0.45, 80)).toBe(0);
+  it('leaves it when what must be seen is already above the caption', () => {
+    expect(phonePan(340, 0.47, 300)).toBe(0);
   });
 
-  it('in the still frame, places the card just under the grown notification', () => {
-    const scale = 0.45;
-    const y = screenOffset(400, true, scale, 80);
-    expect(14 + 5 + (44 + 400 + y) * scale).toBeCloseTo(10 + 80 + 12);
+  it('slides the phone up just enough to bring the bottom of the screen above the caption, on small and large panels', () => {
+    for (const [height, scale] of [[180, 0.379], [340, 0.472]]) {
+      const pan = phonePan(height, scale, PHONE_HEIGHT);
+      expect(pan).toBeLessThan(0);
+      expect(panelY(PHONE_HEIGHT, scale, pan)).toBeCloseTo(height - CAPTION_ROOM);
+    }
   });
 });
 

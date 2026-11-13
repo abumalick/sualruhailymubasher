@@ -11,6 +11,8 @@ vi.mock('@capacitor/preferences', () => ({
     keys: async () => ({ keys: [...store.keys()] }),
   },
 }));
+const zoom = vi.hoisted(() => ({ reset: vi.fn() }));
+vi.mock('../src/zoom', async (real) => ({ ...(await real<typeof import('../src/zoom')>()), resetZoom: zoom.reset }));
 vi.mock('../src/api', () => ({ API_BASE: '', loadCachedState: vi.fn(), fetchState: vi.fn(), fetchLessons: vi.fn(async () => []) }));
 
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
@@ -151,5 +153,21 @@ describe('NavBar', () => {
   it('the lesson tab stays active in its book', () => {
     render(<NavBar route={{ name: 'book', id: 'tafsir-saadi', pdfIndex: 0, page: 1, marker: false }} tabs={tabs} />);
     expect(document.querySelector('.nav a.on')!.textContent).toBe('الفجر');
+  });
+});
+
+describe('zoom', () => {
+  it('leaving the book, where the page may be pinch-zoomed, brings the page back to its normal scale', async () => {
+    await app(FIXTURE_STATE, MON_2110);
+    await screen.findAllByText(FIXTURE_STATE.courses[0].title);
+    zoom.reset.mockClear();
+    await go('#/book/tafsir-saadi/0/312?marker=1');
+    await waitFor(() => expect(document.querySelector('.book')).toBeTruthy());
+    expect(zoom.reset).not.toHaveBeenCalled();
+    await go('#/course/tafsir-saadi');
+    await waitFor(() => expect(document.querySelector('.book')).toBeNull());
+    expect(zoom.reset).toHaveBeenCalledOnce();
+    await go('#/more');
+    expect(zoom.reset).toHaveBeenCalledOnce();
   });
 });

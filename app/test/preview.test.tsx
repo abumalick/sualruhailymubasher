@@ -42,16 +42,25 @@ describe('the live preview', () => {
     expect(sheet.textContent).toContain('يبدأ الدرس من');
   });
 
-  it('draws the Mixlr player and never loads it', async () => {
+  it('then taps Mixlr’s play button, and the drawn player plays: stop button, waves moving; nothing is loaded', async () => {
     const pv = show('live');
-    await after(4000);
-    expect(pv.querySelector('.pv-mixlr')).toBeTruthy();
+    await after(4500);
+    const mixlr = pv.querySelector<HTMLElement>('.pv-mixlr')!;
+    expect(pv.dataset.focus).toBe('bottom');
+    expect(mixlr.dataset.playing).toBeUndefined();
+    expect(mixlr.querySelector('.mx-play use')!.getAttribute('href')).toBe('#play');
+    await after(1000);
+    expect(pv.dataset.tap).toBe('play');
+    await after(400);
+    expect(mixlr.dataset.playing).toBe('');
+    expect(mixlr.querySelector('.mx-play use')!.getAttribute('href')).toBe('#i-stop');
     expect(pv.querySelector('iframe')).toBeNull();
+    expect(pv.querySelector('audio')).toBeNull();
   });
 });
 
 describe('the recording preview', () => {
-  it('scrolls the lesson page to its recording card, highlights it, and a ghost tap ticks «راجعتُه»', async () => {
+  it('highlights the recording card, taps «استمع», plays it in the app’s player to the end, then ticks «راجعتُه»', async () => {
     const pv = show('rec');
     await after(4400);
     expect(pv.dataset.spot).toBe('');
@@ -59,7 +68,19 @@ describe('the recording preview', () => {
     expect(card.textContent).toContain('التسجيل متاح');
     const tick = card.querySelector('.chip[aria-pressed]')!;
     expect(tick.getAttribute('aria-pressed')).toBe('false');
-    await after(1700);
+    expect(pv.querySelector('.mp')).toBeNull();
+    await after(1100);
+    expect(pv.dataset.tap).toBe('listen');
+    await after(400);
+    const bar = pv.querySelector('.pv-app > .mp')!;
+    expect(bar.querySelector('.b')!.textContent).toBe(`${tafsir.title} · الدرس ٤٤٣`);
+    expect(bar.querySelector('.mini')!.getAttribute('aria-label')).toBe('إيقاف مؤقت');
+    expect(pv.dataset.focus).toBe('bottom');
+    await after(2200);
+    expect(bar.querySelector('.mini')!.getAttribute('aria-label')).toBe('تشغيل');
+    expect(bar.querySelector<HTMLElement>('.prog')!.style.width).toBe('100%');
+    expect(tick.getAttribute('aria-pressed')).toBe('false');
+    await after(600);
     expect(pv.dataset.tap).toBe('tick');
     await after(400);
     expect(tick.getAttribute('aria-pressed')).toBe('true');
@@ -67,16 +88,23 @@ describe('the recording preview', () => {
 });
 
 describe('the preparation preview', () => {
-  it('opens the book at the next passage, marked, and only shows it', async () => {
+  it('opens the book at the next passage, marked, shows «قرأتُه» not yet ticked, then taps it and it shows read', async () => {
     const pv = show('prep');
     await after(3700);
     const book = pv.querySelector('.book')!;
     const next = tafsir.next!;
     expect(book.querySelector('.pdfbar .pill')!.textContent).toBe(`ص ${ar(printedPage(tafsir, next.pdfIndex ?? 0, next.startPage)!)}`);
     expect(book.querySelector('.mkbanner')!.textContent).toBe('بداية الدرس تقريبًا');
-    await after(2400);
-    expect(pv.dataset.tap).toBeUndefined();
-    expect(book.querySelector('.pdffoot .chip')).toBeNull();
+    const read = book.querySelector('.pdffoot .chip[aria-pressed]')!;
+    expect(read.textContent).toContain('قرأتُه');
+    expect(read.getAttribute('aria-pressed')).toBe('false');
+    await after(800);
+    expect(pv.dataset.focus).toBe('bottom');
+    await after(1200);
+    expect(pv.dataset.tap).toBe('tick');
+    expect(read.getAttribute('aria-pressed')).toBe('false');
+    await after(400);
+    expect(read.getAttribute('aria-pressed')).toBe('true');
   });
 });
 
@@ -112,22 +140,33 @@ describe('every preview', () => {
     expect(pv.dataset.banner).toBe('hidden');
   });
 
-  it(`plays ${PLAYS} times, then rests on the still frame and stops its timers`, async () => {
+  it(`plays ${PLAYS} times, then rests in the app, on the book with «قرأتُه» ticked, and stops its timers`, async () => {
     const pv = show('prep');
     await after(PLAYS * BEATS.book.at(-1)!.at + 10);
     expect(pv.dataset.still).toBe('');
-    expect(pv.dataset.banner).toBe('big');
-    expect(pv.querySelector('.book')).toBeTruthy();
+    expect(pv.dataset.banner).not.toBe('big');
+    expect(pv.querySelector('.book .pdffoot .chip[aria-pressed]')!.getAttribute('aria-pressed')).toBe('true');
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('with reduced motion shows the still frame at once and sets no timer', () => {
-    window.matchMedia = ((q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)', addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+  const reduceMotion = () =>
+    (window.matchMedia = ((q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)', addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia);
+
+  it('with reduced motion shows the end at once, Mixlr playing with no notification, and sets no timer', () => {
+    reduceMotion();
     const pv = show('live');
     expect(pv.dataset.still).toBe('');
-    expect(pv.dataset.banner).toBe('big');
-    expect(pv.querySelector('.sheet')).toBeTruthy();
+    expect(pv.dataset.banner).not.toBe('big');
+    expect(pv.querySelector('.pv-mixlr')!.hasAttribute('data-playing')).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('with reduced motion the recording rests listened to and ticked, the player bar at its end', () => {
+    reduceMotion();
+    const pv = show('rec');
+    expect(pv.dataset.banner).not.toBe('big');
+    expect(pv.querySelector('.pv-target .chip[aria-pressed]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(pv.querySelector<HTMLElement>('.mp .prog')!.style.width).toBe('100%');
   });
 
   it('ignores taps: inert, hidden from screen readers, with one sentence for them outside it', () => {
