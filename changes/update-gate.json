@@ -1,0 +1,5 @@
+{
+  "platforms": ["android", "ios"],
+  "ar": "ينبّهك التطبيق عند توفر إصدار جديد، ويطلب التحديث إذا لم يعد إصدارك يعمل.",
+  "en": "The app tells you when a new version is available, and asks you to update when yours no longer works."
+}
