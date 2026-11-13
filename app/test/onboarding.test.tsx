@@ -15,6 +15,11 @@ vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => native.
 const fm = vi.hoisted(() => ({
   requestPermissions: vi.fn(async () => ({ receive: 'granted' })),
   checkPermissions: vi.fn(async () => ({ receive: 'prompt' })),
+  addListener: vi.fn(async (_: string, _cb: (e: unknown) => Promise<void>) => ({ remove: async () => {} })),
+  createChannel: vi.fn(async () => {}),
+  subscribeToTopic: vi.fn(async () => {}),
+  unsubscribeFromTopic: vi.fn(async () => {}),
+  getDeliveredNotifications: vi.fn(async () => ({ notifications: [] })),
 }));
 vi.mock('@capacitor-firebase/messaging', () => ({ FirebaseMessaging: fm, Importance: { High: 4 } }));
 const back = vi.hoisted(() => ({ handler: null as null | ((e: { canGoBack: boolean }) => void) }));
@@ -279,3 +284,24 @@ describe('replay from المزيد', () => {
     expect(store.get('prefs')).toBe(before);
   });
 });
+
+describe('a notification tapped before the onboarding is done', () => {
+  const legacy = () => store.set('follow', JSON.stringify({ ids: [fajr.id, maghrib.id], known: { [fajr.id]: 'fajr', [maghrib.id]: 'maghrib' }, fresh: [], hint: false }));
+  async function tap(data: Record<string, string>) {
+    const { initPush } = await import('../src/push');
+    await initPush();
+    const [, listener] = fm.addListener.mock.calls.find(([name]) => name === 'notificationActionPerformed')!;
+    await listener({ notification: { data } });
+  }
+
+  it('goes where the notification leads, even when the onboarding is already up, and the onboarding waits', async () => {
+    legacy();
+    await start();
+    await tap({ kind: 'rec', courseId: fajr.id, number: '443' });
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'أيَّ الدروس تحضر؟' })).toBeNull());
+    expect(location.hash).toBe(`#/course/${fajr.id}`);
+    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
+    expect(store.has('onboarded')).toBe(false);
+  });
+});
+

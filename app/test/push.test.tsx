@@ -29,8 +29,10 @@ const st = vi.hoisted(() => ({
   dataListeners: [] as ((d: unknown) => void)[],
 }));
 const requestLive = vi.hoisted(() => vi.fn());
+const markTapped = vi.hoisted(() => vi.fn());
 vi.mock('../src/store', () => ({
   requestLive,
+  markTapped,
   watchFreshState: (cb: (s: unknown) => void) => {
     st.fresh.push(cb);
     return () => {};
@@ -235,6 +237,7 @@ describe('tapping a notification', () => {
     location.hash = '#/more';
     await tap({ kind: 'live', courseId: 'kitab-tawhid', number: '3' });
     expect(requestLive).toHaveBeenCalledWith({ courseId: 'kitab-tawhid' });
+    expect(markTapped).toHaveBeenCalledOnce();
     expect(location.hash).toBe('#/course/kitab-tawhid');
   });
 

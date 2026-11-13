@@ -15,6 +15,7 @@ export interface AppData {
   prefs?: Prefs | null; // undefined until loaded, null until the listener chooses
   onboarded?: boolean; // undefined until loaded
   intent?: PendingLive | null;
+  tapped?: boolean; // a notification was tapped this session: it goes first, the onboarding waits for the next launch
 }
 
 // A tapped live notification, settled by the first fetch after the tap.
@@ -96,6 +97,8 @@ export function requestLive(intent: LiveIntent): void {
 }
 
 export const clearLive = (): void => update({ intent: null });
+
+export const markTapped = (): void => update({ tapped: true });
 
 export async function toggleTick(kind: TickKind, courseId: string, n: number): Promise<void> {
   const key = `${courseId}:${n}`;

@@ -99,7 +99,7 @@ export function App() {
     if (action === 'open') startLive(state, () => send({ type: 'open', live: { ...state.live, isLive: true, courseId: intent.courseId } }));
   }, [route, data.intent, state]);
   if (onboarded === undefined) return <div class="shell" />;
-  if (!onboarded || route.name === 'welcome') {
+  if ((!onboarded && !data.tapped) || route.name === 'welcome') {
     return (
       <div class="shell">
         <Defs />

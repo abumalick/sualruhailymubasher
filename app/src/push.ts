@@ -5,7 +5,7 @@ import { LIVE_TAG, type PushData, type StateDTO } from '@albadr/shared';
 import { routeForPush } from './logic/topics';
 import { subscriptionPlan, type Prefs } from './logic/prefs';
 import { navigate } from './router';
-import { currentData, currentState, requestLive, watchData, watchFreshState, type AppData } from './store';
+import { currentData, currentState, markTapped, requestLive, watchData, watchFreshState, type AppData } from './store';
 import { loadCachedState } from './api';
 
 const TOPICS_KEY = 'topics';
@@ -111,6 +111,7 @@ export async function initPush(): Promise<void> {
   await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
     const data = event.notification.data;
     if (!isPushData(data)) return;
+    markTapped();
     if (data.kind === 'live' || data.kind === 'live-other') requestLive({ courseId: data.kind === 'live' ? (data.courseId ?? null) : null });
     const route = routeForPush(data, currentState() ?? (await loadCachedState()));
     if (route) navigate(route);
