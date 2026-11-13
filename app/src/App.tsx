@@ -18,6 +18,7 @@ import { MiniPlayer } from './ui/MiniPlayer';
 import { leavesBook, resetZoom } from './zoom';
 import { Notifications } from './ui/Notifications';
 import { About } from './ui/About';
+import { InstallBanner } from './ui/InstallBanner';
 import { More } from './ui/More';
 import { nativeUI } from './platform';
 import { ar, arText } from './ui/format';
@@ -192,6 +193,7 @@ export function App() {
   } else {
     body = (
       <div class="scroll">
+        <InstallBanner />
         {error && (state || route.name !== 'home') && <p class="err">تعذّر التحديث</p>}
         {page}
       </div>

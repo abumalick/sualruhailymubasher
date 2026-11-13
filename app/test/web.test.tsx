@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/preact';
+import { cleanup, fireEvent, render, screen } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const store = new Map<string, string>();
@@ -25,6 +25,7 @@ import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { seedPrefs } from './seed';
 import { About } from '../src/ui/About';
+import { resetInstallBanner } from '../src/ui/InstallBanner';
 
 const tabLabels = () => [...document.querySelectorAll('.nav a')].map((a) => a.textContent);
 
@@ -69,12 +70,12 @@ describe('About', () => {
     expect(screen.queryByText(/Google Play/)).toBeNull();
   });
 
-  it('on the web it points to the mobile apps for notifications, with placeholders until the stores list them', () => {
+  it('on the web it points to the mobile apps for notifications, with a link to each store', () => {
     render(<About native={false} />);
     expect(screen.getByText(/لا تتوفر التنبيهات في نسخة المتصفح/)).toBeTruthy();
-    expect(screen.getByText('Google Play · قريبًا')).toBeTruthy();
-    expect(screen.getByText('App Store · قريبًا')).toBeTruthy();
-    expect(screen.queryByRole('link', { name: /Google Play|App Store/ })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Google Play' }).getAttribute('href')).toBe('https://play.google.com/store/apps/details?id=com.albadrmubasher.app');
+    expect(screen.getByRole('link', { name: 'App Store' }).getAttribute('href')).toBe('https://apps.apple.com/app/id6832876968');
+    expect(screen.queryByText(/قريبًا/)).toBeNull();
     expect(screen.getByRole('link', { name: /سياسة الخصوصية/ }).getAttribute('href')).toBe('/privacy');
   });
 });
@@ -101,6 +102,76 @@ describe('App on the web', () => {
   });
 });
 
+describe('install banner on the web', () => {
+  const ANDROID = 'Mozilla/5.0 (Linux; Android 14; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36';
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
+  const banner = () => document.querySelector('.install');
+  const storeLinks = () => [...banner()!.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
+
+  beforeEach(() => {
+    localStorage.clear();
+    resetInstallBanner();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('invites an Android visitor to Google Play only, above the page', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ANDROID);
+    await app('#/more');
+    expect(banner()!.parentElement!.classList.contains('scroll')).toBe(true);
+    expect(banner()!.parentElement!.firstElementChild).toBe(banner());
+    expect(storeLinks()).toEqual([['Google Play', 'https://play.google.com/store/apps/details?id=com.albadrmubasher.app']]);
+    expect(banner()!.textContent!.replace(/غير رسمي/g, '')).not.toMatch(/رسمي/);
+  });
+
+  it('invites an iPhone visitor to the App Store only', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+    await app('#/more');
+    expect(storeLinks()).toEqual([['App Store', 'https://apps.apple.com/app/id6832876968']]);
+  });
+
+  it('a dismissal is remembered across visits', async () => {
+    await app('#/more');
+    fireEvent.click(screen.getByRole('button', { name: 'إغلاق' }));
+    expect(banner()).toBeNull();
+    expect(localStorage.getItem('install-banner-dismissed')).toBe('1');
+    cleanup();
+    resetInstallBanner();
+    await app('#/about');
+    expect(banner()).toBeNull();
+  });
+
+  it('without storage it still shows, and a dismissal holds for the visit', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    await app('#/more');
+    expect(banner()).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'إغلاق' }));
+    expect(banner()).toBeNull();
+    cleanup();
+    await app('#/about');
+    expect(banner()).toBeNull();
+  });
+
+  it('stays out of the onboarding and the book', async () => {
+    location.hash = '#/';
+    vi.mocked(api.loadCachedState).mockResolvedValue(FIXTURE_STATE);
+    vi.mocked(api.fetchState).mockResolvedValue({ state: FIXTURE_STATE, fresh: true });
+    render(<App />);
+    await screen.findByRole('button', { name: /متابعة|ابدأ/ });
+    expect(banner()).toBeNull();
+    cleanup();
+    location.hash = '#/book/unknown/0/1';
+    seedPrefs(store, FIXTURE_STATE.courses);
+    render(<App />);
+    await screen.findByText('تعذّر تحميل الكتاب');
+    expect(banner()).toBeNull();
+  });
+});
+
 describe('App in the mobile app', () => {
   beforeEach(() => {
     platform.native = true;
@@ -122,5 +193,10 @@ describe('App in the mobile app', () => {
     expect(document.querySelector('.nav a.on')!.textContent).toBe('المزيد');
     expect(document.documentElement.classList.contains('web')).toBe(false);
     expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/more');
+  });
+
+  it('never shows the install banner', async () => {
+    await app('#/more');
+    expect(document.querySelector('.install')).toBeNull();
   });
 });
