@@ -62,7 +62,7 @@ platform :android do
   lane :github_apk do
     load_github_apk_signing_env
     check_google_services
-    sh("cd .. && pnpm --filter app build && cd app && npx cap sync android")
+    sh("cd .. && VITE_ANDROID_UPDATE_URL=https://github.com/abumalick/albadrmubasher/releases/latest pnpm --filter app build && cd app && npx cap sync android")
     gradle(task: "assemble", build_type: "Release", project_dir: ANDROID_DIR)
     sh("cd .. && node scripts/github-apk.mjs publish #{ANDROID_APK}")
   end

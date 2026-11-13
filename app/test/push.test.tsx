@@ -10,7 +10,7 @@ vi.mock('@capacitor/preferences', () => ({
     keys: async () => ({ keys: [...store.keys()] }),
   },
 }));
-vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => true } }));
+vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => true, getPlatform: () => 'android' } }));
 const fm = vi.hoisted(() => ({
   requestPermissions: vi.fn(async () => ({ receive: 'granted' })),
   checkPermissions: vi.fn(async () => ({ receive: 'granted' })),

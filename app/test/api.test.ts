@@ -8,7 +8,7 @@ vi.mock('@capacitor/preferences', () => ({
   },
 }));
 
-import { fetchLessons, fetchState, loadCachedState } from '../src/api';
+import { fetchLessons, fetchState, loadCachedPolicy, loadCachedState } from '../src/api';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 
 const ok = (body: unknown) => async () => new Response(JSON.stringify(body), { status: 200 });
@@ -52,6 +52,24 @@ describe('fetchState', () => {
     expect(await loadCachedState()).toBeNull();
     store.set('state', '{oops');
     expect(await loadCachedState()).toBeNull();
+  });
+});
+
+describe('loadCachedPolicy', () => {
+  const update = { android: { min: '1.0.17', latest: '1.0.17' } };
+
+  it('reads the update field of the last response, even one whose other fields this version cannot read', async () => {
+    await fetchState(ok({ generatedAt: 'x', courses: 'reshaped', update }) as unknown as typeof fetch);
+    expect(await loadCachedState()).toBeNull();
+    expect(await loadCachedPolicy()).toEqual(update);
+  });
+
+  it('is null with no cache, a corrupt one, or no update field', async () => {
+    expect(await loadCachedPolicy()).toBeNull();
+    store.set('state', '{oops');
+    expect(await loadCachedPolicy()).toBeNull();
+    store.set('state', JSON.stringify(FIXTURE_STATE));
+    expect(await loadCachedPolicy()).toBeNull();
   });
 });
 

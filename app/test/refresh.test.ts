@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const handlers = vi.hoisted(() => new Map<string, (e?: unknown) => void>());
 const removed = vi.hoisted(() => ({ n: 0 }));
-vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => true } }));
+vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => true, getPlatform: () => 'android' } }));
 vi.mock('@capacitor/app', () => ({
   App: {
     addListener: async (name: string, cb: (e?: unknown) => void) => {

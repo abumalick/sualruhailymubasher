@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { StateDTO } from '@albadr/shared';
-import { fetchState, loadCachedState } from './api';
+import type { StateDTO, UpdatePolicy } from '@albadr/shared';
+import { fetchState, loadCachedPolicy, loadCachedState } from './api';
 import { FIXTURE_STATE } from './dev/fixture-state';
 import { migratePrefs, reconcilePrefs, type Prefs } from './logic/prefs';
 import { dropLegacy, loadLegacy, loadOnboarded, loadPrefs, saveOnboarded, savePrefs, type Legacy } from './prefs';
 import type { LiveIntent } from './logic/liveIntent';
 import { loadTicks, setTick, type TickKind, type Ticks } from './logic/ticks';
+import { loadUpdateContext, saveDismissed } from './update';
 
 export interface AppData {
   state: StateDTO | null;
@@ -15,6 +16,9 @@ export interface AppData {
   prefs?: Prefs | null; // undefined until loaded, null until the listener chooses
   onboarded?: boolean; // undefined until loaded
   intent?: PendingLive | null;
+  policy?: UpdatePolicy | null; // the server's update notice, from the last response whatever else it holds
+  installed?: string | null; // the app's version name; null on the web or when unreadable
+  dismissed?: string | null; // the latest version whose update notice the listener closed
   tapped?: boolean; // a notification was tapped this session: it goes first, the onboarding waits for the next launch
 }
 
@@ -65,8 +69,10 @@ export async function boot(): Promise<void> {
   // A read that fails falls back on its own, so the app still opens: without the onboarded flag or the preference record,
   // on the onboarding.
   let prefsUnread = false;
-  const [state, ticks, prefs, onboarded] = await Promise.all([
+  const [state, policy, context, ticks, prefs, onboarded] = await Promise.all([
     fixture ? FIXTURE_STATE : loadCachedState().catch(() => null),
+    fixture ? null : readPolicy(),
+    loadUpdateContext().catch(() => ({ installed: null, dismissed: null })),
     loadTicks().catch((): Ticks => ({ read: new Set(), reviewed: new Set() })),
     loadPrefs().catch(() => {
       prefsUnread = true;
@@ -79,9 +85,23 @@ export async function boot(): Promise<void> {
   // A live notification's fetch can land while the cache is still being read: keep its newer state.
   // Without its preference record the app can't show the listener's choices: they make them again in the onboarding.
   const shown = onboarded && !prefsUnread;
-  update(freshFetches !== before ? { ticks, prefs, onboarded: shown } : { state, ticks, error: false, prefs, onboarded: shown, fresh: fixture });
+  // The update notice first and on its own: the cached state may be one this version can no longer read.
+  update(freshFetches !== before ? context : { ...context, policy });
+  try {
+    update(freshFetches !== before ? { ticks, prefs, onboarded: shown } : { state, ticks, error: false, prefs, onboarded: shown, fresh: fixture });
+  } catch {
+    update({ ticks, prefs, onboarded: shown });
+  }
   if (!fixture) await refresh();
 }
+
+const readPolicy = async () => {
+  try {
+    return await loadCachedPolicy();
+  } catch {
+    return null;
+  }
+};
 
 let inflight: Promise<void> | null = null;
 let freshFetches = 0;
@@ -90,8 +110,12 @@ export const touch = () => update({});
 
 export function refresh(): Promise<void> {
   inflight ??= (async () => {
+    const fetched = fetchState();
+    // Settled on its own, before the state is applied: a state this version can't read must not hide the notice.
+    await fetched.catch(() => {});
+    update({ policy: await readPolicy() });
     try {
-      const { state, fresh } = await fetchState();
+      const { state, fresh } = await fetched;
       const intent = data.intent && { ...data.intent, ...(fresh ? { fresh: true } : { failed: true }) };
       if (fresh) freshFetches++;
       update(fresh ? { state, error: false, fresh, intent } : { state, error: true, intent });
@@ -111,6 +135,11 @@ export function requestLive(intent: LiveIntent): void {
 }
 
 export const clearLive = (): void => update({ intent: null });
+
+export function dismissUpdate(version: string): void {
+  update({ dismissed: version });
+  void saveDismissed(version).catch(() => {});
+}
 
 export const markTapped = (): void => update({ tapped: true });
 

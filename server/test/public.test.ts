@@ -17,6 +17,7 @@ beforeEach(async () => {
   await env.DB.prepare('DELETE FROM exceptions').run();
   await env.DB.prepare('DELETE FROM broadcasts').run();
   await setSetting(env.DB, 'live_mode', 'embed');
+  await env.DB.prepare("DELETE FROM settings WHERE key = 'app_update'").run();
   await setLive(env.DB, { isLive: false, broadcastUid: null, streamUrl: null, courseId: null, startedAt: null });
 });
 
@@ -103,6 +104,27 @@ describe('GET /api/state', () => {
     ]);
     const body = (await (await get('/api/state')).json()) as any;
     expect(body.courses[0].exceptions.map((e: any) => e.note)).toEqual(['future']);
+  });
+});
+
+describe('GET /api/state update field', () => {
+  const update = async () => ((await (await get('/api/state')).json()) as any).update;
+
+  it('is absent while no update is set', async () => {
+    expect(await update()).toBeUndefined();
+  });
+
+  it('carries the stored policy', async () => {
+    const policy = { android: { min: '1.0.17', latest: '1.0.18' }, ios: { min: null, latest: '1.0.18' } };
+    await setSetting(env.DB, 'app_update', JSON.stringify(policy));
+    expect(await update()).toEqual(policy);
+  });
+
+  it('is absent when the stored value is not JSON, so the state still answers', async () => {
+    await setSetting(env.DB, 'app_update', '{oops');
+    const res = await get('/api/state');
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as any).update).toBeUndefined();
   });
 });
 

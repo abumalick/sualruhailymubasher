@@ -11,7 +11,7 @@ vi.mock('@capacitor/preferences', () => ({
   },
 }));
 const native = vi.hoisted(() => ({ on: true }));
-vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => native.on } }));
+vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => native.on, getPlatform: () => (native.on ? 'android' : 'web') } }));
 const fm = vi.hoisted(() => ({
   requestPermissions: vi.fn(async () => ({ receive: 'granted' })),
   checkPermissions: vi.fn(async () => ({ receive: 'prompt' })),
@@ -25,6 +25,7 @@ vi.mock('@capacitor-firebase/messaging', () => ({ FirebaseMessaging: fm, Importa
 const back = vi.hoisted(() => ({ handler: null as null | ((e: { canGoBack: boolean }) => void) }));
 vi.mock('@capacitor/app', () => ({
   App: {
+    getInfo: async () => ({ version: '1.0.16', build: '16' }),
     addListener: (_: string, h: (e: { canGoBack: boolean }) => void) => {
       back.handler = h;
       return Promise.resolve({ remove: async () => {} });

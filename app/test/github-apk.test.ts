@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
@@ -177,6 +177,16 @@ describe('fastlane github_apk lane', () => {
     expect(apk).toMatch(/check_google_services/);
     expect(apk).toMatch(/gradle\(task: "assemble", build_type: "Release"/);
     expect(apk).toMatch(/node scripts\/github-apk\.mjs publish #\{ANDROID_APK\}/);
+  });
+
+  it('points the APK update notice at its own releases, since Play cannot update an APK signed by another key', () => {
+    const url = `https://github.com/${REPO}/releases/latest`;
+    expect(lane('github_apk')).toContain(`VITE_ANDROID_UPDATE_URL=${url} pnpm --filter app build`);
+    expect(lane('build')).not.toMatch(/VITE_ANDROID_UPDATE_URL/);
+    const sources = readdirSync(`${root}app/src`, { recursive: true, encoding: 'utf8' })
+      .filter((f) => /\.(ts|tsx)$/.test(f))
+      .filter((f) => readFileSync(`${root}app/src/${f}`, 'utf8').includes('github.com'));
+    expect(sources, 'the Play bundle must not carry a link to update outside Play').toEqual([]);
   });
 
   it('uploads only the bundle and its notes to internal testing; the listing goes up with a store release', () => {

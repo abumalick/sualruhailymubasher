@@ -1,4 +1,4 @@
-import type { CourseDTO, StateDTO } from '@albadr/shared';
+import { parseUpdatePolicy, type CourseDTO, type StateDTO } from '@albadr/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from '../index';
@@ -34,6 +34,14 @@ const positiveInt = (raw: string | undefined) => {
   return raw !== undefined && Number.isInteger(n) && n > 0 ? n : null;
 };
 
+const parseJson = (raw: string): unknown => {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
 export const publicRoutes = new Hono<{ Bindings: Env }>();
 
 publicRoutes.use('/api/state', cors({ origin: '*' }));
@@ -42,10 +50,11 @@ publicRoutes.use('/api/courses/*', cors({ origin: '*' }));
 publicRoutes.get('/api/state', async (c) => {
   const db = c.env.DB;
   const now = new Date();
-  const [courses, live, mode, exceptions] = await Promise.all([
+  const [courses, live, mode, appUpdate, exceptions] = await Promise.all([
     listCourses(db, { activeOnly: true }),
     getLive(db),
     getSetting(db, 'live_mode'),
+    getSetting(db, 'app_update'),
     listExceptions(db, medinaDate(now)),
   ]);
   const direct = mode === 'direct';
@@ -84,6 +93,8 @@ publicRoutes.get('/api/state', async (c) => {
     courses: dtos,
     links: LINKS,
   };
+  const update = appUpdate === null ? null : parseUpdatePolicy(parseJson(appUpdate));
+  if (update) state.update = update;
   c.header('Cache-Control', 'public, max-age=15');
   return c.json(state);
 });
