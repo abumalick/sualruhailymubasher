@@ -1,6 +1,7 @@
 import { cleanup, render } from '@testing-library/preact';
 import { afterEach, expect, it, vi } from 'vitest';
 import { commands, page, userEvent } from 'vitest/browser';
+import { fontsLoaded } from './fonts';
 import '../../src/styles/tokens.css';
 import '../../src/styles/app.css';
 
@@ -31,6 +32,7 @@ async function at(steps: number) {
       </div>
     </div>,
   );
+  await fontsLoaded();
   for (let i = 0; i < steps; i++) {
     const heading = view.container.querySelector('h3')!.textContent;
     await userEvent.click(page.getByRole('button', { name: 'متابعة' }));
