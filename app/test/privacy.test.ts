@@ -18,11 +18,8 @@ describe('privacy page trademark attribution (store badges)', () => {
   });
 
   it('ends the Arabic section with the same attribution in Arabic', () => {
-    const text = attribution('ar');
-    expect(text).toContain('Apple Inc.');
-    expect(text).toContain('App Store');
-    expect(text).toContain('Google LLC');
-    expect(text).toContain('Google Play');
-    expect(text).toMatch(/علامتان تجاريتان/);
+    expect(attribution('ar')).toBe(
+      'Apple وشعار Apple علامتان تجاريتان لشركة Apple Inc.، مسجّلتان في الولايات المتحدة وبلدان ومناطق أخرى. وApp Store علامة خدمة لشركة Apple Inc. Google Play وشعار Google Play علامتان تجاريتان لشركة Google LLC.',
+    );
   });
 });
