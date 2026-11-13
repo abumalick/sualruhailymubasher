@@ -1,21 +1,21 @@
-Al-Badr Live Lessons helps you follow Sheikh Abdur-Razzaq Al-Badr's two daily lessons at the Prophet's Mosque in Madinah: the morning lesson after Fajr and the evening lesson after Maghrib. Listen to the lesson live, revise it from its recording, and prepare for the next one. The app is in Arabic.
+Al-Badr Live Lessons helps you follow Sheikh Abdur-Razzaq Al-Badr's two lessons at the Prophet's Mosque in Madinah: the morning lesson after Fajr and the evening lesson after Maghrib. Listen to the lesson live, revise it from its recording, and prepare for the next one. The app is in Arabic.
 
 Listen live
-• A notification when the broadcast starts, and you listen to the lesson inside the app.
+• Get a notification when the broadcast starts, and listen to the lesson inside the app.
 
 Revise from the recording
-• A notification when the lesson's recording is published on the Sheikh's website.
+• Get a notification when the lesson's recording is published on the Sheikh's website.
 • The recording keeps playing with the screen locked. Drag the progress bar to move through the lesson, or go back and forward 15 seconds.
-• Each book's lessons in order, with where each lesson stands in the book. Mark the ones you have revised.
+• The book's lessons are listed in order, with each lesson's place in the book. Mark the ones you have revised.
 
 Prepare the next lesson
-• A reminder before the lesson, with the point it starts from.
+• Get a reminder before the lesson, with the point it starts from.
 • When the book is available, it opens at the page where the lesson starts, approximately, so you can read the passage beforehand, then mark it as read.
 
 Your notifications, your choice
-• On first launch, a short tour where you pick the lessons you attend, with an example of each notification and what it opens.
+• On first launch, a short tour lets you pick the lessons you follow, with an example of each notification and what it opens.
 • In the Notifications screen, choose what each lesson sends you: broadcast start, recording published, preparation reminder.
 
-No account, no ads. What you mark as revised or read stays on your device.
+No account, no ads. Your revised and read marks stay on your device.
 
-This is an independent, unofficial app, made to help listeners follow the lessons. It is not published by the Sheikh or his website. The lessons, recordings and books come from the Sheikh's website al-badr.net, and the live audio from his public broadcast.
+This is an independent, unofficial app, made to help listeners follow the lessons. It is not published by the Sheikh or his website. The lessons, recordings and books come from the Sheikh's website al-badr.net, and the live audio from the lessons' public broadcast.

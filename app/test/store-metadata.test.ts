@@ -24,16 +24,21 @@ describe.each(LISTINGS)('$store $lang listing', ({ store, lang, limits }) => {
     expect(chars(text)).toBeLessThanOrEqual(limit);
   });
 
-  it('uses no emoji', () => {
-    for (const file of Object.keys(limits)) expect(read(`${store}/${lang}/${file}`)).not.toMatch(/\p{Extended_Pictographic}/u);
+  const files = [...Object.keys(limits), ...(store === 'ios' ? ['keywords.txt'] : [])];
+  const [unofficial, official] = lang.startsWith('ar') ? [/غير رسمي/g, /رسمي/g] : [/unofficial/gi, /official/gi];
+  const count = (text: string, re: RegExp) => text.match(re)?.length ?? 0;
+
+  it.each(files)('%s uses no emoji', (file) => {
+    expect(read(`${store}/${lang}/${file}`)).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
-  it('says the app is unofficial and never calls it official', () => {
-    const text = read(`${store}/${lang}/${DESCRIPTION[store]}`);
-    const [unofficial, official] = lang.startsWith('ar') ? [/غير رسمي/g, /رسمي/g] : [/unofficial/gi, /official/gi];
-    const said = text.match(unofficial)?.length ?? 0;
-    expect(said).toBeGreaterThan(0);
-    expect(text.match(official)?.length).toBe(said);
+  it('says in the description that the app is unofficial', () => {
+    expect(count(read(`${store}/${lang}/${DESCRIPTION[store]}`), unofficial)).toBeGreaterThan(0);
+  });
+
+  it.each(files)('%s never calls the app official', (file) => {
+    const text = read(`${store}/${lang}/${file}`);
+    expect(count(text, official)).toBe(count(text, unofficial));
   });
 });
 
