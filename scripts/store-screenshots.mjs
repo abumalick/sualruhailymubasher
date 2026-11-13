@@ -14,13 +14,29 @@ export const TARGETS = {
   android: { viewport: { width: 432, height: 768 }, scale: 2.5, dir: 'fastlane/metadata/android/ar/images/phoneScreenshots' },
 };
 
+// The build's API (app/src/api.ts with VITE_API_BASE unset)
+const API = 'https://api.albadrmubasher.com';
+
+// The real state as a listener sees it some minutes into the course's next lesson, broadcast live: the shot is
+// deterministic whether or not production is on air at capture time.
+export function liveState(state, courseId, minutesIn = 12) {
+  const course = state.courses.find((c) => c.id === courseId);
+  if (!course?.next) throw new Error(`${courseId}: no next lesson to show live`);
+  // Lesson times are Medina's
+  const startedAt = new Date(`${course.next.date}T${course.next.time}:00+03:00`);
+  return {
+    state: { ...state, live: { ...state.live, isLive: true, courseId, startedAt: startedAt.toISOString() } },
+    now: new Date(startedAt.getTime() + minutesIn * 60_000),
+  };
+}
+
 // The story the listing tells: the morning and the evening lesson, listening live, revising a lesson from its
 // recording, preparing the next one in the book, and the notifications that bring the listener back.
 // Routes name each course rather than #/, which opens whichever lesson is nearest at capture time.
 export const SHOTS = [
   { name: '01-fajr', route: '#/course/tafsir-saadi', slot: 'fajr' },
   { name: '02-maghrib', route: '#/course/kitab-tawhid', slot: 'maghrib' },
-  { name: '03-live', route: '#/welcome', step: 'live' },
+  { name: '03-live', route: '#/course/tafsir-saadi', slot: 'fajr', live: 'tafsir-saadi' },
   { name: '04-recording', route: '#/course/tafsir-saadi', slot: 'fajr', step: 'recording' },
   { name: '05-book', route: '#/course/kitab-tawhid', slot: 'maghrib', step: 'book' },
   { name: '06-notifications', route: '#/notifications' },
@@ -34,12 +50,16 @@ async function finishOnboarding(page) {
   await page.getByRole('link', { name: 'المزيد' }).waitFor();
 }
 
+// Serves that live state and sets the page's clock to match, before the page loads.
+async function goLive(page, courseId) {
+  const res = await fetch(`${API}/api/state`, { cache: 'no-store', signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new Error(`${API}/api/state: ${res.status}`);
+  const { state, now } = liveState(await res.json(), courseId);
+  await page.clock.setFixedTime(now);
+  await page.route(`${API}/api/state`, (route) => route.fulfill({ json: state }));
+}
+
 export const STEPS = {
-  // The onboarding's own picture of a broadcast: with reduced motion it rests on the live player, playing.
-  live: async (page) => {
-    await page.getByRole('button', { name: 'متابعة' }).click();
-    await page.locator('.pv-mixlr[data-playing]').waitFor();
-  },
   // The latest recording, a third of the way in.
   recording: async (page) => {
     // The latest lesson's card: a broadcast's «استمع» or an older lesson's play button would start something else
@@ -72,7 +92,8 @@ export const STEPS = {
 async function capture(browser, base, target) {
   const { viewport, scale, dir } = TARGETS[target];
   // Reduced motion: every frame is the one the app rests on, not a moment of a transition.
-  const context = await browser.newContext({ viewport, deviceScaleFactor: scale, locale: 'ar', timezoneId: 'Asia/Riyadh', reducedMotion: 'reduce' });
+  const options = { viewport, deviceScaleFactor: scale, locale: 'ar', timezoneId: 'Asia/Riyadh', reducedMotion: 'reduce' };
+  const context = await browser.newContext(options);
   const first = await context.newPage();
   await first.goto(base);
   await finishOnboarding(first);
@@ -81,18 +102,24 @@ async function capture(browser, base, target) {
   rmSync(join(ROOT, dir), { recursive: true, force: true });
   mkdirSync(join(ROOT, dir), { recursive: true });
   for (const shot of SHOTS) {
-    // A page of its own, so a player started for one shot never shows in the next
-    const page = await context.newPage();
+    // A page of its own, so a player started for one shot never shows in the next. A live shot gets a context of its
+    // own too, with the finished onboarding: its clock and its state would otherwise reach every later shot.
+    const own = shot.live ? await browser.newContext({ ...options, storageState: await context.storageState() }) : null;
+    const page = await (own ?? context).newPage();
+    if (shot.live) await goLive(page, shot.live);
     await page.goto(`${base}/${shot.route}`);
     await page.waitForLoadState('networkidle');
     // A renamed or retired course would otherwise put an empty page in the store
     if (shot.slot) await page.locator(`.lp[data-slot="${shot.slot}"]`).waitFor({ timeout: 10_000 });
+    // With reduced motion the live button's rings rest at a visible frame instead of pulsing
+    if (shot.live) await page.locator('.hero .tag.live').waitFor({ timeout: 10_000 });
     if (shot.step) await STEPS[shot.step](page);
     await page.evaluate(() => document.fonts.ready);
     const file = join(ROOT, dir, `${shot.name}.png`);
     await page.screenshot({ path: file });
     console.log(file);
     await page.close();
+    await own?.close();
   }
   await context.close();
 }

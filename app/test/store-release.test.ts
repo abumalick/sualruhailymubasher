@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { SHOTS, TARGETS } from '../../scripts/store-screenshots.mjs';
+import { liveState, SHOTS, TARGETS } from '../../scripts/store-screenshots.mjs';
 import { parseRoute } from '../src/router';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
@@ -28,14 +28,36 @@ describe('store screenshots', () => {
   });
 
   it('tells the story: the Fajr and Maghrib lessons, listening live, revising a recording, preparing in the book, the notifications', () => {
-    expect(SHOTS.map((s) => [s.name, parseRoute(s.route), s.slot, s.step])).toEqual([
-      ['01-fajr', { name: 'course', id: 'tafsir-saadi' }, 'fajr', undefined],
-      ['02-maghrib', { name: 'course', id: 'kitab-tawhid' }, 'maghrib', undefined],
-      ['03-live', { name: 'welcome' }, undefined, 'live'],
-      ['04-recording', { name: 'course', id: 'tafsir-saadi' }, 'fajr', 'recording'],
-      ['05-book', { name: 'course', id: 'kitab-tawhid' }, 'maghrib', 'book'],
-      ['06-notifications', { name: 'notifications' }, undefined, undefined],
+    expect(SHOTS.map((s) => [s.name, parseRoute(s.route), s.slot, s.live, s.step])).toEqual([
+      ['01-fajr', { name: 'course', id: 'tafsir-saadi' }, 'fajr', undefined, undefined],
+      ['02-maghrib', { name: 'course', id: 'kitab-tawhid' }, 'maghrib', undefined, undefined],
+      ['03-live', { name: 'course', id: 'tafsir-saadi' }, 'fajr', 'tafsir-saadi', undefined],
+      ['04-recording', { name: 'course', id: 'tafsir-saadi' }, 'fajr', undefined, 'recording'],
+      ['05-book', { name: 'course', id: 'kitab-tawhid' }, 'maghrib', undefined, 'book'],
+      ['06-notifications', { name: 'notifications' }, undefined, undefined, undefined],
     ]);
+  });
+
+  // Shape and values from production's /api/state, Friday 13 Nov 2026, between lessons
+  const offAir = {
+    generatedAt: '2026-11-13T17:38:43.903Z',
+    live: { isLive: false, mode: 'embed', embedUrl: 'https://albadrnet.mixlr.com/embed', streamUrl: null, courseId: null, startedAt: null },
+    courses: [
+      { id: 'tafsir-saadi', slot: 'fajr', time: '05:41', next: { date: '2026-11-15', time: '05:41', number: 465 } },
+      { id: 'kitab-tawhid', slot: 'maghrib', time: '18:05', next: null },
+    ],
+  };
+
+  it('shows a course live from the start of its next lesson, a few minutes in, keeping the rest of the state', () => {
+    const { state, now } = liveState(offAir, 'tafsir-saadi');
+    expect(state).toEqual({ ...offAir, live: { ...offAir.live, isLive: true, courseId: 'tafsir-saadi', startedAt: '2026-11-15T02:41:00.000Z' } });
+    expect(state.courses).toBe(offAir.courses);
+    expect(now.toISOString()).toBe('2026-11-15T02:53:00.000Z');
+  });
+
+  it('refuses a course with no next lesson, rather than inventing a broadcast', () => {
+    expect(() => liveState(offAir, 'kitab-tawhid')).toThrow(/no next lesson/);
+    expect(() => liveState(offAir, 'gone')).toThrow(/no next lesson/);
   });
 
   it('never captures #/, which opens whichever lesson is nearest at capture time', () => {
