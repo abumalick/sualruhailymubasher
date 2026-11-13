@@ -14,7 +14,7 @@ vi.mock('@capacitor/preferences', () => ({
 vi.mock('../src/api', () => ({ API_BASE: '', loadCachedState: vi.fn(), fetchState: vi.fn(), fetchLessons: vi.fn(async () => []) }));
 
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { followOnly } from '../src/logic/follow';
+import { seedPrefs } from './seed';
 import { NavBar } from '../src/ui/NavBar';
 import { liveDTO } from './live-state';
 
@@ -29,7 +29,7 @@ const go = (hash: string) =>
   });
 
 function follow(ids: string[]) {
-  store.set('follow', JSON.stringify(followOnly(FIXTURE_STATE.courses, ids)));
+  seedPrefs(store, FIXTURE_STATE.courses, ids);
 }
 
 let resolveFetch: (s: StateDTO) => void = () => {};
@@ -93,13 +93,11 @@ describe('App tabs', () => {
     await waitFor(() => expect(location.hash).toBe('#/course/tafsir-saadi'));
   });
 
-  it('nav shows only المزيد and the chooser link when no course is followed', async () => {
+  it('a listener with every notification off still has both lesson tabs', async () => {
     follow([]);
     await app(FIXTURE_STATE);
-    expect(await screen.findByText('لا تتابع أي درس')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'اختر الدروس' }).getAttribute('href')).toBe('#/follow');
-    expect(tabLabels()).toEqual(['المزيد']);
-    expect(location.hash).toBe('#/');
+    await waitFor(() => expect(location.hash).toBe('#/course/kitab-tawhid'));
+    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
   });
 
   it('nav shows only المزيد without a state, with a retry once the fetch failed', async () => {
@@ -112,17 +110,17 @@ describe('App tabs', () => {
     expect(tabLabels()).toEqual(['المزيد']);
   });
 
-  it('one followed course shows its tab and المزيد', async () => {
+  it('a one-lesson listener sees both tabs and opens on their own lesson', async () => {
     follow(['tafsir-saadi']);
     await app(FIXTURE_STATE);
     await waitFor(() => expect(location.hash).toBe('#/course/tafsir-saadi'));
-    expect(tabLabels()).toEqual(['الفجر', 'المزيد']);
+    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
   });
 
   it('المزيد is active on its pages', async () => {
     await app(FIXTURE_STATE);
     await waitFor(() => expect(location.hash).toBe('#/course/kitab-tawhid'));
-    for (const hash of ['#/more', '#/links', '#/about', '#/follow']) {
+    for (const hash of ['#/more', '#/links', '#/about']) {
       await go(hash);
       expect(document.querySelector('.nav a.on')!.textContent).toBe('المزيد');
     }

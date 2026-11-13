@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { diffTopics, launchTopics, routeForPush, topicsFor } from '../src/logic/topics';
+import { routeForPush, topicsFor } from '../src/logic/topics';
 
 describe('topics', () => {
   it('subscribes to every default topic', () => {
@@ -8,28 +8,6 @@ describe('topics', () => {
     expect(all).toHaveLength(7);
     expect(all).toContain('c-tafsir-saadi-prep');
     expect(all).toContain('live-other');
-  });
-
-  it('turning one topic off unsubscribes only that topic', () => {
-    const all = topicsFor(['tafsir-saadi', 'kitab-tawhid']);
-    const wanted = all.filter((t) => t !== 'c-kitab-tawhid-live');
-    expect(diffTopics(all, wanted)).toEqual({ sub: [], unsub: ['c-kitab-tawhid-live'] });
-    expect(diffTopics(wanted, all)).toEqual({ sub: ['c-kitab-tawhid-live'], unsub: [] });
-  });
-
-  it('first launch wants everything', () => {
-    expect(launchTopics(null, ['a', 'b'])).toEqual(topicsFor(['a', 'b']));
-  });
-
-  it('a new course adds its 3 topics and keeps earlier opt-outs', () => {
-    const stored = { topics: topicsFor(['a']).filter((t) => t !== 'c-a-rec'), courses: ['a'] };
-    const wanted = launchTopics(stored, ['a', 'b']);
-    expect(diffTopics(stored.topics, wanted)).toEqual({ sub: ['c-b-live', 'c-b-rec', 'c-b-prep'], unsub: [] });
-  });
-
-  it('nothing changes when no course is new', () => {
-    const stored = { topics: ['c-a-live'], courses: ['a'] };
-    expect(launchTopics(stored, ['a'])).toEqual(['c-a-live']);
   });
 });
 

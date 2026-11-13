@@ -70,3 +70,19 @@ export function bookHref(course: CourseDTO, pdfIndex: number | null, page: numbe
   if (page === null) return `#/book/${course.id}/${pdfIndex ?? 0}/1`;
   return `#/book/${course.id}/${pdfIndex ?? 0}/${page}${marker ? '?marker=1' : ''}`;
 }
+
+export function courseLabel(c: CourseDTO, all: CourseDTO[]): string {
+  const shared = all.some((o) => o.id !== c.id && o.slot === c.slot);
+  return shared ? c.title : `درس ${slotName(c.slot)}`;
+}
+
+export function summary(all: CourseDTO[], ids: string[]): string {
+  const picked = all.filter((c) => ids.includes(c.id));
+  if (picked.length === 0) return '';
+  if (picked.length === all.length) {
+    if (all.length === 1) return courseLabel(all[0], all);
+    return all.length === 2 ? 'الدرسان كلاهما' : 'كل الدروس';
+  }
+  const names = picked.map((c) => courseLabel(c, all)).join(' و');
+  return picked.length === 1 ? `${names} فقط` : names;
+}

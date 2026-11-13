@@ -1,16 +1,15 @@
 import type { CourseDTO, StateDTO } from '@albadr/shared';
 import { useState } from 'preact/hooks';
-import { courseLabel, noticeFor, summary, type Follow } from '../logic/follow';
+import { topicsFor } from '../logic/topics';
 import { askPermission, pushPermission } from '../push';
 import { nativeUI } from '../platform';
 import { navigate } from '../router';
-import { chooseCourses, dismissFollowHint, refresh } from '../store';
-import { clock12, schedule, slotName } from './format';
-import { Back } from './Back';
+import { finishOnboarding, refresh } from '../store';
+import { clock12, courseLabel, schedule, slotName, summary } from './format';
 import { Icon } from './Star';
 
-export function Chooser({ state, follow, first, onHold }: { state: StateDTO | null; follow: Follow | null; first: boolean; onHold?: (hold: boolean) => void }) {
-  const [picked, setPicked] = useState<string[]>(() => (first ? [] : (follow?.ids ?? [])));
+export function Chooser({ state, onHold }: { state: StateDTO | null; onHold?: (hold: boolean) => void }) {
+  const [picked, setPicked] = useState<string[]>([]);
   const [ask, setAsk] = useState(false);
   const courses = state?.courses ?? [];
   const listed = picked.filter((id) => courses.some((c) => c.id === id));
@@ -23,33 +22,23 @@ export function Chooser({ state, follow, first, onHold }: { state: StateDTO | nu
 
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const save = async () => {
-    const askNext = first && (await pushPermission()).startsWith('prompt');
+    const askNext = (await pushPermission()).startsWith('prompt');
     if (askNext) {
       onHold?.(true);
       setAsk(true);
     }
-    await chooseCourses(listed);
+    await finishOnboarding({ wanted: topicsFor(listed), known: courses.map((c) => [c.id, c.slot]) });
     if (!askNext) finish();
   };
   const label = summary(courses, listed);
 
   return (
     <div class="choose">
-      {first ? (
-        <div class="intro">
-          <small>عبد الرزاق البدر · الدروس العلمية</small>
-          <h3>أيَّ الدروس تتابع؟</h3>
-          <p>{nativeUI() ? 'يعرض التطبيق الدروس التي تختارها فقط، ولا تصلك إلا تنبيهاتها. يمكنك تغيير اختيارك متى شئت.' : 'يعرض التطبيق الدروس التي تختارها فقط. يمكنك تغيير اختيارك متى شئت.'}</p>
-        </div>
-      ) : (
-        <div class="bar">
-          <Back fallback="#/more" />
-          <div class="t">
-            <b>الدروس التي تتابعها</b>
-            <span>{nativeUI() ? 'يتغيّر معها ما تراه وما يصلك من تنبيهات' : 'يتغيّر معها ما تراه'}</span>
-          </div>
-        </div>
-      )}
+      <div class="intro">
+        <small>عبد الرزاق البدر · الدروس العلمية</small>
+        <h3>أيَّ الدروس تتابع؟</h3>
+        <p>{nativeUI() ? 'تصلك تنبيهات الدروس التي تختارها. يمكنك تغيير اختيارك متى شئت.' : 'يمكنك تغيير اختيارك متى شئت.'}</p>
+      </div>
       {!state ? (
         <div class="booker">
           <p class="quiet">نحتاج اتصالًا بالإنترنت لعرض الدروس</p>
@@ -66,13 +55,7 @@ export function Chooser({ state, follow, first, onHold }: { state: StateDTO | nu
           </div>
           {courses.length === 0 && <p class="quiet">لا توجد دروس حاليًا، وسيظهر لك كل درس جديد هنا.</p>}
           <button class="chip pri wide" disabled={courses.length > 0 && listed.length === 0} onClick={() => void save()}>
-            {courses.length === 0
-              ? first
-                ? 'متابعة'
-                : 'رجوع'
-              : listed.length === 0
-                ? 'اختر درسًا واحدًا على الأقل'
-                : `${first ? 'متابعة' : 'حفظ'} · ${label}`}
+            {courses.length === 0 ? 'متابعة' : listed.length === 0 ? 'اختر درسًا واحدًا على الأقل' : `متابعة · ${label}`}
           </button>
         </>
       )}
@@ -114,49 +97,6 @@ function NotifyStep({ courses, ids, onDone: done }: { courses: CourseDTO[]; ids:
       <button class="chip wide plain" onClick={done}>
         ليس الآن
       </button>
-    </div>
-  );
-}
-
-export function FollowNotice({ state, follow, always = false }: { state: StateDTO; follow: Follow; always?: boolean }) {
-  const notice = noticeFor(state, follow, always);
-  if (!notice) return null;
-  if (notice.kind === 'hint') {
-    return (
-      <div class="card reach notice">
-        <span class="b">جديد: يمكنك اختيار الدروس التي تتابعها</span>
-        <span class="m">{nativeUI() ? 'فيعرض التطبيق ما تختاره فقط، ولا تصلك إلا تنبيهاته.' : 'فيعرض التطبيق ما تختاره فقط.'}</span>
-        <div class="acts start">
-          <a class="chip pri" href="#/follow">
-            اختر الدروس
-          </a>
-          <button class="chip" onClick={() => void dismissFollowHint()}>
-            إخفاء
-          </button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <a class="followed" href="#/follow">
-      <span>
-        {notice.kind === 'none-listed' && 'لا يُعرض لك أي درس حاليًا'}
-        {notice.kind === 'fresh' && `درس جديد: ${courseLabel(notice.course, state.courses)} · ${notice.course.title}`}
-        {notice.kind === 'followed' && `دروسك: ${notice.summary}`}
-        {notice.kind === 'followed' && notice.hidden && <small>{notice.hidden} مستمر، ولا يظهر لك لأنك لا تتابعه</small>}
-      </span>
-      <u>تغيير</u>
-    </a>
-  );
-}
-
-export function NotFollowed() {
-  return (
-    <div class="booker">
-      <p class="quiet">لا تتابع هذا الدرس</p>
-      <a class="chip" href="#/follow">
-        تغيير الدروس
-      </a>
     </div>
   );
 }

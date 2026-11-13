@@ -14,15 +14,12 @@ vi.mock('../src/push', () => ({
 }));
 
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { followOnly } from '../src/logic/follow';
 import { parseRoute } from '../src/router';
 import { About } from '../src/ui/About';
-import { Chooser } from '../src/ui/Follow';
 import { Links } from '../src/ui/Links';
 import { More } from '../src/ui/More';
 import { Notifications } from '../src/ui/Notifications';
 
-const follow = followOnly(FIXTURE_STATE.courses, ['tafsir-saadi']);
 const rows = () => [...document.querySelectorAll('.more a.lesson')].map((a) => [a.querySelector('.b')!.textContent, a.getAttribute('href')]);
 
 beforeEach(() => {
@@ -40,30 +37,19 @@ describe('routes', () => {
 });
 
 describe('المزيد', () => {
-  it('in the mobile app lists notifications, followed lessons, links and about', () => {
+  it('in the mobile app lists notifications, links and about', () => {
     platform.native = true;
-    render(<More state={FIXTURE_STATE} follow={follow} />);
+    render(<More />);
     expect(rows()).toEqual([
       ['التنبيهات', '#/notifications'],
-      ['الدروس التي أتابعها', '#/follow'],
       ['روابط', '#/links'],
       ['عن التطبيق', '#/about'],
     ]);
   });
 
   it('on the web leaves notifications out', () => {
-    render(<More state={FIXTURE_STATE} follow={follow} />);
-    expect(rows().map((r) => r[0])).toEqual(['الدروس التي أتابعها', 'روابط', 'عن التطبيق']);
-  });
-
-  it('names what is followed, with a link to change it', () => {
-    render(<More state={FIXTURE_STATE} follow={follow} />);
-    expect(screen.getByText(/^دروسك:/)).toBeTruthy();
-  });
-
-  it('renders without a state', () => {
-    render(<More state={null} follow={null} />);
-    expect(rows().length).toBe(3);
+    render(<More />);
+    expect(rows().map((r) => r[0])).toEqual(['روابط', 'عن التطبيق']);
   });
 });
 
@@ -78,10 +64,7 @@ describe('pages reached from المزيد', () => {
     render(<About native />);
     expect(back()).toBe('#/more');
     cleanup();
-    render(<Notifications state={FIXTURE_STATE} />);
-    expect(back()).toBe('#/more');
-    cleanup();
-    render(<Chooser state={FIXTURE_STATE} follow={follow} first={false} />);
+    render(<Notifications state={FIXTURE_STATE} prefs={null} onToggle={() => {}} />);
     expect(back()).toBe('#/more');
   });
 

@@ -1,6 +1,5 @@
 import type { Slot, StateDTO } from '@albadr/shared';
-import { slotName } from '../ui/format';
-import { courseLabel } from './follow';
+import { courseLabel, slotName } from '../ui/format';
 import { LESSON_MS, nextStart } from './lesson';
 
 export interface LessonTab {
@@ -25,10 +24,13 @@ export function lessonTabs(view: StateDTO | null): LessonTab[] {
     }));
 }
 
-export function defaultTab(view: StateDTO, now: Date): string | null {
-  const tabs = lessonTabs(view);
+// attended: the lessons the listener chose; a broadcast on air opens whatever they chose.
+export function defaultTab(view: StateDTO, now: Date, attended?: string[]): string | null {
+  const all = lessonTabs(view);
+  const mine = all.filter((t) => attended?.includes(t.courseId));
+  const tabs = mine.length > 0 ? mine : all;
   if (tabs.length === 0) return null;
-  const onAir = tabs.find((t) => t.live);
+  const onAir = all.find((t) => t.live);
   if (onAir) return onAir.courseId;
   const nowMs = now.getTime();
   const key = (id: string) => {

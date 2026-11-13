@@ -1,7 +1,4 @@
-import type { StateDTO } from '@albadr/shared';
-import type { Follow } from '../logic/follow';
 import { nativeUI } from '../platform';
-import { FollowNotice } from './Follow';
 import { Icon } from './Star';
 
 const Row = ({ href, icon, title, hint }: { href: string; icon: string; title: string; hint: string }) => (
@@ -17,7 +14,7 @@ const Row = ({ href, icon, title, hint }: { href: string; icon: string; title: s
   </a>
 );
 
-export function More({ state, follow }: { state: StateDTO | null; follow: Follow | null }) {
+export function More() {
   return (
     <>
       <div class="bar">
@@ -25,10 +22,8 @@ export function More({ state, follow }: { state: StateDTO | null; follow: Follow
           <b>المزيد</b>
         </div>
       </div>
-      {state && follow && <FollowNotice state={state} follow={follow} always />}
       <div class="card more">
         {nativeUI() && <Row href="#/notifications" icon="i-bell" title="التنبيهات" hint="اختر ما يصلك من كل درس" />}
-        <Row href="#/follow" icon="i-book" title="الدروس التي أتابعها" hint="اختر الدروس التي تظهر لك" />
         <Row href="#/links" icon="i-link" title="روابط" hint="الموقع والقنوات والمجتمعات" />
         <Row href="#/about" icon="i-info" title="عن التطبيق" hint="المصادر وسياسة الخصوصية" />
       </div>

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'preact/hooks';
 import type { StateDTO } from '@albadr/shared';
 import { fetchState, loadCachedState } from './api';
 import { FIXTURE_STATE } from './dev/fixture-state';
-import { loadFollow, saveFollow, usedBeforeChoice } from './follow';
-import { filterState, followOnly, reconcile, type Follow } from './logic/follow';
+import { migratePrefs, reconcilePrefs, type Prefs } from './logic/prefs';
+import { dropLegacy, loadLegacy, loadOnboarded, loadPrefs, saveOnboarded, savePrefs, type Legacy } from './prefs';
 import type { LiveIntent } from './logic/liveIntent';
 import { loadTicks, setTick, type TickKind, type Ticks } from './logic/ticks';
 
@@ -12,7 +12,8 @@ export interface AppData {
   ticks: Ticks;
   error: boolean;
   fresh: boolean; // a state fetched from the server this session, not only the cached copy
-  follow?: Follow | null; // undefined until loaded, null until the listener chooses
+  prefs?: Prefs | null; // undefined until loaded, null until the listener chooses
+  onboarded?: boolean; // undefined until loaded
   intent?: PendingLive | null;
 }
 
@@ -26,20 +27,24 @@ let data: AppData = { state: null, ticks: { read: new Set(), reviewed: new Set()
 const listeners = new Set<(d: AppData) => void>();
 const freshListeners = new Set<(state: StateDTO) => void>();
 
-let returning = false;
+// What an older version stored, until the course list is known to migrate it.
+let legacy: Legacy | null = null;
 
 function update(patch: Partial<AppData>) {
-  const follow = patch.follow !== undefined ? patch.follow : data.follow;
+  const prefs = patch.prefs !== undefined ? patch.prefs : data.prefs;
   const state = patch.state !== undefined ? patch.state : data.state;
-  if (follow === null && returning && state) {
-    const all = followOnly(state.courses, state.courses.map((c) => c.id), true);
-    patch = { ...patch, follow: all };
-    void saveFollow(all);
-  } else if (follow && state) {
-    const next = reconcile(follow, state.courses);
-    if (next !== follow) {
-      patch = { ...patch, follow: next };
-      void saveFollow(next);
+  if (prefs === null && legacy && state) {
+    const migrated = migratePrefs(legacy, state.courses);
+    legacy = null;
+    if (migrated) {
+      patch = { ...patch, prefs: migrated };
+      void savePrefs(migrated).then(dropLegacy);
+    }
+  } else if (prefs && state) {
+    const next = reconcilePrefs(prefs, state.courses);
+    if (next !== prefs) {
+      patch = { ...patch, prefs: next };
+      void savePrefs(next);
     }
   }
   data = { ...data, ...patch };
@@ -56,15 +61,10 @@ export function nowOverride(): Date | null {
 export async function boot(): Promise<void> {
   const before = freshFetches;
   const fixture = devParam('fixture') === '1';
-  const [state, ticks, follow, used] = await Promise.all([
-    fixture ? FIXTURE_STATE : loadCachedState(),
-    loadTicks(),
-    loadFollow(),
-    usedBeforeChoice(),
-  ]);
-  returning = !fixture && (used || ticks.read.size + ticks.reviewed.size > 0);
+  const [state, ticks, prefs, onboarded] = await Promise.all([fixture ? FIXTURE_STATE : loadCachedState(), loadTicks(), loadPrefs(), loadOnboarded()]);
+  legacy = prefs || fixture ? null : await loadLegacy();
   // A live notification's fetch can land while the cache is still being read: keep its newer state.
-  update(freshFetches !== before ? { ticks, follow } : { state, ticks, error: false, follow, fresh: fixture });
+  update(freshFetches !== before ? { ticks, prefs, onboarded } : { state, ticks, error: false, prefs, onboarded, fresh: fixture });
   if (!fixture) await refresh();
 }
 
@@ -131,21 +131,18 @@ export function watchFreshState(cb: (state: StateDTO) => void): () => void {
 export const currentState = (): StateDTO | null => data.state;
 export const currentData = (): AppData => data;
 
-export const viewOf = (d: AppData): StateDTO | null => (d.state && d.follow ? filterState(d.state, d.follow) : null);
-export const currentView = (): StateDTO | null => viewOf(data);
-
-export async function chooseCourses(ids: string[]): Promise<void> {
-  if (!data.state) return;
-  const follow = followOnly(data.state.courses, ids, false, data.follow);
-  await saveFollow(follow);
-  update({ follow });
+export async function setWanted(topic: string, on: boolean): Promise<void> {
+  const prefs = data.prefs ?? { wanted: [], known: (data.state?.courses ?? []).map((c): Prefs['known'][number] => [c.id, c.slot]) };
+  const wanted = on ? [...new Set([...prefs.wanted, topic])] : prefs.wanted.filter((t) => t !== topic);
+  const next = { ...prefs, wanted };
+  update({ prefs: next });
+  await savePrefs(next);
 }
 
-export async function dismissFollowHint(): Promise<void> {
-  if (!data.follow) return;
-  const follow = { ...data.follow, hint: false };
-  await saveFollow(follow);
-  update({ follow });
+export async function finishOnboarding(prefs: Prefs): Promise<void> {
+  await savePrefs(prefs);
+  await saveOnboarded();
+  update({ prefs, onboarded: true });
 }
 
 export function watchState(cb: (state: StateDTO | null) => void): void {

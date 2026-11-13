@@ -21,6 +21,7 @@ vi.mock('../src/api', () => ({ loadCachedState: vi.fn(async () => null), fetchSt
 import * as api from '../src/api';
 import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
+import { topicsFor } from '../src/logic/topics';
 
 beforeEach(() => {
   store.clear();
@@ -40,17 +41,17 @@ async function chooseMorning() {
 describe('first-launch notification step', () => {
   it('stays up after the choice is saved and asks permission only on tap', async () => {
     await chooseMorning();
-    expect(JSON.parse(store.get('follow')!).ids).toEqual([FIXTURE_STATE.courses[0].id]);
+    expect(JSON.parse(store.get('prefs')!).wanted).toEqual(topicsFor([FIXTURE_STATE.courses[0].id]));
     expect(fm.requestPermissions).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'فعّل التنبيهات' }));
-    await screen.findByText('دروسك: درس الفجر فقط');
+    await screen.findByRole('link', { name: 'المزيد' });
     expect(fm.requestPermissions).toHaveBeenCalledOnce();
   });
 
   it('«ليس الآن» goes home without asking', async () => {
     await chooseMorning();
     fireEvent.click(screen.getByRole('button', { name: 'ليس الآن' }));
-    await screen.findByText('دروسك: درس الفجر فقط');
+    await screen.findByRole('link', { name: 'المزيد' });
     expect(fm.requestPermissions).not.toHaveBeenCalled();
   });
 });

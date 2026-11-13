@@ -1,7 +1,7 @@
 import type { LessonTab } from '../logic/tabs';
 import type { Route } from '../router';
 
-const MORE = ['more', 'notifications', 'links', 'about', 'follow'];
+const MORE = ['more', 'notifications', 'links', 'about'];
 
 export function NavBar({ route, tabs }: { route: Route; tabs: LessonTab[] }) {
   const onCourse = route.name === 'course' || route.name === 'book' ? route.id : null;

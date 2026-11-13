@@ -1,7 +1,7 @@
 import { courseTopic, LIVE_OTHER_TOPIC, type CourseDTO, type StateDTO } from '@albadr/shared';
-import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { askPermission, loadTopics, pushPermission, setTopic } from '../push';
+import type { Prefs } from '../logic/prefs';
+import { askPermission, pushPermission } from '../push';
 import { Back } from './Back';
 import { slotName } from './format';
 
@@ -22,25 +22,14 @@ function Toggle({ label, hint, on, onToggle }: { label: string; hint?: string; o
   );
 }
 
-export function Notifications({ state, notice }: { state: StateDTO | null; notice?: ComponentChildren }) {
-  const [topics, setTopics] = useState<string[] | null>(null);
+export function Notifications({ state, prefs, onToggle }: { state: StateDTO | null; prefs: Prefs | null; onToggle: (topic: string, on: boolean) => void }) {
   const [permission, setPermission] = useState('granted');
-  const courseIds = state?.courses.map((c) => c.id).join(',');
-  useEffect(() => {
-    void loadTopics(state).then(setTopics);
-  }, [courseIds]);
   useEffect(() => {
     void pushPermission().then(setPermission);
   }, []);
 
-  const on = (topic: string) => topics?.includes(topic) ?? false;
-  const toggle = async (topic: string) => {
-    const next = await setTopic(topic, !on(topic));
-    if (next) setTopics(next);
-  };
-  const row = (topic: string, label: string, hint?: string) => (
-    <Toggle label={label} hint={hint} on={on(topic)} onToggle={() => void toggle(topic)} />
-  );
+  const on = (topic: string) => prefs?.wanted.includes(topic) ?? false;
+  const row = (topic: string, label: string, hint?: string) => <Toggle label={label} hint={hint} on={on(topic)} onToggle={() => onToggle(topic, !on(topic))} />;
 
   return (
     <>
@@ -48,10 +37,9 @@ export function Notifications({ state, notice }: { state: StateDTO | null; notic
         <Back fallback="#/more" />
         <div class="t">
           <b>التنبيهات</b>
-          <span>اختر ما يصلك من كل درس تتابعه</span>
+          <span>اختر ما يصلك من كل درس</span>
         </div>
       </div>
-      {notice}
       {permission.startsWith('prompt') && (
         <div class="card reach">
           <span class="b">التنبيهات غير مفعّلة على هذا الجهاز</span>
@@ -63,8 +51,8 @@ export function Notifications({ state, notice }: { state: StateDTO | null; notic
         </div>
       )}
       {permission === 'denied' && <p class="quiet">الإشعارات متوقفة من إعدادات الجهاز، واختياراتك محفوظة وستعمل عند تفعيلها.</p>}
-      {topics &&
-        state?.courses.map((c: CourseDTO) => (
+      {state &&
+        state.courses.map((c: CourseDTO) => (
           <section class="notifs" key={c.id}>
             <p class="sec">
               درس {slotName(c.slot)} · {c.title}
@@ -76,7 +64,7 @@ export function Notifications({ state, notice }: { state: StateDTO | null; notic
             </div>
           </section>
         ))}
-      {topics && (
+      {state && (
         <section class="notifs">
           <p class="sec">بث مباشر آخر</p>
           <div class="card">{row(LIVE_OTHER_TOPIC, 'بدء البث المباشر')}</div>
