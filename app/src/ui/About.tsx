@@ -40,17 +40,11 @@ export function About({ native }: { native: boolean }) {
           <div class="card about">
             <p>في تطبيق الجوال تصلك تنبيهات بدء البث المباشر، وتذكير التحضير، وإشعار التسجيل للمراجعة. لا تتوفر التنبيهات في نسخة المتصفح.</p>
             <div class="acts start">
-              {STORES.map((s) =>
-                s.url ? (
-                  <a class="chip pri" href={s.url} target="_blank" rel="noopener noreferrer" key={s.name}>
-                    {s.name}
-                  </a>
-                ) : (
-                  <span class="chip" aria-disabled="true" key={s.name}>
-                    {s.name} · قريبًا
-                  </span>
-                ),
-              )}
+              {STORES.map((s) => (
+                <a class="chip pri" href={s.url} target="_blank" rel="noopener noreferrer" key={s.id}>
+                  {s.name}
+                </a>
+              ))}
             </div>
           </div>
         </>
