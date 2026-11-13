@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { asksPermission, cardFor, finalPrefs, initialDraft, pick, pickedCourses, stepTopics } from '../src/logic/onboarding';
+import { asksPermission, cardFor, finalPrefs, initialDraft, pick, pickedCourses, setStep, stepOn, stepTopics } from '../src/logic/onboarding';
 import { kindsOf, reconcilePrefs, type Prefs } from '../src/logic/prefs';
 import { topicsFor } from '../src/logic/topics';
 import { liveDTO } from './live-state';
@@ -48,7 +48,7 @@ describe('pickedCourses', () => {
 });
 
 describe('stepTopics', () => {
-  it('the live step has one switch per lesson and one for other broadcasts', () => {
+  it('the live switch covers every ticked lesson and other broadcasts', () => {
     expect(stepTopics('live', [tafsir, tawhid])).toEqual([
       { topic: 'c-tafsir-saadi-live', courseId: 'tafsir-saadi' },
       { topic: 'c-kitab-tawhid-live', courseId: 'kitab-tawhid' },
@@ -56,10 +56,53 @@ describe('stepTopics', () => {
     ]);
   });
 
-  it('revision and preparation have one switch per lesson; the first screen none', () => {
+  it('the revision and preparation switches cover every ticked lesson; the first screen has none', () => {
     expect(stepTopics('rec', [tawhid])).toEqual([{ topic: 'c-kitab-tawhid-rec', courseId: 'kitab-tawhid' }]);
     expect(stepTopics('prep', [tafsir])).toEqual([{ topic: 'c-tafsir-saadi-prep', courseId: 'tafsir-saadi' }]);
     expect(stepTopics('app', [tafsir])).toEqual([]);
+  });
+});
+
+describe('one switch per step', () => {
+  const all = { picked: ['tafsir-saadi', 'kitab-tawhid'], wanted: topicsFor(['tafsir-saadi', 'kitab-tawhid']) };
+
+  it('turned off, it silences that notification for every ticked lesson and leaves the other steps alone', () => {
+    const d = setStep(all, 'rec', [tafsir, tawhid], false);
+    expect(d.wanted.sort()).toEqual(all.wanted.filter((t) => !t.endsWith('-rec')).sort());
+    expect(stepOn('rec', d, [tafsir, tawhid])).toBe(false);
+    expect(stepOn('prep', d, [tafsir, tawhid])).toBe(true);
+  });
+
+  it('turned on, it turns that notification on for every ticked lesson, and only for them', () => {
+    const d = setStep({ picked: ['tafsir-saadi'], wanted: [] }, 'prep', [tafsir], true);
+    expect(d.wanted).toEqual(['c-tafsir-saadi-prep']);
+  });
+
+  it('other broadcasts follow the live switch, even with only Fajr ticked', () => {
+    const fajrOnly = { picked: ['tafsir-saadi'], wanted: ['c-tafsir-saadi-live', 'live-other'] };
+    const off = setStep(fajrOnly, 'live', [tafsir], false);
+    expect(off.wanted).toEqual([]);
+    expect(setStep(off, 'live', [tafsir], true).wanted.sort()).toEqual(['c-tafsir-saadi-live', 'live-other']);
+  });
+
+  it('with no lesson listed, the live switch still controls other broadcasts', () => {
+    const d = setStep({ picked: [], wanted: ['live-other'] }, 'live', [], false);
+    expect(d.wanted).toEqual([]);
+    expect(stepOn('live', d, [])).toBe(false);
+  });
+
+  it('reads on when any ticked lesson has it on; untouched, a mixed record stays as it was', () => {
+    const mixed = { picked: ['tafsir-saadi', 'kitab-tawhid'], wanted: ['c-tafsir-saadi-live'] };
+    expect(stepOn('live', mixed, [tafsir, tawhid])).toBe(true);
+    expect(finalPrefs(mixed, courses, null).wanted).toEqual(['c-tafsir-saadi-live']);
+    expect(setStep(mixed, 'live', [tafsir, tawhid], true).wanted.sort()).toEqual(['c-kitab-tawhid-live', 'c-tafsir-saadi-live', 'live-other']);
+  });
+
+  it('an unticked lesson keeps its switch, so ticking it again turns the step back on', () => {
+    const off = setStep({ picked: ['tafsir-saadi'], wanted: ['c-kitab-tawhid-rec', 'c-tafsir-saadi-rec'] }, 'rec', [tafsir], false);
+    expect(off.wanted).toEqual(['c-kitab-tawhid-rec']);
+    const back = pick(off, 'kitab-tawhid', true);
+    expect(stepOn('rec', back, [tafsir, tawhid])).toBe(true);
   });
 });
 

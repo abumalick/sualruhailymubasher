@@ -63,6 +63,9 @@ afterEach(() => {
 const next = () => fireEvent.click(screen.getByRole('button', { name: 'متابعة' }));
 const heading = (name: string) => screen.findByRole('heading', { name });
 const switchOf = (name: string) => screen.getByRole('switch', { name });
+const LIVE = 'نبّهني عند بدء البث';
+const REC = 'نبّهني عند نشر التسجيل';
+const PREP = 'ذكّرني بالتحضير';
 const tabLabels = () => [...document.querySelectorAll('.nav a')].map((a) => a.textContent);
 const saved = () => JSON.parse(store.get('prefs')!);
 
@@ -109,9 +112,21 @@ describe('the live step', () => {
     expect(document.querySelector('.frame .disc')!.className).toBe('disc live pulse');
     expect(screen.getByText(/الدرس ٤٤٤/)).toBeTruthy();
     expect(screen.getByText(fajr.title)).toBeTruthy();
-    expect(switchOf('درس الفجر').getAttribute('aria-checked')).toBe('true');
-    expect(switchOf('درس المغرب').getAttribute('aria-checked')).toBe('true');
-    expect(switchOf('بث مباشر آخر').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('has one switch for every ticked lesson, on, and none per lesson or for other broadcasts', async () => {
+    await toLive();
+    expect(screen.getAllByRole('switch')).toHaveLength(1);
+    expect(switchOf(LIVE).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByText('درس الفجر ودرس المغرب')).toBeTruthy();
+    expect(screen.queryByRole('switch', { name: 'بث مباشر آخر' })).toBeNull();
+  });
+
+  it('keeps the switch in its own block, outside the example card', async () => {
+    await toLive();
+    const block = switchOf(LIVE).closest('.notifs')!;
+    expect(block.closest('.frame')).toBeNull();
+    expect(block.contains(document.querySelector('.frame'))).toBe(false);
   });
 
   it('asks the system permission once, on continue, and not again later', async () => {
@@ -126,9 +141,9 @@ describe('the live step', () => {
     expect(fm.requestPermissions).toHaveBeenCalledOnce();
   });
 
-  it('with every live switch off, the ask moves to the revision step', async () => {
+  it('with the live switch off, the ask moves to the revision step', async () => {
     await toLive();
-    for (const name of ['درس الفجر', 'درس المغرب', 'بث مباشر آخر']) fireEvent.click(switchOf(name));
+    fireEvent.click(switchOf(LIVE));
     next();
     await heading('راجع الدرس');
     expect(fm.requestPermissions).not.toHaveBeenCalled();
@@ -143,7 +158,7 @@ describe('the live step', () => {
     next();
     await heading('راجع الدرس');
     expect(await screen.findByText(/التنبيهات متوقفة من إعدادات الجهاز/)).toBeTruthy();
-    expect(switchOf('درس الفجر')).toBeTruthy();
+    expect(switchOf(REC)).toBeTruthy();
     next();
     await heading('حضّر للدرس القادم');
     expect(fm.requestPermissions).toHaveBeenCalledOnce();
@@ -168,20 +183,37 @@ describe('the example cards', () => {
 });
 
 describe('the whole flow', () => {
-  it('ends on the lessons with the choices saved', async () => {
+  it('ends on the lessons with the choices saved, each switch applied to every ticked lesson', async () => {
     await toLive();
-    fireEvent.click(switchOf('بث مباشر آخر'));
     next();
     await heading('راجع الدرس');
     expect(screen.getByText(/الدرس ٤٤٣ · التسجيل متاح/)).toBeTruthy();
-    fireEvent.click(switchOf('درس المغرب'));
+    fireEvent.click(switchOf(REC));
     next();
     await heading('حضّر للدرس القادم');
     expect(screen.getByText(/الدرس ٤٤٤ ·/)).toBeTruthy();
+    expect(screen.getByText(/الفجر: مساء اليوم السابق/)).toBeTruthy();
+    expect(screen.getByText(/المغرب: عصر يوم الدرس/)).toBeTruthy();
+    expect(switchOf(PREP).getAttribute('aria-checked')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'ابدأ' }));
     await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']));
     expect(store.get('onboarded')).toBe('1');
-    expect(saved().wanted.sort()).toEqual(topicsFor([fajr.id, maghrib.id]).filter((t) => t !== 'live-other' && t !== `c-${maghrib.id}-rec`).sort());
+    expect(saved().wanted.sort()).toEqual(topicsFor([fajr.id, maghrib.id]).filter((t) => !t.endsWith('-rec')).sort());
+  });
+
+  it('other broadcasts follow the live switch, even with only Fajr ticked', async () => {
+    await start();
+    fireEvent.click(screen.getByRole('checkbox', { name: /درس المغرب/ }));
+    next();
+    await heading('استمع مباشرةً');
+    fireEvent.click(switchOf(LIVE));
+    for (const title of ['راجع الدرس', 'حضّر للدرس القادم']) {
+      next();
+      await heading(title);
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'ابدأ' }));
+    await waitFor(() => expect(store.get('onboarded')).toBe('1'));
+    expect(saved().wanted.sort()).toEqual([`c-${fajr.id}-prep`, `c-${fajr.id}-rec`]);
   });
 
   it('an unticked lesson has no switches and no notifications, yet its tab stays', async () => {
@@ -189,11 +221,13 @@ describe('the whole flow', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /درس المغرب/ }));
     next();
     await heading('استمع مباشرةً');
-    expect(screen.queryByRole('switch', { name: 'درس المغرب' })).toBeNull();
+    expect(screen.getByText('درس الفجر')).toBeTruthy();
+    expect(screen.queryByText(/درس المغرب/)).toBeNull();
     next();
     await heading('راجع الدرس');
     next();
     await heading('حضّر للدرس القادم');
+    expect(screen.getByText('مساء اليوم السابق · ٩:٠٠ م')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'ابدأ' }));
     await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']));
     expect(saved().wanted.sort()).toEqual(topicsFor([fajr.id]).sort());
@@ -263,7 +297,7 @@ describe('the whole flow', () => {
     expect(screen.getByRole('checkbox', { name: /درس المغرب/ }).getAttribute('aria-checked')).toBe('false');
     next();
     await heading('استمع مباشرةً');
-    expect(switchOf('درس الفجر').getAttribute('aria-checked')).toBe('false');
+    expect(switchOf(LIVE).getAttribute('aria-checked')).toBe('false');
   });
 });
 
@@ -301,12 +335,30 @@ describe('replay from المزيد', () => {
     expect(screen.getByRole('checkbox', { name: /درس المغرب/ }).getAttribute('aria-checked')).toBe('false');
     next();
     await heading('استمع مباشرةً');
-    fireEvent.click(switchOf('درس الفجر'));
+    fireEvent.click(switchOf(LIVE));
     fireEvent.click(screen.getByRole('button', { name: 'رجوع' }));
     await heading('أيَّ الدروس تحضر؟');
     fireEvent.click(screen.getByRole('button', { name: 'رجوع' }));
     await waitFor(() => expect(location.hash).toBe('#/more'));
     expect(store.get('prefs')).toBe(before);
+  });
+
+  it('keeps the per-lesson detail set in Notifications when the tour is finished untouched', async () => {
+    seedPrefs(store, FIXTURE_STATE.courses);
+    const mixed = { wanted: [`c-${fajr.id}-live`, `c-${fajr.id}-rec`, `c-${maghrib.id}-prep`], known: FIXTURE_STATE.courses.map((c) => [c.id, c.slot]) };
+    store.set('prefs', JSON.stringify(mixed));
+    history.replaceState(null, '', '#/more');
+    render(<App />);
+    fireEvent.click(await screen.findByRole('link', { name: /كيف يعمل التطبيق/ }));
+    await heading('أيَّ الدروس تحضر؟');
+    for (const [title, name] of [['استمع مباشرةً', LIVE], ['راجع الدرس', REC], ['حضّر للدرس القادم', PREP]]) {
+      next();
+      await heading(title);
+      expect(switchOf(name).getAttribute('aria-checked')).toBe('true');
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'ابدأ' }));
+    await waitFor(() => expect(location.hash).toMatch(/^#\/course\//));
+    expect(saved().wanted.sort()).toEqual([...mixed.wanted].sort());
   });
 });
 

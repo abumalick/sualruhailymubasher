@@ -1,6 +1,6 @@
 import type { CourseDTO, StateDTO } from '@albadr/shared';
 import { useEffect, useState } from 'preact/hooks';
-import { asksPermission, cardFor, finalPrefs, initialDraft, pick, pickedCourses, stepTopics, STEPS, type Card, type Draft, type Step } from '../logic/onboarding';
+import { asksPermission, cardFor, finalPrefs, initialDraft, pick, pickedCourses, setStep, stepOn, STEPS, type Card, type Draft, type Step } from '../logic/onboarding';
 import type { Prefs } from '../logic/prefs';
 import { nativeUI } from '../platform';
 import { askPermission, pushPermission } from '../push';
@@ -142,8 +142,6 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
     if (last) onDone(finalPrefs(draft, courses, prefs));
     else setAt(at + 1);
   };
-  const toggle = (topic: string) =>
-    setDraft({ ...draft, wanted: draft.wanted.includes(topic) ? draft.wanted.filter((t) => t !== topic) : [...draft.wanted, topic] });
 
   const top = (
     <div class="obtop">
@@ -181,11 +179,13 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
 
   const text = TEXT[step];
   const card = cardFor(step, picked, state.live);
-  const rows = stepTopics(step, picked);
-  const label = (courseId: string | null) => {
-    const c = courses.find((x) => x.id === courseId);
-    return c ? courseLabel(c, courses) : 'بث مباشر آخر';
-  };
+  const on = stepOn(step, draft, picked);
+  const hint =
+    step === 'prep' && picked.length > 1
+      ? picked.map((c) => `${slotName(c.slot)}: ${REMINDER[c.slot]}`).join('\n')
+      : step === 'prep' && picked.length === 1
+        ? REMINDER[picked[0].slot]
+        : picked.map((c) => courseLabel(c, courses)).join(' و');
   return (
     <div class="choose ob">
       {top}
@@ -194,14 +194,10 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
         <p>{text.body}</p>
       </div>
       {card ? <Example card={card} live={state.live} now={now} /> : text.fallback && <p class="quiet">{text.fallback}</p>}
-      {native && rows.length > 0 && (
+      {native && (
         <section class="notifs">
-          <p class="sec">{text.switches}</p>
           <div class="card">
-            {rows.map((r) => {
-              const c = courses.find((x) => x.id === r.courseId);
-              return <Toggle key={r.topic} label={label(r.courseId)} hint={step === 'prep' && c ? REMINDER[c.slot] : undefined} on={draft.wanted.includes(r.topic)} onToggle={() => toggle(r.topic)} />;
-            })}
+            <Toggle label={text.switches} hint={hint || undefined} on={on} onToggle={() => setDraft(setStep(draft, step, picked, !on))} />
           </div>
         </section>
       )}

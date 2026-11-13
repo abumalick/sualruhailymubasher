@@ -36,11 +36,21 @@ export const pickedCourses = (d: Draft, courses: CourseDTO[]): CourseDTO[] =>
 
 const STEP_KIND: Partial<Record<Step, Kind>> = { live: 'live', rec: 'rec', prep: 'prep' };
 
+// The topics a step's single switch controls: that notification for every ticked lesson; other broadcasts follow the live one.
 export function stepTopics(step: Step, picked: CourseDTO[]): { topic: string; courseId: string | null }[] {
   const kind = STEP_KIND[step];
   if (!kind) return [];
   const rows = picked.map((c) => ({ topic: courseTopic(c.id, kind), courseId: c.id as string | null }));
   return kind === 'live' ? [...rows, { topic: LIVE_OTHER_TOPIC, courseId: null }] : rows;
+}
+
+// Reads on when any of its topics is on, so a mixed record from the Notifications screen is kept until the switch is tapped.
+export const stepOn = (step: Step, d: Draft, picked: CourseDTO[]): boolean => stepTopics(step, picked).some((r) => d.wanted.includes(r.topic));
+
+export function setStep(d: Draft, step: Step, picked: CourseDTO[], on: boolean): Draft {
+  const topics = stepTopics(step, picked).map((r) => r.topic);
+  const rest = d.wanted.filter((t) => !topics.includes(t));
+  return { ...d, wanted: on ? [...rest, ...topics] : rest };
 }
 
 export function cardFor(step: Step, picked: CourseDTO[], live: LiveDTO): Card | null {
@@ -60,7 +70,7 @@ export function cardFor(step: Step, picked: CourseDTO[], live: LiveDTO): Card | 
 }
 
 export const asksPermission = (step: Step, d: Draft, picked: CourseDTO[], asked: boolean, permission: string): boolean =>
-  !asked && permission.startsWith('prompt') && stepTopics(step, picked).some((r) => d.wanted.includes(r.topic));
+  !asked && permission.startsWith('prompt') && stepOn(step, d, picked);
 
 export function finalPrefs(d: Draft, courses: CourseDTO[], prev: Prefs | null): Prefs {
   const dropped = courses.filter((c) => !d.picked.includes(c.id)).flatMap((c) => COURSE_KINDS.map((k) => courseTopic(c.id, k)));
