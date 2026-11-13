@@ -56,11 +56,13 @@ export function syncPlan(stored: StoredTopics | null, allIds: string[], followed
   };
 }
 
-export function routeForPush(data: PushData, state: StateDTO | null): string {
+// null: stay on the current page.
+export function routeForPush(data: PushData, state: StateDTO | null): string | null {
   const hidden = !!state && !!data.courseId && !state.courses.some((c) => c.id === data.courseId);
   if (hidden) return '#/';
   const courseHref = data.courseId ? `#/course/${data.courseId}` : '#/';
   switch (data.kind) {
+    case 'live':
     case 'rec':
       return courseHref;
     case 'prep': {
@@ -69,6 +71,6 @@ export function routeForPush(data: PushData, state: StateDTO | null): string {
       return (course && next && bookHref(course, next.pdfIndex, next.startPage, true)) || courseHref;
     }
     default:
-      return '#/';
+      return null;
   }
 }

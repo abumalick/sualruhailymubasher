@@ -154,7 +154,8 @@ export async function initPush(): Promise<void> {
   await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
     const data = event.notification.data;
     if (!isPushData(data)) return;
-    navigate(routeForPush(data, currentView() ?? (await cachedView())));
+    const route = routeForPush(data, currentView() ?? (await cachedView()));
+    if (route) navigate(route);
   });
   watchFreshState((state) => {
     if (!state.live.isLive) void clearLiveNotification();
