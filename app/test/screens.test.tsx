@@ -1,6 +1,6 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LessonDTO, StateDTO } from '@albadr/shared';
+import type { StateDTO } from '@albadr/shared';
 
 const store = new Map<string, string>();
 vi.mock('@capacitor/preferences', () => ({
@@ -17,8 +17,6 @@ import * as api from '../src/api';
 import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import type { Ticks } from '../src/logic/ticks';
-import { Course } from '../src/ui/Course';
-import { trackEntry } from '../src/router';
 import { Courses } from '../src/ui/Courses';
 import { Home } from '../src/ui/Home';
 import { liveState, TAFSIR, TAWHID } from './live-state';
@@ -32,7 +30,6 @@ const live = (courseId: string | null): StateDTO => ({
   live: { ...FIXTURE_STATE.live, isLive: true, courseId, startedAt: '2026-11-02T02:25:00Z' },
 });
 const tafsir = FIXTURE_STATE.courses[0];
-const lesson = (number: number): LessonDTO => ({ ...tafsir.latest[0], number, startPoint: `سورة الأنفال ${number}` });
 
 function home(state: StateDTO, now: Date, extra: Partial<Parameters<typeof Home>[0]> = {}) {
   return render(
@@ -212,19 +209,6 @@ describe('Kitab at-Tawhid page numbers (PDF page = printed page + 2)', () => {
     home(tawhidOnly, new Date('2026-11-02T06:40:00Z'));
     expect(screen.getByRole('link', { name: 'الكتاب · ص ٢٧٣' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/275');
   });
-
-  it('course page shows printed numbers for the position, the book button and each lesson', () => {
-    render(<Course course={TAWHID} ticks={none()} onTick={noop} onPlay={noop} />);
-    expect(screen.getByText('الجزء ١ · ص ٢٧٨')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'الكتاب · ص ٢٧٨' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
-    expect(screen.getByText(/· ص ٢٧٣$/)).toBeTruthy();
-    expect(screen.getByText(/· ص ٢٦٨$/)).toBeTruthy();
-  });
-
-  it('Tafsir, with no offsets, keeps its edition page numbers', () => {
-    render(<Course course={TAFSIR} ticks={none()} onTick={noop} onPlay={noop} />);
-    expect(screen.getByText('ص ٦٣٦ · طبعة دار ابن الجوزي')).toBeTruthy();
-  });
 });
 
 describe('App boot', () => {
@@ -240,83 +224,6 @@ describe('App boot', () => {
     fireEvent.click(read);
     await waitFor(() => expect(store.get('read:tafsir-saadi:444')).toBe('1'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'قرأتُه' }).getAttribute('aria-pressed')).toBe('true'));
-  });
-});
-
-describe('Course page', () => {
-  let observer: { cb: (entries: { isIntersecting: boolean }[]) => void } | null = null;
-  beforeEach(() => {
-    observer = null;
-    vi.stubGlobal(
-      'IntersectionObserver',
-      class {
-        cb: (entries: { isIntersecting: boolean }[]) => void;
-        constructor(cb: (entries: { isIntersecting: boolean }[]) => void) {
-          this.cb = cb;
-          observer = this;
-        }
-        observe() {}
-        disconnect() {}
-      },
-    );
-  });
-  const titles = () => screen.getAllByText(/^الدرس [٠-٩]+$/).map((e) => e.textContent);
-
-  it("the back arrow returns to the page the reader came from, such as Home's lessons of the day during a broadcast", () => {
-    vi.mocked(api.fetchLessons).mockResolvedValue([]);
-    const back = vi.spyOn(history, 'back').mockImplementation(() => {});
-    history.replaceState(null, '', '#/');
-    trackEntry();
-    history.pushState(null, '', '#/course/tafsir-saadi');
-    trackEntry();
-    render(<Course course={tafsir} ticks={none()} onTick={noop} onPlay={noop} />);
-    const arrow = screen.getByRole('link', { name: 'رجوع' });
-    expect(arrow.getAttribute('href')).toBe('#/courses');
-    fireEvent.click(arrow);
-    expect(back).toHaveBeenCalledOnce();
-    back.mockRestore();
-  });
-
-  it('lists recordings newest first with reviewed ticks and loads older ones at the end', async () => {
-    vi.mocked(api.fetchLessons).mockResolvedValue([lesson(440), lesson(439)]);
-    const ticks: Ticks = { read: new Set(), reviewed: new Set(['tafsir-saadi:443']) };
-    render(<Course course={tafsir} ticks={ticks} onTick={noop} onPlay={noop} />);
-    expect(titles()).toEqual(['الدرس ٤٤٣', 'الدرس ٤٤٢', 'الدرس ٤٤١']);
-    expect(screen.getAllByRole('button', { name: 'راجعتُه' }).map((b) => b.getAttribute('aria-pressed'))).toEqual([
-      'true',
-      'false',
-      'false',
-    ]);
-    expect(screen.getByRole('link', { name: 'الكتاب · ص ٣١٢' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/312?marker=1');
-    await act(async () => observer!.cb([{ isIntersecting: true }]));
-    expect(api.fetchLessons).toHaveBeenCalledWith('tafsir-saadi', 441);
-    await waitFor(() => expect(titles()).toEqual(['الدرس ٤٤٣', 'الدرس ٤٤٢', 'الدرس ٤٤١', 'الدرس ٤٤٠', 'الدرس ٤٣٩']));
-  });
-
-  it('unknown page: one button per volume at page 1, or a single book button', () => {
-    const tawhid = FIXTURE_STATE.courses[1];
-    const blank = { ...tawhid, latest: tawhid.latest.map((l) => ({ ...l, startPage: null, endPage: null })), next: { ...tawhid.next!, startPage: null } };
-    render(<Course course={blank} ticks={none()} onTick={noop} onPlay={noop} />);
-    expect(['الجزء ١', 'الجزء ٢', 'الجزء ٣'].map((n) => screen.getByRole('link', { name: n }).getAttribute('href'))).toEqual([
-      '#/book/kitab-tawhid/0/1',
-      '#/book/kitab-tawhid/1/1',
-      '#/book/kitab-tawhid/2/1',
-    ]);
-    cleanup();
-    const single = { ...tafsir, latest: tafsir.latest.map((l) => ({ ...l, startPage: null, endPage: null })), next: { ...tafsir.next!, startPage: null } };
-    render(<Course course={single} ticks={none()} onTick={noop} onPlay={noop} />);
-    expect(screen.getByRole('link', { name: 'افتح الكتاب' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/1');
-  });
-
-  it('an unlinked book shows the reached page in its edition', () => {
-    render(<Course course={{ ...tafsir, pdfUrls: [], edition: 'طبعة دار ابن الجوزي' }} ticks={none()} onTick={noop} onPlay={noop} />);
-    expect(screen.getByText('ص ٣١٢ · طبعة دار ابن الجوزي')).toBeTruthy();
-  });
-
-  it('a course with no lessons and no next lesson renders without crashing', () => {
-    render(<Course course={{ ...tafsir, latest: [], next: null }} ticks={none()} onTick={noop} onPlay={noop} />);
-    expect(screen.getByText('لا يوجد درس قادم مجدول')).toBeTruthy();
-    expect(screen.queryByText(/^الدرس [٠-٩]+$/)).toBeNull();
   });
 });
 

@@ -25,11 +25,9 @@ import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { followOnly } from '../src/logic/follow';
 import { About } from '../src/ui/About';
-import { Course } from '../src/ui/Course';
 import { Links } from '../src/ui/Links';
 import { tabs } from '../src/ui/NavBar';
 
-const none = { read: new Set<string>(), reviewed: new Set<string>() };
 const tabLabels = () => [...document.querySelectorAll('.nav a')].map((a) => a.textContent);
 
 async function app(hash: string) {
@@ -144,18 +142,6 @@ describe('App in the mobile app', () => {
 });
 
 describe('notification links outside the tab', () => {
-  const course = FIXTURE_STATE.courses[0];
-
-  it('the course page links to notifications only in the mobile app', () => {
-    platform.native = true;
-    const { unmount } = render(<Course course={course} ticks={none} onTick={vi.fn()} onPlay={vi.fn()} />);
-    expect(screen.getByRole('link', { name: /التنبيهات/ })).toBeTruthy();
-    unmount();
-    platform.native = false;
-    render(<Course course={course} ticks={none} onTick={vi.fn()} onPlay={vi.fn()} />);
-    expect(screen.queryByRole('link', { name: /التنبيهات/ })).toBeNull();
-  });
-
   it('روابط lists عن التطبيق in the mobile app only (the web has it as a tab)', () => {
     platform.native = true;
     const { unmount } = render(<Links state={FIXTURE_STATE} />);

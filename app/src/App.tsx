@@ -8,7 +8,7 @@ import { useRoute } from './router';
 import { unfollowed } from './logic/follow';
 import { boot, nowOverride, refresh, toggleTick, useAppData, viewOf } from './store';
 import { Book } from './ui/Book';
-import { Course } from './ui/Course';
+import { Lesson } from './ui/Lesson';
 import { Courses } from './ui/Courses';
 import { Chooser, FollowNotice, NotFollowed } from './ui/Follow';
 import { Links } from './ui/Links';
@@ -91,7 +91,12 @@ export function App() {
     page = <Courses state={state} notice={notice(true)} />;
   } else if (route.name === 'course') {
     const course = state?.courses.find((c) => c.id === route.id);
-    if (course) page = <Course key={course.id} course={course} ticks={ticks} onTick={onTick} onPlay={onPlay} />;
+    if (course && state) {
+      const { live: onAir } = state;
+      const other = state.courses.find((c) => c.id === onAir.courseId);
+      const otherLive = !onAir.isLive || onAir.courseId === course.id ? null : onAir.courseId === null ? { course: null } : other ? { course: other } : null;
+      page = <Lesson key={course.id} course={course} live={onAir} otherLive={otherLive} ticks={ticks} now={now} listening={listeningLive(livePlayer, playerSrc)} notice={notice()} onTick={onTick} onPlay={onPlay} onLive={onLive} />;
+    }
     else if (hidden(route.id)) page = <NotFollowed />;
   } else if (route.name === 'notifications') {
     page = native ? <Notifications state={state} notice={notice(true)} /> : <About native={false} />;
@@ -132,7 +137,7 @@ export function App() {
   // One tree for every route, so the live player keeps its place and its iframe is never re-mounted.
   const live = livePlayer.view !== 'closed' && state;
   return (
-    <div class={route.name === 'home' ? 'shell lat' : 'shell'}>
+    <div class={route.name === 'home' || route.name === 'course' ? 'shell lat' : 'shell'}>
       <Defs />
       {body}
       {live ? (
