@@ -1,18 +1,49 @@
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { shareHint } from '../logic/share';
 import { nativeUI } from '../platform';
+import { deviceShareEnv, shareApp } from '../share';
 import { Icon } from './Star';
 
-const Row = ({ href, icon, title, hint }: { href: string; icon: string; title: string; hint: string }) => (
-  <a class="lesson" href={href}>
+const RowBody = ({ icon, title, hint, live }: { icon: string; title: string; hint: string; live?: boolean }) => (
+  <>
     <span class="mini dashed">
       <Icon id={icon} />
     </span>
     <div class="t">
       <span class="b">{title}</span>
-      <span class="m">{hint}</span>
+      <span class="m" aria-live={live ? 'polite' : undefined}>
+        {hint}
+      </span>
     </div>
     <Icon id="i-back" class="fwd" />
+  </>
+);
+
+const Row = ({ href, ...body }: { href: string; icon: string; title: string; hint: string }) => (
+  <a class="lesson" href={href}>
+    <RowBody {...body} />
   </a>
 );
+
+const SHARE_HINT = 'أرسل رابط التطبيق لمن تحب';
+
+function ShareRow() {
+  const [hint, setHint] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const share = async () => {
+    const message = shareHint(await shareApp(deviceShareEnv()));
+    if (!message) return;
+    clearTimeout(timer.current);
+    setHint(message);
+    timer.current = setTimeout(() => setHint(null), 4000);
+  };
+  return (
+    <button class="lesson" type="button" onClick={share}>
+      <RowBody icon="i-share" title="شارك التطبيق" hint={hint ?? SHARE_HINT} live />
+    </button>
+  );
+}
 
 export function More() {
   return (
@@ -27,6 +58,7 @@ export function More() {
         <Row href="#/welcome" icon="i-book" title="كيف يعمل التطبيق" hint="جولة قصيرة في التطبيق" />
         <Row href="#/links" icon="i-link" title="روابط" hint="الموقع والقنوات والمجتمعات" />
         <Row href="#/about" icon="i-info" title="عن التطبيق" hint="المصادر وسياسة الخصوصية" />
+        <ShareRow />
       </div>
     </>
   );
