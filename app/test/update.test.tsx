@@ -10,7 +10,7 @@ vi.mock('@capacitor/preferences', () => ({
     keys: async () => ({ keys: [] }),
   },
 }));
-const device = vi.hoisted(() => ({ platform: 'android', version: '1.0.16' }));
+const device = vi.hoisted(() => ({ platform: 'android', version: '1.0.16', delayMs: 0 }));
 vi.mock('@capacitor/core', async (orig) => {
   const real = (await orig()) as typeof import('@capacitor/core');
   return {
@@ -19,12 +19,18 @@ vi.mock('@capacitor/core', async (orig) => {
   };
 });
 vi.mock('@capacitor/app', () => ({
-  App: { getInfo: async () => ({ version: device.version, build: '16' }), addListener: async () => ({ remove: async () => {} }) },
+  App: {
+    getInfo: async () => {
+      await new Promise((r) => setTimeout(r, device.delayMs));
+      return { version: device.version, build: '16' };
+    },
+    addListener: async () => ({ remove: async () => {} }),
+  },
 }));
 vi.mock('../src/push', () => ({ initPush: async () => {}, syncTopics: async () => {} }));
-const api = vi.hoisted(() => ({ cached: null as unknown, fresh: null as unknown, online: true }));
+const api = vi.hoisted(() => ({ cached: null as unknown, cachedState: null as unknown, fresh: null as unknown, online: true }));
 vi.mock('../src/api', () => ({
-  loadCachedState: async () => null,
+  loadCachedState: async () => api.cachedState,
   loadCachedPolicy: async () => ((api.online ? api.fresh : api.cached) as { update?: unknown } | null)?.update ?? null,
   fetchState: async () => {
     if (!api.online) throw new Error('offline');
@@ -51,8 +57,10 @@ beforeEach(() => {
   prefs.set('onboarded', '1');
   device.platform = 'android';
   device.version = '1.0.16';
+  device.delayMs = 0;
   api.online = true;
   api.cached = null;
+  api.cachedState = null;
 });
 afterEach(cleanup);
 
@@ -85,6 +93,31 @@ describe('update gate', () => {
     await mount();
     await screen.findAllByText(FIXTURE_STATE.courses[0].title);
     expect(screen.queryByText('يتوفر تحديث للتطبيق')).toBeNull();
+  });
+
+  it('never shows the lessons of a cached state before the notice, on the launch after a breaking change', async () => {
+    api.online = false;
+    api.cached = { ...FIXTURE_STATE, update: required };
+    api.cachedState = api.cached;
+    device.delayMs = 50; // the native call answers after the cached state is read
+    const seen: string[] = [];
+    const watch = new MutationObserver(() => seen.push(document.body.textContent ?? ''));
+    watch.observe(document.body, { childList: true, subtree: true, characterData: true });
+    await mount();
+    await screen.findByText('يلزم تحديث التطبيق');
+    watch.disconnect();
+    expect(seen.some((t) => t.includes(FIXTURE_STATE.courses[0].title))).toBe(false);
+  });
+
+  it('lets the listener back in once the requirement is lifted, at the next refresh', async () => {
+    api.fresh = { ...FIXTURE_STATE, update: required };
+    await mount();
+    await screen.findByText('يلزم تحديث التطبيق');
+    api.fresh = FIXTURE_STATE;
+    const { refresh } = await import('../src/store');
+    await refresh();
+    await screen.findAllByText(FIXTURE_STATE.courses[0].title);
+    expect(screen.queryByText('يلزم تحديث التطبيق')).toBeNull();
   });
 
   it('never gates the web', async () => {

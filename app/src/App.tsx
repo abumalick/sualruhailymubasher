@@ -7,7 +7,7 @@ import { player } from './audio/player';
 import { goBack, parseRoute, replaceRoute, useRoute } from './router';
 import { attended } from './logic/prefs';
 import { defaultTab, lessonTabs } from './logic/tabs';
-import { boot, clearLive, finishOnboarding, nowOverride, refresh, setWanted, toggleTick, useAppData } from './store';
+import { boot, clearLive, dismissUpdate, finishOnboarding, nowOverride, refresh, setWanted, toggleTick, useAppData } from './store';
 import { liveIntentAction } from './logic/liveIntent';
 import { Book } from './ui/Book';
 import { Lesson } from './ui/Lesson';
@@ -20,7 +20,8 @@ import { Notifications } from './ui/Notifications';
 import { About } from './ui/About';
 import { InstallBanner } from './ui/InstallBanner';
 import { UpdateBanner, UpdateRequired } from './ui/Update';
-import { useUpdate } from './update';
+import { androidUpdateUrl, updatePlatform } from './update';
+import { updateStatus, updateUrl } from './logic/update';
 import { More } from './ui/More';
 import { nativeUI } from './platform';
 import { ar, arText } from './ui/format';
@@ -107,9 +108,11 @@ export function App() {
     clearLive();
     if (action === 'open') startLive(state, () => send({ type: 'open', live: { ...state.live, isLive: true, courseId: intent.courseId } }));
   }, [route, data.intent, state]);
-  const notice = useUpdate(data.policy);
+  const platform = updatePlatform();
+  const notice = updateStatus({ platform, installed: data.installed ?? null, policy: data.policy ?? null, dismissed: data.dismissed ?? null });
+  const updateHref = platform === 'web' ? null : updateUrl(platform, androidUpdateUrl());
   // Before anything else reads the state: the version this blocks may no longer understand it.
-  if (notice.status.kind === 'required') return <UpdateRequired url={notice.url} />;
+  if (notice.kind === 'required') return <UpdateRequired url={updateHref} />;
   if (onboarded === undefined) return <div class="shell" />;
   if ((!onboarded && !data.tapped) || route.name === 'welcome') {
     return (
@@ -199,7 +202,7 @@ export function App() {
     body = (
       <div class="scroll">
         <InstallBanner />
-        {notice.status.kind === 'available' && <UpdateBanner url={notice.url} onClose={notice.dismiss} />}
+        {notice.kind === 'available' && <UpdateBanner url={updateHref} onClose={() => dismissUpdate(notice.version)} />}
         {error && (state || route.name !== 'home') && <p class="err">تعذّر التحديث</p>}
         {page}
       </div>

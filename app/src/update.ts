@@ -1,40 +1,26 @@
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
-import type { UpdatePlatform, UpdatePolicy } from '@albadr/shared';
-import { useEffect, useState } from 'preact/hooks';
-import { updateStatus, updateUrl, type UpdateStatus } from './logic/update';
+import type { UpdatePlatform } from '@albadr/shared';
 
 const DISMISSED = 'update-dismissed';
 
-const platform = (): UpdatePlatform | 'web' => {
+export const updatePlatform = (): UpdatePlatform | 'web' => {
   const p = Capacitor.getPlatform();
   return p === 'android' || p === 'ios' ? p : 'web';
 };
 
-export interface UpdateNotice {
-  status: UpdateStatus;
-  url: string | null;
-  dismiss: () => void;
+// The sideloaded APK's build passes its own link: Play can't update an APK signed by another key.
+export const androidUpdateUrl = (): string | undefined => import.meta.env.VITE_ANDROID_UPDATE_URL as string | undefined;
+
+// Each read fails open on its own: an unknown version is never gated.
+export async function loadUpdateContext(): Promise<{ installed: string | null; dismissed: string | null }> {
+  if (updatePlatform() === 'web') return { installed: null, dismissed: null };
+  const [installed, dismissed] = await Promise.all([
+    App.getInfo().then((i) => i.version, () => null),
+    Preferences.get({ key: DISMISSED }).then((r) => r.value, () => null),
+  ]);
+  return { installed, dismissed };
 }
 
-export function useUpdate(policy: UpdatePolicy | null | undefined): UpdateNotice {
-  const [installed, setInstalled] = useState<string | null>(null);
-  const [dismissed, setDismissed] = useState<string | null>(null);
-  const where = platform();
-  useEffect(() => {
-    if (where === 'web') return;
-    void App.getInfo().then((i) => setInstalled(i.version), () => {});
-    void Preferences.get({ key: DISMISSED }).then((r) => setDismissed(r.value), () => {});
-  }, []);
-  const status = updateStatus({ platform: where, installed, policy: policy ?? null, dismissed });
-  return {
-    status,
-    url: where === 'web' ? null : updateUrl(where, import.meta.env.VITE_ANDROID_UPDATE_URL as string | undefined),
-    dismiss: () => {
-      if (status.kind !== 'available') return;
-      setDismissed(status.version);
-      void Preferences.set({ key: DISMISSED, value: status.version });
-    },
-  };
-}
+export const saveDismissed = (version: string) => Preferences.set({ key: DISMISSED, value: version });
