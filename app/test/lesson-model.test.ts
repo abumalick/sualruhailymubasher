@@ -1,8 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const store = new Map<string, string>();
+vi.mock('@capacitor/preferences', () => ({
+  Preferences: {
+    get: async ({ key }: { key: string }) => ({ value: store.get(key) ?? null }),
+    set: async ({ key, value }: { key: string; value: string }) => void store.set(key, value),
+    remove: async ({ key }: { key: string }) => void store.delete(key),
+    keys: async () => ({ keys: [...store.keys()] }),
+  },
+}));
+
 import type { LiveDTO } from '@albadr/shared';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { buildLesson, LESSON_MS, nextStart } from '../src/logic/lesson';
-import type { Ticks } from '../src/logic/ticks';
+import { loadTicks, setTick, type Ticks } from '../src/logic/ticks';
+import { hijriLabel, hijriToday, lessonInstant, medinaDate } from '../src/logic/time';
 import { liveDTO } from './live-state';
 
 const [tafsir, tawhid] = FIXTURE_STATE.courses;
@@ -95,5 +107,55 @@ describe('buildLesson', () => {
     const m = buildLesson({ ...tafsir, latest: [] }, quiet, none, MON_2110);
     expect(m.last).toBeNull();
     expect(m.archiveSkip).toBeNull();
+  });
+});
+
+describe('a held day without a detected broadcast (Friday)', () => {
+  const friday = (nextNumber: number) => ({
+    ...tafsir,
+    time: '05:34',
+    latest: [{ ...tafsir.latest[0], number: 452, hijriDate: '18-05-1448' }],
+    next: { ...tafsir.next!, date: '2026-11-01', time: '05:34', number: nextNumber },
+  });
+  const FRI = ['2026-10-30T07:00:00Z', '2026-10-30T13:00:00Z', '2026-10-30T18:00:00Z'].map((t) => new Date(t));
+
+  it('next = latest + 1: the recording and the next lesson stay all day', () => {
+    for (const now of FRI) {
+      const m = buildLesson(friday(453), quiet, none, now);
+      expect(m.last).toMatchObject({ kind: 'recording', lesson: { number: 452 } });
+      expect(m.top).toMatchObject({ kind: 'next', next: { number: 453 } });
+    }
+  });
+
+  it('next = latest + 2 (broadcast counted): awaiting latest + 1', () => {
+    for (const now of FRI) expect(buildLesson(friday(454), quiet, none, now).last).toEqual({ kind: 'awaiting', lessonNumber: 453 });
+  });
+
+  it('a lesson underway keeps the previous recording until 150 minutes after its start', () => {
+    expect(buildLesson(friday(453), quiet, none, new Date('2026-11-01T03:40:00Z'))).toMatchObject({
+      top: { kind: 'today', ended: false, next: { number: 453 } },
+      last: { kind: 'recording', lesson: { number: 452 } },
+    });
+    expect(buildLesson(friday(453), quiet, none, new Date('2026-11-01T05:05:00Z')).last).toEqual({ kind: 'awaiting', lessonNumber: 453 });
+  });
+});
+
+describe('time helpers', () => {
+  it('maps the fixture date to the Medina hijri date', () => {
+    expect(medinaDate(new Date('2026-11-02T21:30:00Z'))).toBe('2026-11-03');
+    expect(hijriToday(MON_0940)).toBe('22-05-1448');
+    expect(lessonInstant('2026-11-03', '05:25').toISOString()).toBe('2026-11-03T02:25:00.000Z');
+    expect(hijriLabel(MON_0940)).toEqual({ weekday: 'الاثنين', day: '٢٢ جمادى الأولى' });
+  });
+});
+
+describe('ticks', () => {
+  beforeEach(() => store.clear());
+  it('round-trips through preferences', async () => {
+    await setTick('read', 'tafsir-saadi', 444, true);
+    await setTick('reviewed', 'kitab-tawhid', 2, true);
+    expect(await loadTicks()).toEqual({ read: new Set(['tafsir-saadi:444']), reviewed: new Set(['kitab-tawhid:2']) });
+    await setTick('read', 'tafsir-saadi', 444, false);
+    expect((await loadTicks()).read.size).toBe(0);
   });
 });

@@ -174,7 +174,7 @@ describe('App with a course choice', () => {
     render(<App />);
     const go = await screen.findByRole('button', { name: 'اختر درسًا واحدًا على الأقل' });
     expect((go as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByText('الرئيسية')).toBeNull();
+    expect(document.querySelector('.nav')).toBeNull();
     fireEvent.click(screen.getByRole('checkbox', { name: /درس المغرب/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'متابعة · درس المغرب فقط' }));
     await screen.findByText('دروسك: درس المغرب فقط');

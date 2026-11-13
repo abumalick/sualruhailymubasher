@@ -11,7 +11,7 @@ The single source of truth is the stored `follow` record (pure logic in `app/src
 - `fresh`: courses that appeared later and were *not* followed automatically (see below);
 - `hint`: an existing user who has not seen the choice yet.
 
-`filterState(state, follow)` removes the other courses from the state, and clears `live` when the broadcast belongs to an unfollowed course. Home, the Courses tab, a course page, the book, push routing and the topic sync all read the filtered state, so nothing can leak through a screen that forgot to filter.
+`filterState(state, follow)` removes the other courses from the state, and clears `live` when the broadcast belongs to an unfollowed course. The lesson tabs, the book, push routing and the topic sync all read the filtered state, so nothing can leak through a screen that forgot to filter.
 
 Notifications have one model, not two. Following a course is the outer switch; the three per-course switches on the Notifications screen are details *inside* a followed course:
 
@@ -37,6 +37,14 @@ Notifications have one model, not two. Following a course is the outer switch; t
 
 B wins because the filter is visible exactly where content is missing. Its wording («درس المغرب مستمر» on the Courses tab) prevents the "was it cancelled?" reading, and it costs one line of space.
 
+**Since the lesson tabs** (`docs/superpowers/specs/2026-11-13-lesson-tabs-design.md`), Home and the Courses tab are gone and each followed course has its own tab. The line now sits:
+
+- under the lesson title on each lesson tab, only when something is hidden, new or not listed (`noticeFor(…, false)`);
+- on top of المزيد, always, naming what is followed, since المزيد holds «الدروس التي أتابعها»;
+- on the Notifications screen, as before.
+
+A listener who follows no course sees no lesson tab: `#/` shows «لا تتابع أي درس» with a link to the chooser.
+
 ## First launch
 
 ```
@@ -58,7 +66,7 @@ B wins because the filter is visible exactly where content is missing. Its wordi
 
 ## Existing users after the update
 
-They are recognised by what the old version left behind: its stored push topics, or reading and review ticks. A cached state alone does not count, because the refresh loop can write one before boot reads it. They are recorded as following every course, and their earlier per-topic opt-outs are kept. Nothing changes for them, and nothing blocks them. A one-time card on Home offers the choice:
+They are recognised by what the old version left behind: its stored push topics, or reading and review ticks. A cached state alone does not count, because the refresh loop can write one before boot reads it. They are recorded as following every course, and their earlier per-topic opt-outs are kept. Nothing changes for them, and nothing blocks them. A one-time card under the lesson title offers the choice:
 
 ```
 │ جديد: يمكنك اختيار الدروس التي تتابعها │
@@ -69,11 +77,11 @@ Saving a choice or tapping «إخفاء» clears it.
 
 ## Courses that come and go
 
-A new course id is followed automatically only if the listener already follows a course in the same slot. An evening listener therefore stays on the evening slot when the evening book changes, and a morning-only listener does not start getting evening pushes. A new course that is not followed shows as «درس جديد: … · تغيير» on the status line until a choice is saved. If no followed course is in the list (a break, or a course that ended), Home shows «لا يُعرض لك أي درس حاليًا · تغيير» rather than a blocking screen.
+A new course id is followed automatically only if the listener already follows a course in the same slot. An evening listener therefore stays on the evening slot when the evening book changes, and a morning-only listener does not start getting evening pushes. A new course that is not followed shows as «درس جديد: … · تغيير» on the status line until a choice is saved. If no followed course is in the list (a break, or a course that ended), the app opens on «لا تتابع أي درس» with «لا يُعرض لك أي درس حاليًا · تغيير» above it, rather than a blocking screen.
 
 ## Broadcasts outside the courses (`live-other`)
 
-These stay on for everyone, one-course listeners included. They appear on Home and keep their own switch on the Notifications screen, because they do not belong to a course anyone dropped.
+These stay on for everyone, one-course listeners included. They appear on top of the open lesson tab and keep their own switch on the Notifications screen, because they do not belong to a course anyone dropped.
 
 ## Dead ends
 

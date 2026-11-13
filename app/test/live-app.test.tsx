@@ -122,7 +122,7 @@ it('opening the book from the live sheet keeps the Mixlr iframe mounted and coll
   expect(screen.queryByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' })).toBeNull();
   expect(screen.getByTitle('البث المباشر')).toBe(frame);
 
-  await go('#/courses');
+  await go('#/more');
   await go('#/');
   fireEvent.click(screen.getByRole('button', { name: /مباشر · الدرس ١٥/ }));
   expect(screen.getByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
@@ -180,7 +180,7 @@ it('a deep link to the book while the sheet is open collapses it instead of cove
 
 it('stopping from the bar removes the player and clears the media session', async () => {
   await openLive('kitab-tawhid');
-  await go('#/courses');
+  await go('#/more');
   fireEvent.click(screen.getByRole('button', { name: 'إيقاف البث' }));
   expect(screen.queryByTitle('البث المباشر')).toBeNull();
   expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'none' });
@@ -200,7 +200,7 @@ it('playing a recording while the bar is up stops the live player first and keep
 
 it('when the server reports the end with no course, the bar keeps its lesson and book link and says it ended', async () => {
   const frame = await openLive('kitab-tawhid');
-  await go('#/courses');
+  await go('#/more');
   vi.mocked(api.fetchState).mockResolvedValue({ state: endedState(), fresh: true });
   await act(() => refresh());
   expect(screen.queryByText('مباشر الآن')).toBeNull();

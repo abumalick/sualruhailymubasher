@@ -35,7 +35,7 @@ it('opens the fallback in place when nothing of the app sits behind the page', (
 it('knows its place again after going back, and after a reload', async () => {
   const back = vi.spyOn(history, 'back').mockImplementation(() => {});
   router.trackEntry();
-  open('#/courses');
+  open('#/more');
   history.replaceState(history.state, '', location.hash);
   vi.resetModules();
   router = await import('../src/router');
@@ -45,9 +45,9 @@ it('knows its place again after going back, and after a reload', async () => {
 
   history.replaceState({ depth: 0 }, '', '#/');
   router.trackEntry();
-  router.goBack('#/courses');
+  router.goBack('#/more');
   expect(back).toHaveBeenCalledOnce();
-  expect(location.hash).toBe('#/courses');
+  expect(location.hash).toBe('#/more');
 });
 
 it('the page the fallback opens is still the first of the app, so its own back falls back too', () => {
@@ -56,9 +56,9 @@ it('the page the fallback opens is still the first of the app, so its own back f
   router.trackEntry();
   router.goBack('#/course/tafsir-saadi');
   router.trackEntry();
-  router.goBack('#/courses');
+  router.goBack('#/more');
   expect(back).not.toHaveBeenCalled();
-  expect(location.hash).toBe('#/courses');
+  expect(location.hash).toBe('#/more');
 });
 
 it('a repeated hashchange for the hash already shown is not a new route', async () => {
