@@ -21,7 +21,7 @@ The first launch explains what the app is for and lets the listener choose their
 - Under the card, one switch per ticked lesson for that notification (plus «بث مباشر آخر» on the live step). Everything starts on.
 - **Permission** is asked when the listener continues from the first step that has a switch on, and only while it is still `prompt`. Refused: the switches stay, with a line saying they will work once enabled.
 - **Web:** the same screens without switches or permission.
-- Choices and the `onboarded` flag are saved only on the last step; leaving mid-way starts again next launch. Everyone sees it once, existing users included, starting from their own choices. A tapped notification goes first: the onboarding waits for the next launch. «كيف يعمل التطبيق» in المزيد replays it; leaving from its first screen saves nothing.
+- Choices and the `onboarded` flag are saved only on the last step; leaving mid-way starts again next launch. Everyone sees it once, existing users included, starting from their own choices; when the stored flag can't be read, it is shown again. A tapped notification goes first: the onboarding waits for the next launch. «كيف يعمل التطبيق» in المزيد replays it; leaving from its first screen saves nothing, and a tapped notification closes it, replacing it in history, so back does not reopen it.
 
 The decisions live in `app/src/logic/onboarding.ts` (steps, which card, when to ask, the record written at the end).
 
@@ -31,7 +31,7 @@ Both lesson tabs are always shown. The only stored preference is `prefs` (`app/s
 
 - `wanted`: the topics the listener chose, kept for a course that left the list, so a pause brings it back as it was. Only listed courses are subscribed; `topics` keeps what FCM accepted, so a failure is retried on the next sync.
 - `known`: every course seen, with its slot, in the order it appeared.
-- **A new book** inherits the switches of the last known course of its slot, even one that already left, so a gap between two books carries the choice over. A course in a slot nobody had gets nothing.
+- **A new book** inherits the switches of the last known course of its slot, even one that already left, so a gap between two books carries the choice over. A course in a slot with no history starts with every notification on, so finishing the onboarding while no lesson is listed still leaves the first lessons notifying. A slot whose lesson was left unticked stays silent: that lesson is known, with every switch off.
 - **The tab the app opens on:** the soonest lesson with a switch on (all lessons when none), unless a broadcast is on air.
 
 ### Migration from the follow record

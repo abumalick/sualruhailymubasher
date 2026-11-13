@@ -62,8 +62,19 @@ export function nowOverride(): Date | null {
 export async function boot(): Promise<void> {
   const before = freshFetches;
   const fixture = devParam('fixture') === '1';
-  const [state, ticks, prefs, onboarded] = await Promise.all([fixture ? FIXTURE_STATE : loadCachedState(), loadTicks(), loadPrefs(), loadOnboarded()]);
-  legacy = prefs || fixture ? null : await loadLegacy();
+  // A read that fails falls back on its own, so the app still opens: without the onboarded flag, on the onboarding.
+  let prefsUnread = false;
+  const [state, ticks, prefs, onboarded] = await Promise.all([
+    fixture ? FIXTURE_STATE : loadCachedState().catch(() => null),
+    loadTicks().catch((): Ticks => ({ read: new Set(), reviewed: new Set() })),
+    loadPrefs().catch(() => {
+      prefsUnread = true;
+      return null;
+    }),
+    loadOnboarded().catch(() => false),
+  ]);
+  // A record that could not be read may still exist: migrating the older one would overwrite it.
+  legacy = prefs || prefsUnread || fixture ? null : await loadLegacy().catch(() => null);
   // A live notification's fetch can land while the cache is still being read: keep its newer state.
   update(freshFetches !== before ? { ticks, prefs, onboarded } : { state, ticks, error: false, prefs, onboarded, fresh: fixture });
   if (!fixture) await refresh();

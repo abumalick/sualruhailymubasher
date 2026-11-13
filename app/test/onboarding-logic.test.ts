@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { asksPermission, cardFor, finalPrefs, initialDraft, pick, pickedCourses, stepTopics } from '../src/logic/onboarding';
-import type { Prefs } from '../src/logic/prefs';
+import { kindsOf, reconcilePrefs, type Prefs } from '../src/logic/prefs';
 import { topicsFor } from '../src/logic/topics';
 import { liveDTO } from './live-state';
 
@@ -124,5 +124,12 @@ describe('finalPrefs', () => {
     const prev: Prefs = { wanted: ['c-old-live'], known: [['old', 'fajr'], ...known] };
     const p = finalPrefs({ picked: ['tafsir-saadi'], wanted: ['c-old-live', 'c-tafsir-saadi-rec'] }, courses, prev);
     expect(p).toEqual({ wanted: ['c-old-live', 'c-tafsir-saadi-rec'], known: prev.known });
+  });
+
+  it('finished while no lesson is listed, the first lessons to appear get every notification', () => {
+    const p = finalPrefs(initialDraft(null, []), [], null);
+    const next = reconcilePrefs(p, courses);
+    expect(kindsOf(next, 'tafsir-saadi')).toEqual(['live', 'rec', 'prep']);
+    expect(kindsOf(next, 'kitab-tawhid')).toEqual(['live', 'rec', 'prep']);
   });
 });

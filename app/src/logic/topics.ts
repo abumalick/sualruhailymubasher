@@ -26,3 +26,9 @@ export function routeForPush(data: PushData, state: StateDTO | null): string | n
       return null;
   }
 }
+
+// During the tour a tap closes it, live-other included, and takes its place in history so back does not reopen it.
+export function tapNavigation(data: PushData, state: StateDTO | null, onTour: boolean): { path: string; replace: boolean } | null {
+  const path = routeForPush(data, state) ?? (onTour ? '#/' : null);
+  return path ? { path, replace: onTour } : null;
+}

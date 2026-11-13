@@ -20,13 +20,14 @@ export interface Follow {
 export const kindsOf = (p: Prefs, id: string): Kind[] => COURSE_KINDS.filter((k) => p.wanted.includes(courseTopic(id, k)));
 
 // A new course takes the switches of the last course of its slot, even one that already left, so a new book keeps the choice.
+// A slot with no history starts with every notification on.
 export function reconcilePrefs(p: Prefs, courses: CourseDTO[]): Prefs {
   const added = courses.filter((c) => !p.known.some(([id]) => id === c.id));
   if (added.length === 0) return p;
   let next = p;
   for (const c of added) {
     const previous = [...next.known].reverse().find(([, slot]) => slot === c.slot);
-    const kinds = previous ? kindsOf(next, previous[0]) : [];
+    const kinds = previous ? kindsOf(next, previous[0]) : COURSE_KINDS;
     next = { wanted: [...next.wanted, ...kinds.map((k) => courseTopic(c.id, k))], known: [...next.known, [c.id, c.slot]] };
   }
   return next;

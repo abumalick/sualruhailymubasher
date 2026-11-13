@@ -265,6 +265,8 @@ describe('the live notification', () => {
     vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
     render(<App />);
     await screen.findByText('روابط');
+    // Let the boot's own fetch settle, so the tap's fetch is the one answered below.
+    await act(() => refresh());
     pendingFetch();
     await tap('kitab-tawhid', '#/course/kitab-tawhid');
     await act(async () => answer(quiet()));
@@ -310,6 +312,23 @@ describe('the live notification', () => {
     await act(async () => answer(liveState(null)));
     await waitFor(() => expect(location.hash).toMatch(/^#\/course\//));
     expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
+  });
+
+  it('a live-other tap during the tour replay closes the tour and shows the player', async () => {
+    location.hash = '#/welcome';
+    vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
+    render(<App />);
+    await screen.findByRole('heading', { name: 'أيَّ الدروس تحضر؟' });
+    pendingFetch();
+    // What the push handler does for this tap during the tour (push.test.tsx): ask for the player, replace the tour with home.
+    await act(() => {
+      requestLive({ courseId: null });
+      location.replace('#/');
+      dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    await act(async () => answer(liveState(null)));
+    expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'أيَّ الدروس تحضر؟' })).toBeNull();
   });
 
   it('a live-other tap opens the player and keeps the current tab', async () => {

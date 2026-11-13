@@ -21,9 +21,10 @@ mkdir -p "$repo/scripts/lib" "$repo/app/android/app" "$repo/app/ios/App/App.xcod
 cp "$src/release.sh" "$src/release.mjs" "$src/release-lib.mjs" "$src/github-apk.mjs" "$repo/scripts/"
 cp "$src/lib/worktree-common.sh" "$src/lib/ports.sh" "$repo/scripts/lib/"
 sed "s|^WH_INSTALL_CMD=.*|WH_INSTALL_CMD=''|" "$src/worktree.sh" > "$repo/scripts/worktree.sh"
-cp "$src/../app/android/app/build.gradle" "$repo/app/android/app/"
+# Pinned to 1.0.9 (9), so the expectations below hold whatever version the repo is at
+sed -e 's/versionCode [0-9]*/versionCode 9/' -e 's/versionName "[^"]*"/versionName "1.0.9"/' "$src/../app/android/app/build.gradle" > "$repo/app/android/app/build.gradle"
 for l in ar en-US; do mkdir -p "$repo/fastlane/metadata/android/$l/changelogs"; touch "$repo/fastlane/metadata/android/$l/changelogs/.keep"; done
-cp "$src/../app/ios/App/App.xcodeproj/project.pbxproj" "$repo/app/ios/App/App.xcodeproj/"
+sed -e 's/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = 1.0.9;/' "$src/../app/ios/App/App.xcodeproj/project.pbxproj" > "$repo/app/ios/App/App.xcodeproj/project.pbxproj"
 printf '.worktrees/\n.tmp/\n' > "$repo/.gitignore"
 printf '[tools]\nnode = "22"\n' > "$repo/mise.toml"
 echo a > "$repo/app/src/a.ts"
