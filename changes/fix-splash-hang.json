@@ -1,0 +1,5 @@
+{
+  "platforms": ["android"],
+  "ar": "إصلاح توقف التطبيق على شاشة البداية عند فتحه أحيانًا على أندرويد.",
+  "en": "Fixed the app sometimes staying on the splash screen when opened on Android."
+}
