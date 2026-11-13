@@ -1,6 +1,7 @@
 import type { CourseDTO, LessonDTO, NextPassageDTO, StateDTO } from '@albadr/shared';
 import type { Ticks } from './ticks';
 import { liveLesson } from './live';
+import { LESSON_MS, nextStart } from './lesson';
 import { hijriToday, lessonInstant, medinaDate, medinaWeekday, previousDate } from './time';
 
 export type Item =
@@ -18,9 +19,6 @@ export interface HomeModel {
 }
 
 const AWAITING_DELAY_MS = 30 * 60_000;
-const LESSON_MS = 150 * 60_000;
-
-const nextStart = (c: CourseDTO) => (c.next ? lessonInstant(c.next.date, c.next.time).getTime() : Infinity);
 
 function prepareFrom(c: CourseDTO): number {
   const next = c.next!;
