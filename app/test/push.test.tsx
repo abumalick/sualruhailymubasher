@@ -28,7 +28,9 @@ const st = vi.hoisted(() => ({
   data: { state: null, follow: null } as { state: unknown; follow: unknown },
   dataListeners: [] as ((d: unknown) => void)[],
 }));
+const requestLive = vi.hoisted(() => vi.fn());
 vi.mock('../src/store', () => ({
+  requestLive,
   watchFreshState: (cb: (s: unknown) => void) => {
     st.fresh.push(cb);
     return () => {};
@@ -300,5 +302,35 @@ describe('Notifications screen with a choice', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'فعّل التنبيهات' }));
     await waitFor(() => expect(fm.requestPermissions).toHaveBeenCalledOnce());
     fm.checkPermissions.mockResolvedValue({ receive: 'granted' });
+  });
+});
+
+describe('tapping a notification', () => {
+  const tap = async (data: Record<string, string>) => {
+    store.set('topics', '[]');
+    setData({ state: FIXTURE_STATE, follow: followOnly(FIXTURE_STATE.courses, ids) });
+    await initPush();
+    const call = (fm.addListener.mock.calls as unknown as [string, (e: unknown) => Promise<void>][]).find(([name]) => name === 'notificationActionPerformed')!;
+    await call[1]({ notification: { data } });
+  };
+
+  it('a live notification asks for the player and opens its lesson', async () => {
+    location.hash = '#/more';
+    await tap({ kind: 'live', courseId: 'kitab-tawhid', number: '3' });
+    expect(requestLive).toHaveBeenCalledWith({ courseId: 'kitab-tawhid' });
+    expect(location.hash).toBe('#/course/kitab-tawhid');
+  });
+
+  it('a live-other notification asks for the player and stays on the current page', async () => {
+    location.hash = '#/course/tafsir-saadi';
+    await tap({ kind: 'live-other', number: '' });
+    expect(requestLive).toHaveBeenCalledWith({ courseId: null });
+    expect(location.hash).toBe('#/course/tafsir-saadi');
+  });
+
+  it('a recording notification asks for no player', async () => {
+    await tap({ kind: 'rec', courseId: 'tafsir-saadi', number: '443' });
+    expect(requestLive).not.toHaveBeenCalled();
+    expect(location.hash).toBe('#/course/tafsir-saadi');
   });
 });

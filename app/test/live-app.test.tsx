@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
-import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const prefs = vi.hoisted(() => new Map<string, string>());
 vi.mock('@capacitor/preferences', () => ({
@@ -55,7 +55,7 @@ import * as api from '../src/api';
 import { App } from '../src/App';
 import { player } from '../src/audio/player';
 import { endedState, liveState } from './live-state';
-import { refresh } from '../src/store';
+import { clearLive, currentData, refresh, requestLive } from '../src/store';
 import { followOnly } from '../src/logic/follow';
 
 const go = (hash: string) =>
@@ -253,4 +253,82 @@ it('tapping the hero again in direct mode keeps the stream instead of reloading 
   fireEvent.click(await screen.findByRole('button', { name: 'تستمع الآن إلى البث' }));
   await act(async () => {});
   expect(player.state.src).toBe(src);
+});
+
+describe('the live notification', () => {
+  const quiet = () => ({ ...endedState(), live: { ...endedState().live, embedUrl: 'about:blank#mixlr' } });
+  let answer: (state: ReturnType<typeof liveState>) => void = () => {};
+  const pendingFetch = () => vi.mocked(api.fetchState).mockImplementation(() => new Promise((r) => (answer = (state) => r({ state, fresh: true }))));
+  const tap = (courseId: string | null, hash?: string) =>
+    act(() => {
+      requestLive({ courseId });
+      if (hash) {
+        location.hash = hash;
+        dispatchEvent(new HashChangeEvent('hashchange'));
+      }
+    });
+  afterEach(() => act(() => clearLive()));
+
+  it('tapping it opens that lesson with the player expanded', async () => {
+    location.hash = '#/more';
+    vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
+    render(<App />);
+    await screen.findByText('الدروس التي أتابعها');
+    pendingFetch();
+    await tap('kitab-tawhid', '#/course/kitab-tawhid');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await act(async () => answer(liveState('kitab-tawhid')));
+    expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
+    expect(location.hash).toBe('#/course/kitab-tawhid');
+  });
+
+  it('a cold start waits for the fresh state before opening', async () => {
+    pendingFetch();
+    vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
+    requestLive({ courseId: 'kitab-tawhid' });
+    location.hash = '#/course/kitab-tawhid';
+    render(<App />);
+    await screen.findByRole('heading', { level: 1, name: 'درس المغرب' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await act(async () => answer(liveState('kitab-tawhid')));
+    expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
+  });
+
+  it('a stale notification lands on the tab without a player', async () => {
+    location.hash = '#/more';
+    vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
+    render(<App />);
+    await screen.findByText('الدروس التي أتابعها');
+    pendingFetch();
+    await tap('kitab-tawhid', '#/course/kitab-tawhid');
+    await act(async () => answer(quiet()));
+    await screen.findByRole('heading', { level: 1, name: 'درس المغرب' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'البث المباشر' })).toBeNull();
+  });
+
+  it('a tap for a lesson the listener no longer follows opens no player', async () => {
+    prefs.set('follow', JSON.stringify(followOnly(liveState(null).courses, ['tafsir-saadi'])));
+    location.hash = '#/course/tafsir-saadi';
+    vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
+    render(<App />);
+    await screen.findByRole('heading', { level: 1, name: 'درس الفجر' });
+    pendingFetch();
+    await tap('kitab-tawhid');
+    await act(async () => answer(liveState('kitab-tawhid')));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(currentData().intent).toBeNull();
+  });
+
+  it('a live-other tap opens the player and keeps the current tab', async () => {
+    location.hash = '#/course/tafsir-saadi';
+    vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
+    render(<App />);
+    await screen.findByRole('heading', { level: 1, name: 'درس الفجر' });
+    pendingFetch();
+    await tap(null);
+    await act(async () => answer(liveState(null)));
+    expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
+    expect(location.hash).toBe('#/course/tafsir-saadi');
+  });
 });

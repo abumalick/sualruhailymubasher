@@ -4,7 +4,7 @@ import { FirebaseMessaging, Importance } from '@capacitor-firebase/messaging';
 import { LIVE_TAG, type PushData, type StateDTO } from '@albadr/shared';
 import { diffTopics, routeForPush, syncPlan, topicsFor, type StoredTopics } from './logic/topics';
 import { navigate } from './router';
-import { currentData, currentView, watchData, watchFreshState, type AppData } from './store';
+import { currentData, currentView, requestLive, watchData, watchFreshState, type AppData } from './store';
 import { loadCachedState } from './api';
 import { loadFollow } from './follow';
 import { filterState } from './logic/follow';
@@ -154,6 +154,7 @@ export async function initPush(): Promise<void> {
   await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
     const data = event.notification.data;
     if (!isPushData(data)) return;
+    if (data.kind === 'live' || data.kind === 'live-other') requestLive({ courseId: data.kind === 'live' ? (data.courseId ?? null) : null });
     const route = routeForPush(data, currentView() ?? (await cachedView()));
     if (route) navigate(route);
   });

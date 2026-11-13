@@ -4,6 +4,7 @@ import { fetchState, loadCachedState } from './api';
 import { FIXTURE_STATE } from './dev/fixture-state';
 import { loadFollow, saveFollow, usedBeforeChoice } from './follow';
 import { filterState, followOnly, reconcile, type Follow } from './logic/follow';
+import type { LiveIntent } from './logic/liveIntent';
 import { loadTicks, setTick, type TickKind, type Ticks } from './logic/ticks';
 
 export interface AppData {
@@ -12,6 +13,13 @@ export interface AppData {
   error: boolean;
   fresh: boolean; // a state fetched from the server this session, not only the cached copy
   follow?: Follow | null; // undefined until loaded, null until the listener chooses
+  intent?: PendingLive | null;
+}
+
+// A tapped live notification, settled by the first fetch after the tap.
+export interface PendingLive extends LiveIntent {
+  fresh: boolean;
+  failed: boolean;
 }
 
 let data: AppData = { state: null, ticks: { read: new Set(), reviewed: new Set() }, error: false, fresh: false };
@@ -66,16 +74,24 @@ export function refresh(): Promise<void> {
   inflight ??= (async () => {
     try {
       const { state, fresh } = await fetchState();
-      update(fresh ? { state, error: false, fresh } : { state, error: true });
+      const intent = data.intent && { ...data.intent, ...(fresh ? { fresh: true } : { failed: true }) };
+      update(fresh ? { state, error: false, fresh, intent } : { state, error: true, intent });
       if (fresh) freshListeners.forEach((l) => l(state));
     } catch {
-      update({ error: true });
+      update({ error: true, intent: data.intent && { ...data.intent, failed: true } });
     } finally {
       inflight = null;
     }
   })();
   return inflight;
 }
+
+export function requestLive(intent: LiveIntent): void {
+  update({ intent: { ...intent, fresh: false, failed: false } });
+  void refresh();
+}
+
+export const clearLive = (): void => update({ intent: null });
 
 export async function toggleTick(kind: TickKind, courseId: string, n: number): Promise<void> {
   const key = `${courseId}:${n}`;
