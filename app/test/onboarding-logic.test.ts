@@ -68,13 +68,9 @@ describe('cardFor', () => {
     expect(cardFor('live', [tafsir, tawhid], liveDTO('kitab-tawhid'))).toEqual({ course: tawhid, kind: 'live' });
   });
 
-  it('live: otherwise a preview of the first picked lesson with its next number', () => {
-    expect(cardFor('live', [tafsir, tawhid], quiet)).toEqual({ course: tafsir, kind: 'preview', number: 444 });
-    expect(cardFor('live', [tafsir], liveDTO('kitab-tawhid'))).toEqual({ course: tafsir, kind: 'preview', number: 444 });
-  });
-
-  it('live: a lesson with nothing scheduled previews the lesson after its last one', () => {
-    expect(cardFor('live', [{ ...tafsir, next: null }], quiet)).toEqual({ course: { ...tafsir, next: null }, kind: 'preview', number: 444 });
+  it('live: otherwise the first picked lesson, shown as it will be on air', () => {
+    expect(cardFor('live', [tafsir, tawhid], quiet)).toEqual({ course: tafsir, kind: 'live' });
+    expect(cardFor('live', [tafsir], liveDTO('kitab-tawhid'))).toEqual({ course: tafsir, kind: 'live' });
   });
 
   it('revision: the first picked lesson with a recording', () => {

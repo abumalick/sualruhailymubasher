@@ -17,7 +17,7 @@ The first launch explains what the app is for and lets the listener choose their
 ```
 
 - **Screen 1** names each lesson with its real title, days and time, as checkable cards. At least one must be ticked.
-- **Steps 2–4** each show one card from the lesson screen (`LiveHero`, `RecordingCard`, `NextCard` from `ui/cards.tsx`), taken from the first ticked lesson that has the data, inside a frame labelled «مثال من درس …». Nothing in the frame reacts: `inert` and `aria-hidden` for focus and screen readers, a capture-phase click handler for taps. When nothing is on air the hero shows its preview («عند بدء البث», the next lesson's number).
+- **Steps 2–4** each show one card from the lesson screen (`LiveHero`, `RecordingCard`, `NextCard` from `ui/cards.tsx`), taken from the first ticked lesson that has the data, inside a frame labelled «مثال من درس …». Nothing in the frame reacts: `inert` and `aria-hidden` for focus and screen readers, a capture-phase click handler for taps. The live step shows the hero exactly as during a broadcast (red, pulsing, «مباشر الآن»); when nothing is on air it is given the lesson as if it had just started, so it reads the next lesson and its passage from the course.
 - Under the card, one switch per ticked lesson for that notification (plus «بث مباشر آخر» on the live step). Everything starts on.
 - **Permission** is asked when the listener continues from the first step that has a switch on, and only while it is still `prompt`. Refused: the switches stay, with a line saying they will work once enabled.
 - **Web:** the same screens without switches or permission.

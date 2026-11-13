@@ -1,9 +1,8 @@
-import { cleanup, render, screen } from '@testing-library/preact';
+import { cleanup, render } from '@testing-library/preact';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { NextCard, RecordingCard } from '../src/ui/cards';
 import { Lesson } from '../src/ui/Lesson';
-import { LiveHero } from '../src/ui/LiveHero';
 
 const [tafsir] = FIXTURE_STATE.courses;
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
@@ -30,12 +29,5 @@ describe('cards shared by the lesson screen and the onboarding', () => {
     cleanup();
     const rec = render(<RecordingCard course={tafsir} lesson={tafsir.latest[0]} reviewed={false} onPlay={noop} onTick={noop} />);
     expect(rec.container.innerHTML).toBe(inLesson.recording);
-  });
-
-  it('the live hero has a preview for when nothing is on air', () => {
-    render(<LiveHero course={tafsir} live={FIXTURE_STATE.live} listening={false} onLive={noop} preview={{ number: 444 }} />);
-    expect(screen.getByText('عند بدء البث')).toBeTruthy();
-    expect(screen.getByText(/الدرس ٤٤٤/)).toBeTruthy();
-    expect(screen.queryByText(/مباشر الآن/)).toBeNull();
   });
 });

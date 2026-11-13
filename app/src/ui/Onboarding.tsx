@@ -34,6 +34,9 @@ const TEXT: Record<Exclude<Step, 'app'>, { title: string; body: string; switches
   },
 };
 
+// Off air, the hero is shown as it will look once this lesson starts: it then reads the next lesson from the course.
+const onAir = (live: StateDTO['live'], course: CourseDTO) => (live.isLive && live.courseId === course.id ? live : { ...live, isLive: true, courseId: course.id, startedAt: null });
+
 // A card shown as an example: it looks real but nothing in it can be tapped, focused or read twice by a screen reader.
 function Example({ card, live, now }: { card: Card; live: StateDTO['live']; now: Date }) {
   const { course } = card;
@@ -45,8 +48,7 @@ function Example({ card, live, now }: { card: Card; live: StateDTO['live']; now:
   return (
     <div class="frame" inert aria-hidden="true" onClickCapture={block}>
       <span class="flabel">مثال من درس {slot}</span>
-      {card.kind === 'live' && <LiveHero course={course} live={live} listening={false} onLive={noop} />}
-      {card.kind === 'preview' && <LiveHero course={course} live={live} listening={false} onLive={noop} preview={{ number: card.number }} />}
+      {card.kind === 'live' && <LiveHero course={course} live={onAir(live, course)} listening={false} onLive={noop} />}
       {card.kind === 'recording' && <RecordingCard course={course} lesson={card.lesson} reviewed={false} onPlay={noop} onTick={noop} />}
       {card.kind === 'next' && <NextCard course={course} next={card.next} read={false} when={`${dayWord(card.next.date, now)} بعد ${slot} · ${clock12(card.next.time)}`} onTick={noop} />}
     </div>

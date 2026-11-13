@@ -13,7 +13,6 @@ export interface Draft {
 
 export type Card =
   | { course: CourseDTO; kind: 'live' }
-  | { course: CourseDTO; kind: 'preview'; number: number }
   | { course: CourseDTO; kind: 'recording'; lesson: LessonDTO }
   | { course: CourseDTO; kind: 'next'; next: NextPassageDTO };
 
@@ -46,11 +45,8 @@ export function stepTopics(step: Step, picked: CourseDTO[]): { topic: string; co
 
 export function cardFor(step: Step, picked: CourseDTO[], live: LiveDTO): Card | null {
   if (step === 'live') {
-    const onAir = live.isLive ? picked.find((c) => c.id === live.courseId) : undefined;
-    if (onAir) return { course: onAir, kind: 'live' };
-    const first = picked[0];
-    if (!first) return null;
-    return { course: first, kind: 'preview', number: first.next?.number ?? (first.latest[0]?.number ?? 0) + 1 };
+    const course = (live.isLive && picked.find((c) => c.id === live.courseId)) || picked[0];
+    return course ? { course, kind: 'live' } : null;
   }
   if (step === 'rec') {
     const course = picked.find((c) => c.latest[0]?.recordingUrl);

@@ -76,6 +76,14 @@ it('each switch row is a thumb-sized target and the example is labelled', async 
   for (const row of rows) expect(row.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 });
 
+it('the example live hero paints and pulses like the real one', async () => {
+  const c = await at(1);
+  const disc = c.querySelector<HTMLElement>('.frame .disc .btn')!;
+  const go = c.querySelector<HTMLElement>('.frame .go-live')!;
+  expect(getComputedStyle(disc).backgroundColor).toBe(getComputedStyle(go).backgroundColor);
+  expect(getComputedStyle(disc, '::before').animationName).toBe('ring');
+});
+
 it('a real tap on the example book link opens nothing', async () => {
   location.hash = '#/';
   const c = await at(2);

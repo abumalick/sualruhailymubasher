@@ -3,22 +3,17 @@ import { liveContext, liveLesson } from '../logic/live';
 import { ar, slotName } from './format';
 import { Disc, Icon } from './Star';
 
-// preview: how the hero looks once the lesson starts, shown while nothing is on air.
-export function LiveHero(p: { course: CourseDTO | undefined; live: LiveDTO; listening: boolean; onLive: () => void; preview?: { number: number } }) {
+export function LiveHero(p: { course: CourseDTO | undefined; live: LiveDTO; listening: boolean; onLive: () => void }) {
   const c = p.course;
-  const ctx = c && !p.preview ? liveContext(c, true, p.live.startedAt) : null;
-  const number = p.preview ? p.preview.number : c ? liveLesson(c, p.live.startedAt).number : null;
+  const ctx = c ? liveContext(c, true, p.live.startedAt) : null;
+  const number = c ? liveLesson(c, p.live.startedAt).number : null;
   return (
     <div class="hero">
-      {p.preview ? (
-        <span class="tag">عند بدء البث</span>
-      ) : (
-        <span class="tag live">
-          <i class="dot" />
-          {c ? `مباشر الآن · درس ${slotName(c.slot)}` : 'مباشر الآن'}
-        </span>
-      )}
-      <Disc icon="play" label="استمع إلى البث المباشر" onClick={p.onLive} live={p.preview ? undefined : p.listening ? 'still' : 'pulse'} />
+      <span class="tag live">
+        <i class="dot" />
+        {c ? `مباشر الآن · درس ${slotName(c.slot)}` : 'مباشر الآن'}
+      </span>
+      <Disc icon="play" label="استمع إلى البث المباشر" onClick={p.onLive} live={p.listening ? 'still' : 'pulse'} />
       <h3>{c ? c.title : 'البث المباشر'}</h3>
       {number !== null && (
         <p>

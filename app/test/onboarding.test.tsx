@@ -102,10 +102,12 @@ describe('the app screen', () => {
 });
 
 describe('the live step', () => {
-  it('shows the real live hero of the first lesson, as it will look when the broadcast starts', async () => {
+  it('shows the live hero of the first lesson exactly as during a broadcast: red, pulsing, with its next lesson', async () => {
     await toLive();
     expect(screen.getByText('مثال من درس الفجر')).toBeTruthy();
-    expect(screen.getByText('عند بدء البث')).toBeTruthy();
+    expect(screen.getByText('مباشر الآن · درس الفجر')).toBeTruthy();
+    expect(document.querySelector('.frame .disc')!.className).toBe('disc live pulse');
+    expect(screen.getByText(/الدرس ٤٤٤/)).toBeTruthy();
     expect(screen.getByText(fajr.title)).toBeTruthy();
     expect(switchOf('درس الفجر').getAttribute('aria-checked')).toBe('true');
     expect(switchOf('درس المغرب').getAttribute('aria-checked')).toBe('true');
