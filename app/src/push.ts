@@ -2,45 +2,26 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { FirebaseMessaging, Importance } from '@capacitor-firebase/messaging';
 import { LIVE_TAG, type PushData, type StateDTO } from '@albadr/shared';
-import { diffTopics, routeForPush, syncPlan, topicsFor, type StoredTopics } from './logic/topics';
+import { routeForPush } from './logic/topics';
+import { subscriptionPlan, type Prefs } from './logic/prefs';
 import { navigate } from './router';
-import { currentData, currentView, requestLive, watchData, watchFreshState, type AppData } from './store';
+import { currentData, currentState, markTapped, requestLive, watchData, watchFreshState, type AppData } from './store';
 import { loadCachedState } from './api';
-import { loadFollow } from './follow';
-import { filterState } from './logic/follow';
 
 const TOPICS_KEY = 'topics';
-const COURSES_KEY = 'topic-courses';
 const KINDS = ['live', 'live-other', 'rec', 'prep'];
 
 const native = () => Capacitor.isNativePlatform();
 
-async function readList(key: string): Promise<string[] | null> {
-  const { value } = await Preferences.get({ key });
-  if (!value) return null;
+async function loadSubscribed(): Promise<string[]> {
+  const { value } = await Preferences.get({ key: TOPICS_KEY });
+  if (!value) return [];
   try {
     const list = JSON.parse(value);
-    return Array.isArray(list) ? list : null;
+    return Array.isArray(list) ? list : [];
   } catch {
-    return null;
+    return [];
   }
-}
-
-async function loadStored(): Promise<StoredTopics | null> {
-  const topics = await readList(TOPICS_KEY);
-  if (!topics) return null;
-  return { topics, courses: (await readList(COURSES_KEY)) ?? [] };
-}
-
-export async function loadTopics(state: StateDTO | null): Promise<string[]> {
-  const stored = await loadStored();
-  if (stored) return stored.topics;
-  return state ? topicsFor(state.courses.map((c) => c.id)) : [];
-}
-
-async function cachedView(): Promise<StateDTO | null> {
-  const [state, follow] = await Promise.all([loadCachedState(), loadFollow()]);
-  return state && follow ? filterState(state, follow) : state;
 }
 
 let queue: Promise<unknown> = Promise.resolve();
@@ -77,44 +58,20 @@ async function apply(current: string[], { sub, unsub }: { sub: string[]; unsub: 
   return { topics: [...topics], failed };
 }
 
-async function save(topics: string[], courses?: string[]) {
-  await Preferences.set({ key: TOPICS_KEY, value: JSON.stringify(topics) });
-  if (courses) await Preferences.set({ key: COURSES_KEY, value: JSON.stringify(courses) });
-}
-
-export const setTopic = (topic: string, on: boolean): Promise<string[] | null> =>
-  serial(async () => {
-    const stored = await loadStored();
-    const toggle = (list: string[]) => (on ? [...new Set([...list, topic])] : list.filter((t) => t !== topic));
-    if (stored) {
-      const { topics } = await apply(stored.topics, diffTopics(stored.topics, toggle(stored.topics)));
-      await save(topics);
-      return topics;
-    }
-    const state = currentView() ?? (await cachedView());
-    if (!state) return null;
-    const ids = state.courses.map((c) => c.id);
-    const defaults = topicsFor(ids);
-    const { topics, failed } = await apply([], diffTopics([], toggle(defaults)));
-    if (failed) return defaults;
-    await save(topics, ids);
-    return topics;
-  });
-
 async function prepareNotifications() {
   try {
     await FirebaseMessaging.createChannel({ id: 'lessons', name: 'الدروس', importance: Importance.High });
   } catch {}
 }
 
-export const syncTopics = (state: StateDTO, followed: string[]): Promise<boolean> =>
+// The record says what is wanted; `topics` keeps what FCM accepted, so a failure is retried on the next sync.
+export const syncTopics = (state: StateDTO, prefs: Prefs): Promise<boolean> =>
   serial(async () => {
     if (native()) await prepareNotifications();
-    const stored = await loadStored();
-    const plan = syncPlan(stored, state.courses.map((c) => c.id), followed);
-    const { topics, failed } = await apply(stored?.topics ?? [], plan);
-    if (failed && !stored) return false;
-    await save(topics, failed ? plan.coursesIfFailed : plan.courses);
+    const subscribed = await loadSubscribed();
+    const plan = subscriptionPlan(prefs, state.courses.map((c) => c.id), subscribed);
+    const { topics, failed } = await apply(subscribed, plan);
+    await Preferences.set({ key: TOPICS_KEY, value: JSON.stringify(topics) });
     return !failed;
   });
 
@@ -154,23 +111,24 @@ export async function initPush(): Promise<void> {
   await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
     const data = event.notification.data;
     if (!isPushData(data)) return;
+    markTapped();
     if (data.kind === 'live' || data.kind === 'live-other') requestLive({ courseId: data.kind === 'live' ? (data.courseId ?? null) : null });
-    const route = routeForPush(data, currentView() ?? (await cachedView()));
+    const route = routeForPush(data, currentState() ?? (await loadCachedState()));
     if (route) navigate(route);
   });
   watchFreshState((state) => {
     if (!state.live.isLive) void clearLiveNotification();
   });
   let synced = '';
-  const sync = ({ state, follow }: AppData) => {
-    if (!state || !follow) return;
-    const key = `${follow.ids.join(',')}|${state.courses.map((c) => c.id).join(',')}`;
+  const sync = ({ state, prefs }: AppData) => {
+    if (!state || !prefs) return;
+    const key = `${prefs.wanted.join(',')}|${state.courses.map((c) => c.id).join(',')}`;
     if (key === synced) return;
     synced = key;
     const retry = () => {
       if (synced === key) synced = '';
     };
-    syncTopics(state, follow.ids).then((ok) => ok || retry(), retry);
+    syncTopics(state, prefs).then((ok) => ok || retry(), retry);
   };
   sync(currentData());
   watchData(sync);

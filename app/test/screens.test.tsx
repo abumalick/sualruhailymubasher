@@ -15,6 +15,7 @@ vi.mock('../src/api', () => ({ loadCachedState: vi.fn(), fetchState: vi.fn(), fe
 import * as api from '../src/api';
 import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
+import { seedPrefs } from './seed';
 
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
 
@@ -30,7 +31,7 @@ describe('App boot', () => {
   it('renders the cached state, shows the refresh error, and saves the read tick when tapped', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(MON_2110);
-    store.set('topics', '[]');
+    seedPrefs(store, FIXTURE_STATE.courses);
     vi.mocked(api.loadCachedState).mockResolvedValue(FIXTURE_STATE);
     vi.mocked(api.fetchState).mockRejectedValue(new Error('offline'));
     render(<App />);

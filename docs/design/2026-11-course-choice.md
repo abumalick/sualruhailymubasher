@@ -1,3 +1,5 @@
+> Superseded by [`onboarding.md`](onboarding.md) for what the choice controls: both lesson tabs are always shown, and the choice only sets notifications.
+
 # Choosing the lessons you follow
 
 Listeners pick the courses they follow (today: Fajr · Tafsir as-Sa'di, Maghrib · Kitab at-Tawhid). The app then shows only those courses and sends only their notifications. The course list comes from `/api/state`, so a third course needs no app change.

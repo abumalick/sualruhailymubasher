@@ -21,7 +21,16 @@ describe('defaultTab', () => {
     expect(defaultTab(withCourses(FIXTURE_STATE.courses, liveDTO('tafsir-saadi')), MON_1900)).toBe('tafsir-saadi');
   });
 
-  it('ignores a broadcast of a course that is not followed', () => {
+  it('opens the soonest of the lessons the listener attends', () => {
+    expect(defaultTab(FIXTURE_STATE, MON_0940, ['tafsir-saadi'])).toBe('tafsir-saadi');
+    expect(defaultTab(FIXTURE_STATE, MON_2110, ['kitab-tawhid'])).toBe('kitab-tawhid');
+  });
+
+  it('a broadcast on air wins over the lessons the listener attends', () => {
+    expect(defaultTab(withCourses(FIXTURE_STATE.courses, liveDTO('kitab-tawhid')), MON_2110, ['tafsir-saadi'])).toBe('kitab-tawhid');
+  });
+
+  it('ignores a broadcast of a course that is not listed', () => {
     expect(defaultTab(withCourses([tawhid], liveDTO('tafsir-saadi')), MON_2110)).toBe('kitab-tawhid');
   });
 

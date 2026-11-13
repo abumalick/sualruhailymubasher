@@ -25,24 +25,26 @@ const fm = vi.hoisted(() => ({
 vi.mock('@capacitor-firebase/messaging', () => ({ FirebaseMessaging: fm, Importance: { High: 4 } }));
 const st = vi.hoisted(() => ({
   fresh: [] as ((s: unknown) => void)[],
-  data: { state: null, follow: null } as { state: unknown; follow: unknown },
+  data: { state: null, prefs: null } as { state: unknown; prefs: unknown },
   dataListeners: [] as ((d: unknown) => void)[],
 }));
 const requestLive = vi.hoisted(() => vi.fn());
+const markTapped = vi.hoisted(() => vi.fn());
 vi.mock('../src/store', () => ({
   requestLive,
+  markTapped,
   watchFreshState: (cb: (s: unknown) => void) => {
     st.fresh.push(cb);
     return () => {};
   },
   currentData: () => st.data,
-  currentView: () => st.data.state,
+  currentState: () => st.data.state,
   watchData: (cb: (d: unknown) => void) => {
     st.dataListeners.push(cb);
     return () => {};
   },
 }));
-const setData = (d: { state: unknown; follow: unknown }) => {
+const setData = (d: { state: unknown; prefs: unknown }) => {
   st.data = d;
   st.dataListeners.forEach((cb) => cb(d));
 };
@@ -52,16 +54,20 @@ const fetched = (s: unknown) => {
 };
 
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { followOnly } from '../src/logic/follow';
-import { initPush, setTopic, syncTopics } from '../src/push';
+import type { Prefs } from '../src/logic/prefs';
+import { topicsFor } from '../src/logic/topics';
+import { initPush, syncTopics } from '../src/push';
 import { Notifications } from '../src/ui/Notifications';
 
 const ids = FIXTURE_STATE.courses.map((c) => c.id);
+const known: Prefs['known'] = [['tafsir-saadi', 'fajr'], ['kitab-tawhid', 'maghrib']];
+const prefs = (wanted: string[]): Prefs => ({ wanted, known });
+const unsubscribed = () => fm.unsubscribeFromTopic.mock.calls.map((c) => c[0].topic);
 const subscribed = () => fm.subscribeToTopic.mock.calls.map((c) => c[0].topic);
 
 beforeEach(() => {
   st.fresh = [];
-  st.data = { state: null, follow: null };
+  st.data = { state: null, prefs: null };
   st.dataListeners = [];
   store.clear();
   vi.clearAllMocks();
@@ -69,9 +75,9 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('syncTopics', () => {
-  it('first sync never asks permission cold, creates the channel, subscribes to everything and persists', async () => {
+  it('never asks permission, creates the channel, subscribes what is wanted and records what FCM accepted', async () => {
     fm.checkPermissions.mockResolvedValue({ receive: 'prompt' });
-    await syncTopics(FIXTURE_STATE, ids);
+    expect(await syncTopics(FIXTURE_STATE, prefs(topicsFor(ids)))).toBe(true);
     fm.checkPermissions.mockResolvedValue({ receive: 'granted' });
     expect(fm.requestPermissions).not.toHaveBeenCalled();
     expect(fm.createChannel).toHaveBeenCalledWith({ id: 'lessons', name: 'الدروس', importance: 4 });
@@ -79,101 +85,76 @@ describe('syncTopics', () => {
     expect(JSON.parse(store.get('topics')!)).toHaveLength(ids.length * 3 + 1);
   });
 
-  it('later launches do not ask again and add a new course', async () => {
-    await syncTopics({ ...FIXTURE_STATE, courses: FIXTURE_STATE.courses.slice(0, 1) }, ids);
-    vi.clearAllMocks();
-    await syncTopics(FIXTURE_STATE, ids);
-    expect(fm.requestPermissions).not.toHaveBeenCalled();
-    expect(subscribed()).toEqual(expect.arrayContaining([`c-${ids[1]}-live`, `c-${ids[1]}-prep`, `c-${ids[1]}-rec`]));
-    expect(JSON.parse(store.get('topics')!)).toHaveLength(ids.length * 3 + 1);
+  it('resubscribes every wanted topic and drops the rest (restored backup, fresh FCM instance)', async () => {
+    store.set('topics', JSON.stringify(topicsFor(ids)));
+    await syncTopics(FIXTURE_STATE, prefs([`c-${ids[0]}-live`, 'live-other']));
+    expect(subscribed().sort()).toEqual([`c-${ids[0]}-live`, 'live-other']);
+    expect(unsubscribed()).toContain(`c-${ids[1]}-rec`);
+    expect(JSON.parse(store.get('topics')!).sort()).toEqual([`c-${ids[0]}-live`, 'live-other']);
   });
 
-  it('resubscribes every stored topic on launch (restored backup, fresh FCM instance)', async () => {
-    store.set('topics', JSON.stringify([`c-${ids[0]}-live`, 'live-other']));
-    store.set('topic-courses', JSON.stringify(ids));
-    await syncTopics(FIXTURE_STATE, ids);
-    expect(subscribed().sort()).toEqual([`c-${ids[0]}-live`, 'live-other']);
-    expect(fm.unsubscribeFromTopic.mock.calls.map((c) => c[0].topic)).toContain(`c-${ids[1]}-rec`);
+  it('a lesson with every switch off is unsubscribed from all its topics', async () => {
+    await syncTopics(FIXTURE_STATE, prefs([...topicsFor([ids[0]])]));
+    expect(unsubscribed()).toEqual(expect.arrayContaining([`c-${ids[1]}-live`, `c-${ids[1]}-rec`, `c-${ids[1]}-prep`]));
+  });
+
+  it('a wanted topic of an unlisted course waits until the course is listed again', async () => {
+    const p = prefs([`c-${ids[1]}-live`]);
+    await syncTopics({ ...FIXTURE_STATE, courses: FIXTURE_STATE.courses.slice(0, 1) }, p);
+    expect(subscribed()).not.toContain(`c-${ids[1]}-live`);
+    await syncTopics(FIXTURE_STATE, p);
+    expect(subscribed()).toContain(`c-${ids[1]}-live`);
+  });
+
+  it('a failed subscribe reports failure, keeps it out of the accepted list, and the next sync retries it', async () => {
+    fm.subscribeToTopic.mockImplementation(async ({ topic }) => {
+      if (topic === `c-${ids[1]}-rec`) throw new Error('offline');
+    });
+    expect(await syncTopics(FIXTURE_STATE, prefs(topicsFor(ids)))).toBe(false);
+    expect(JSON.parse(store.get('topics')!)).not.toContain(`c-${ids[1]}-rec`);
+    fm.subscribeToTopic.mockImplementation(async () => {});
+    vi.clearAllMocks();
+    expect(await syncTopics(FIXTURE_STATE, prefs(topicsFor(ids)))).toBe(true);
+    expect(subscribed()).toContain(`c-${ids[1]}-rec`);
   });
 
   it('recreates the channel on every launch', async () => {
-    await syncTopics(FIXTURE_STATE, ids);
-    await syncTopics(FIXTURE_STATE, ids);
+    await syncTopics(FIXTURE_STATE, prefs([]));
+    await syncTopics(FIXTURE_STATE, prefs([]));
     expect(fm.createChannel).toHaveBeenCalledTimes(2);
-  });
-
-  it('a failed first launch persists nothing so it retries whole', async () => {
-    fm.subscribeToTopic.mockRejectedValueOnce(new Error('offline'));
-    await syncTopics(FIXTURE_STATE, ids);
-    expect(store.has('topics')).toBe(false);
-  });
-
-  it('keeps a topic the user turned off across launches', async () => {
-    await syncTopics(FIXTURE_STATE, ids);
-    await setTopic(`c-${ids[1]}-live`, false);
-    vi.clearAllMocks();
-    await syncTopics(FIXTURE_STATE, ids);
-    expect(subscribed()).toHaveLength(ids.length * 3);
-    expect(subscribed()).not.toContain(`c-${ids[1]}-live`);
-    expect(fm.unsubscribeFromTopic).toHaveBeenCalledWith({ topic: `c-${ids[1]}-live` });
-  });
-});
-
-describe('setTopic before the first sync', () => {
-  it('keeps the other defaults and the opt-out when the first sync runs later', async () => {
-    store.set('state', JSON.stringify(FIXTURE_STATE));
-    await setTopic(`c-${ids[0]}-rec`, false);
-    expect(JSON.parse(store.get('topics')!)).not.toContain(`c-${ids[0]}-rec`);
-    expect(JSON.parse(store.get('topics')!)).toHaveLength(ids.length * 3);
-    expect(JSON.parse(store.get('topic-courses')!)).toEqual(ids);
-    vi.clearAllMocks();
-    await syncTopics(FIXTURE_STATE, ids);
-    expect(subscribed()).toHaveLength(ids.length * 3);
-    expect(subscribed()).not.toContain(`c-${ids[0]}-rec`);
-  });
-
-  it('serializes concurrent writes so none is lost', async () => {
-    await syncTopics(FIXTURE_STATE, ids);
-    await Promise.all([setTopic(`c-${ids[0]}-rec`, false), setTopic(`c-${ids[1]}-rec`, false)]);
-    const saved = JSON.parse(store.get('topics')!);
-    expect(saved).not.toContain(`c-${ids[0]}-rec`);
-    expect(saved).not.toContain(`c-${ids[1]}-rec`);
   });
 });
 
 describe('Notifications screen', () => {
-  it('shows every default switch on before the first sync', async () => {
-    render(<Notifications state={FIXTURE_STATE} />);
+  it('lists every lesson, even one with every switch off, with its reminder times', async () => {
+    render(<Notifications state={FIXTURE_STATE} prefs={prefs([...topicsFor([ids[0]])])} onToggle={() => {}} />);
     await waitFor(() => screen.getAllByRole('switch'));
-    screen.getAllByRole('switch').forEach((sw) => expect(sw.getAttribute('aria-checked')).toBe('true'));
+    expect(screen.getByText('مساء اليوم السابق · ٩:٠٠ م')).toBeTruthy();
+    expect(screen.getByText('عصر يوم الدرس · ٣:٣٠ م')).toBeTruthy();
+    const live = screen.getAllByRole('switch', { name: 'بدء البث المباشر' });
+    expect(live.map((sw) => sw.getAttribute('aria-checked'))).toEqual(['true', 'false', 'true']);
   });
 
-  it('shows per-course toggles and unsubscribes when switched off', async () => {
-    await syncTopics(FIXTURE_STATE, ids);
-    vi.clearAllMocks();
-    render(<Notifications state={FIXTURE_STATE} />);
-    await waitFor(() => screen.getAllByText('مساء اليوم السابق · ٩:٠٠ م'));
-    expect(screen.getByText('عصر يوم الدرس · ٣:٣٠ م')).toBeTruthy();
-    expect(screen.getByText('بث مباشر آخر')).toBeTruthy();
-    const live = screen.getAllByRole('switch', { name: 'بدء البث المباشر' });
-    expect(live).toHaveLength(ids.length + 1);
-    fireEvent.click(live[1]);
-    await waitFor(() => expect(fm.unsubscribeFromTopic).toHaveBeenCalledWith({ topic: `c-${ids[1]}-live` }));
-    await waitFor(() => expect(live[1].getAttribute('aria-checked')).toBe('false'));
+  it('a switch reports the topic and its new value', async () => {
+    const onToggle = vi.fn();
+    render(<Notifications state={FIXTURE_STATE} prefs={prefs(topicsFor(ids))} onToggle={onToggle} />);
+    fireEvent.click((await screen.findAllByRole('switch', { name: 'بدء البث المباشر' }))[1]);
+    expect(onToggle).toHaveBeenCalledWith(`c-${ids[1]}-live`, false);
   });
 
   it('explains when system notifications are off', async () => {
     fm.checkPermissions.mockResolvedValueOnce({ receive: 'denied' });
-    render(<Notifications state={FIXTURE_STATE} />);
+    render(<Notifications state={FIXTURE_STATE} prefs={prefs([])} onToggle={() => {}} />);
     await waitFor(() => screen.getByText(/متوقفة من إعدادات الجهاز/));
   });
-});
 
-describe('setTopic without any state', () => {
-  it('does nothing and reports it', async () => {
-    expect(await setTopic('live-other', false)).toBeNull();
-    expect(fm.subscribeToTopic).not.toHaveBeenCalled();
-    expect(store.has('topics')).toBe(false);
+  it('asks permission only on tap', async () => {
+    fm.checkPermissions.mockResolvedValue({ receive: 'prompt' });
+    render(<Notifications state={FIXTURE_STATE} prefs={prefs([])} onToggle={() => {}} />);
+    expect(fm.requestPermissions).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'فعّل التنبيهات' }));
+    await waitFor(() => expect(fm.requestPermissions).toHaveBeenCalledOnce());
+    fm.checkPermissions.mockResolvedValue({ receive: 'granted' });
   });
 });
 
@@ -197,10 +178,10 @@ describe('initPush', () => {
 
   it('ignores a cached not-live state and keeps the notification when the fresh state is live', async () => {
     fm.getDeliveredNotifications.mockResolvedValue({ notifications: delivered });
-    const follow = followOnly(FIXTURE_STATE.courses, ids);
-    st.data = { state: withLive(false), follow };
+    const p = prefs(topicsFor(ids));
+    st.data = { state: withLive(false), prefs: p };
     await initPush();
-    setData({ state: withLive(false), follow });
+    setData({ state: withLive(false), prefs: p });
     fetched(withLive(true));
     await settle();
     expect(fm.getDeliveredNotifications).not.toHaveBeenCalled();
@@ -218,97 +199,35 @@ describe('initPush', () => {
   });
 });
 
-describe('topics follow the course choice', () => {
-  const unsubscribed = () => fm.unsubscribeFromTopic.mock.calls.map((c) => c[0].topic);
-
-  it('a one-course listener gets only that course and the other broadcasts', async () => {
-    await syncTopics(FIXTURE_STATE, [ids[0]]);
-    expect(subscribed().sort()).toEqual([`c-${ids[0]}-live`, `c-${ids[0]}-prep`, `c-${ids[0]}-rec`, 'live-other']);
-    expect(unsubscribed()).toEqual(expect.arrayContaining([`c-${ids[1]}-live`, `c-${ids[1]}-rec`, `c-${ids[1]}-prep`]));
-    expect(JSON.parse(store.get('topic-courses')!)).toEqual([ids[0]]);
-  });
-
-  it('switching course moves every subscription at once and keeps live-other', async () => {
-    await syncTopics(FIXTURE_STATE, ids);
-    await setTopic('live-other', false);
-    vi.clearAllMocks();
-    await syncTopics(FIXTURE_STATE, [ids[1]]);
-    expect(unsubscribed()).toEqual(expect.arrayContaining([`c-${ids[0]}-live`, `c-${ids[0]}-rec`, `c-${ids[0]}-prep`]));
-    expect(JSON.parse(store.get('topics')!).sort()).toEqual([`c-${ids[1]}-live`, `c-${ids[1]}-prep`, `c-${ids[1]}-rec`]);
-  });
-
-  it('a sync that fails while dropping a course still lets it come back with its defaults', async () => {
-    await syncTopics(FIXTURE_STATE, ids);
-    fm.subscribeToTopic.mockRejectedValueOnce(new Error('offline'));
-    await syncTopics(FIXTURE_STATE, [ids[0]]);
-    expect(JSON.parse(store.get('topic-courses')!)).toEqual([ids[0]]);
-    vi.clearAllMocks();
-    await syncTopics(FIXTURE_STATE, ids);
-    expect(subscribed()).toEqual(expect.arrayContaining([`c-${ids[1]}-live`, `c-${ids[1]}-rec`, `c-${ids[1]}-prep`]));
-  });
-
-  it('a newly followed course whose subscribe fails is retried with its defaults', async () => {
-    await syncTopics(FIXTURE_STATE, [ids[0]]);
-    fm.subscribeToTopic.mockImplementation(async ({ topic }) => {
-      if (topic === `c-${ids[1]}-rec`) throw new Error('offline');
-    });
-    expect(await syncTopics(FIXTURE_STATE, ids)).toBe(false);
-    expect(JSON.parse(store.get('topic-courses')!)).toEqual([ids[0]]);
-    fm.subscribeToTopic.mockImplementation(async () => {});
-    vi.clearAllMocks();
-    expect(await syncTopics(FIXTURE_STATE, ids)).toBe(true);
-    expect(subscribed()).toContain(`c-${ids[1]}-rec`);
-  });
-
-  const follow = (list: string[]) => ({ state: FIXTURE_STATE, follow: followOnly(FIXTURE_STATE.courses, list) });
-
-  it('initPush retries a failed sync on the next update, without a restart', async () => {
+describe('initPush keeps the subscriptions in line with the record', () => {
+  it('waits for a record, then re-syncs on every change', async () => {
     await initPush();
-    setData(follow(ids));
-    await waitFor(() => expect(store.get('topics')).toBeTruthy());
+    setData({ state: FIXTURE_STATE, prefs: null });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fm.subscribeToTopic).not.toHaveBeenCalled();
+    setData({ state: FIXTURE_STATE, prefs: prefs([`c-${ids[0]}-live`]) });
+    await waitFor(() => expect(JSON.parse(store.get('topics') ?? '[]')).toEqual([`c-${ids[0]}-live`]));
+    setData({ state: FIXTURE_STATE, prefs: prefs([`c-${ids[1]}-live`]) });
+    await waitFor(() => expect(JSON.parse(store.get('topics')!)).toEqual([`c-${ids[1]}-live`]));
+  });
+
+  it('retries a failed sync on the next update, without a restart', async () => {
+    await initPush();
     fm.unsubscribeFromTopic.mockRejectedValueOnce(new Error('offline'));
-    setData(follow([ids[0]]));
+    store.set('topics', JSON.stringify([`c-${ids[1]}-live`]));
+    setData({ state: FIXTURE_STATE, prefs: prefs([`c-${ids[0]}-live`]) });
     await waitFor(() => expect(fm.unsubscribeFromTopic).toHaveBeenCalled());
     await waitFor(() => expect(JSON.parse(store.get('topics')!)).toContain(`c-${ids[1]}-live`));
     vi.clearAllMocks();
-    setData(st.data);
-    await waitFor(() => expect(fm.unsubscribeFromTopic).toHaveBeenCalledWith({ topic: `c-${ids[1]}-live` }));
-    await waitFor(() => expect(JSON.parse(store.get('topics')!)).not.toContain(`c-${ids[1]}-live`));
-    expect(fm.subscribeToTopic).toHaveBeenCalled();
-  });
-
-  it('initPush waits for the first choice, then re-syncs on every change', async () => {
-    await initPush();
-    setData({ state: FIXTURE_STATE, follow: null });
-    await new Promise((r) => setTimeout(r, 0));
-    expect(fm.subscribeToTopic).not.toHaveBeenCalled();
-    setData(follow([ids[0]]));
-    await waitFor(() => expect(JSON.parse(store.get('topics') ?? '[]')).toContain(`c-${ids[0]}-live`));
-    expect(subscribed()).not.toContain(`c-${ids[1]}-live`);
-    setData(follow([ids[1]]));
-    await waitFor(() => expect(JSON.parse(store.get('topics')!)).toContain(`c-${ids[1]}-live`));
-    expect(JSON.parse(store.get('topics')!)).not.toContain(`c-${ids[0]}-live`);
-  });
-});
-
-describe('Notifications screen with a choice', () => {
-  it('lists only followed courses and asks permission only on tap', async () => {
-    fm.checkPermissions.mockResolvedValue({ receive: 'prompt' });
-    const view = { ...FIXTURE_STATE, courses: FIXTURE_STATE.courses.slice(0, 1) };
-    render(<Notifications state={view} />);
-    await waitFor(() => screen.getAllByRole('switch'));
-    expect(screen.getAllByRole('switch', { name: 'بدء البث المباشر' })).toHaveLength(2);
-    expect(fm.requestPermissions).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'فعّل التنبيهات' }));
-    await waitFor(() => expect(fm.requestPermissions).toHaveBeenCalledOnce());
-    fm.checkPermissions.mockResolvedValue({ receive: 'granted' });
+    setData(st.data as { state: unknown; prefs: unknown });
+    await waitFor(() => expect(JSON.parse(store.get('topics')!)).toEqual([`c-${ids[0]}-live`]));
   });
 });
 
 describe('tapping a notification', () => {
   const tap = async (data: Record<string, string>) => {
     store.set('topics', '[]');
-    setData({ state: FIXTURE_STATE, follow: followOnly(FIXTURE_STATE.courses, ids) });
+    setData({ state: FIXTURE_STATE, prefs: prefs(topicsFor(ids)) });
     await initPush();
     const call = (fm.addListener.mock.calls as unknown as [string, (e: unknown) => Promise<void>][]).find(([name]) => name === 'notificationActionPerformed')!;
     await call[1]({ notification: { data } });
@@ -318,6 +237,7 @@ describe('tapping a notification', () => {
     location.hash = '#/more';
     await tap({ kind: 'live', courseId: 'kitab-tawhid', number: '3' });
     expect(requestLive).toHaveBeenCalledWith({ courseId: 'kitab-tawhid' });
+    expect(markTapped).toHaveBeenCalledOnce();
     expect(location.hash).toBe('#/course/kitab-tawhid');
   });
 

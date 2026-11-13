@@ -23,14 +23,14 @@ vi.mock('../src/push', () => ({
 import * as api from '../src/api';
 import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { followOnly } from '../src/logic/follow';
+import { seedPrefs } from './seed';
 import { About } from '../src/ui/About';
 
 const tabLabels = () => [...document.querySelectorAll('.nav a')].map((a) => a.textContent);
 
 async function app(hash: string) {
   location.hash = hash;
-  store.set('follow', JSON.stringify(followOnly(FIXTURE_STATE.courses, FIXTURE_STATE.courses.map((c) => c.id))));
+  seedPrefs(store, FIXTURE_STATE.courses);
   vi.mocked(api.loadCachedState).mockResolvedValue(FIXTURE_STATE);
   vi.mocked(api.fetchState).mockResolvedValue({ state: FIXTURE_STATE, fresh: true });
   render(<App />);
@@ -99,12 +99,6 @@ describe('App on the web', () => {
     expect(document.documentElement.classList.contains('web')).toBe(true);
     expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/more');
   });
-
-  it('the course chooser does not promise notifications', async () => {
-    await app('#/follow');
-    await screen.findByText('يتغيّر معها ما تراه');
-    expect(document.body.textContent).not.toMatch(/تنبيه/);
-  });
 });
 
 describe('App in the mobile app', () => {
@@ -118,7 +112,7 @@ describe('App in the mobile app', () => {
     expect(screen.getByRole('link', { name: /التنبيهات/ }).getAttribute('href')).toBe('#/notifications');
     cleanup();
     await app('#/notifications');
-    await screen.findByText('اختر ما يصلك من كل درس تتابعه');
+    await screen.findByText('اختر ما يصلك من كل درس');
     expect(document.querySelector('.nav a.on')!.textContent).toBe('المزيد');
   });
 
@@ -128,10 +122,5 @@ describe('App in the mobile app', () => {
     expect(document.querySelector('.nav a.on')!.textContent).toBe('المزيد');
     expect(document.documentElement.classList.contains('web')).toBe(false);
     expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/more');
-  });
-
-  it('the course chooser still mentions notifications', async () => {
-    await app('#/follow');
-    await screen.findByText('يتغيّر معها ما تراه وما يصلك من تنبيهات');
   });
 });
