@@ -117,7 +117,7 @@ describe('a storage read that fails at boot', () => {
     expect(await screen.findByRole('checkbox', { name: new RegExp(fajr.title) })).toBeTruthy();
   });
 
-  it('the preference record unreadable: the lessons open and the stored record is not replaced by a migration', async () => {
+  it('the preference record unreadable: the onboarding is shown and the stored record is not replaced by a migration', async () => {
     const prefs = JSON.stringify({ wanted: topicsFor([maghrib.id]), known: [[fajr.id, 'fajr'], [maghrib.id, 'maghrib']] });
     store.set('prefs', prefs);
     store.set('topics', JSON.stringify(topicsFor([fajr.id])));
@@ -125,8 +125,9 @@ describe('a storage read that fails at boot', () => {
     failing.add('prefs');
     vi.mocked(api.loadCachedState).mockResolvedValue(FIXTURE_STATE);
     render(<App />);
-    await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']));
+    expect(await screen.findByRole('heading', { name: 'أيَّ الدروس تحضر؟' })).toBeTruthy();
     await new Promise((r) => setTimeout(r, 0));
+    expect(tabLabels()).toEqual([]);
     expect(store.get('prefs')).toBe(prefs);
   });
 

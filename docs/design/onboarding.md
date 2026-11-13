@@ -21,7 +21,7 @@ The first launch explains what the app is for and lets the listener choose their
 - Under the card, one switch per ticked lesson for that notification (plus «بث مباشر آخر» on the live step). Everything starts on.
 - **Permission** is asked when the listener continues from the first step that has a switch on, and only while it is still `prompt`. Refused: the switches stay, with a line saying they will work once enabled.
 - **Web:** the same screens without switches or permission.
-- Choices and the `onboarded` flag are saved only on the last step; leaving mid-way starts again next launch. Everyone sees it once, existing users included, starting from their own choices; when the stored flag can't be read, it is shown again. A tapped notification goes first: the onboarding waits for the next launch. «كيف يعمل التطبيق» in المزيد replays it; leaving from its first screen saves nothing, and a tapped notification closes it, replacing it in history, so back does not reopen it.
+- Choices and the `onboarded` flag are saved only on the last step; leaving mid-way starts again next launch. Everyone sees it once, existing users included, starting from their own choices; when the flag or the preference record can't be read, it is shown again. A tapped notification goes first: the onboarding waits for the next launch. «كيف يعمل التطبيق» in المزيد replays it; leaving from its first screen saves nothing, and a tapped notification closes it, replacing it in history, so back does not reopen it.
 
 The decisions live in `app/src/logic/onboarding.ts` (steps, which card, when to ask, the record written at the end).
 

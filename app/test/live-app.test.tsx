@@ -57,6 +57,8 @@ import { player } from '../src/audio/player';
 import { endedState, liveState } from './live-state';
 import { clearLive, currentData, refresh, requestLive } from '../src/store';
 import { seedPrefs } from './seed';
+import { tapNavigation } from '../src/logic/topics';
+import { navigate, parseRoute, replaceRoute } from '../src/router';
 
 const go = (hash: string) =>
   act(() => {
@@ -320,10 +322,11 @@ describe('the live notification', () => {
     render(<App />);
     await screen.findByRole('heading', { name: 'أيَّ الدروس تحضر؟' });
     pendingFetch();
-    // What the push handler does for this tap during the tour (push.test.tsx): ask for the player, replace the tour with home.
+    // The push handler's own lines (asking for the player, applying the route) are covered by push.test.tsx.
     await act(() => {
       requestLive({ courseId: null });
-      location.replace('#/');
+      const to = tapNavigation({ kind: 'live-other', number: '' }, currentData().state, parseRoute(location.hash).name === 'welcome');
+      if (to) (to.replace ? replaceRoute : navigate)(to.path);
       dispatchEvent(new HashChangeEvent('hashchange'));
     });
     await act(async () => answer(liveState(null)));
