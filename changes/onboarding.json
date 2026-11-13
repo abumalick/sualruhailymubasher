@@ -1,0 +1,5 @@
+{
+  "platforms": ["android", "ios", "web"],
+  "ar": "جولة تعريفية قصيرة بالتطبيق تختار فيها تنبيهات كل درس: بدء البث، ونشر التسجيل، وتذكير التحضير. ويظهر درسا الفجر والمغرب دائمًا.",
+  "en": "A short tour of the app where you choose each lesson's notifications: broadcast start, recording published, preparation reminder. The Fajr and Maghrib tabs are always shown."
+}

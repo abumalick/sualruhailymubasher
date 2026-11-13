@@ -3,7 +3,7 @@ Al-Badr Live Lessons brings together Sheikh Abdur-Razzaq Al-Badr's lessons at th
 • Live: listen to the lesson as it starts, with a notification when the broadcast begins.
 • Recordings: each book's lessons in order, playing even with the screen locked, with a notification when a new recording is available.
 • Where the lesson stands: see how far the Sheikh has reached in the book, with the book file when one is available, to prepare for the next lesson.
-• Your choice: follow only the lessons you want, and get only their notifications.
+• Your choice: pick the lessons you attend and choose each one's notifications: broadcast start, recording available, preparation reminder.
 
 No account, no ads, no tracking. Your choices stay on your device.
 

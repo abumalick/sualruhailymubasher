@@ -19,11 +19,11 @@ export const SHOTS = [
   { name: '03-notifications', route: '#/notifications' },
 ];
 
-async function chooseAllLessons(page) {
-  const boxes = page.getByRole('checkbox');
-  await boxes.first().waitFor();
-  for (const box of await boxes.all()) await box.check();
-  await page.getByRole('button').last().click();
+// The onboarding opens with every lesson ticked and every switch on: walk it to the lessons.
+async function finishOnboarding(page) {
+  await page.getByRole('checkbox').first().waitFor();
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'متابعة' }).click();
+  await page.getByRole('button', { name: 'ابدأ' }).click();
   await page.getByRole('link', { name: 'المزيد' }).waitFor();
 }
 
@@ -32,7 +32,7 @@ async function capture(browser, base, target) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: scale, locale: 'ar', timezoneId: 'Asia/Riyadh' });
   const page = await context.newPage();
   await page.goto(base);
-  await chooseAllLessons(page);
+  await finishOnboarding(page);
   // A run replaces the whole set, so no screenshot from an older naming scheme survives it
   rmSync(join(ROOT, dir), { recursive: true, force: true });
   mkdirSync(join(ROOT, dir), { recursive: true });
