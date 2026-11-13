@@ -16,6 +16,7 @@ export function Defs() {
         <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round" /></symbol>
         <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></symbol>
         <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+        <symbol id="i-share" viewBox="0 0 24 24"><circle cx="17.5" cy="6" r="2.5" /><circle cx="6.5" cy="12" r="2.5" /><circle cx="17.5" cy="18" r="2.5" /><path d="M8.7 10.8l6.6-3.6M8.7 13.2l6.6 3.6" stroke-linecap="round" /></symbol>
         <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6" /><path d="M12 11v5.5M12 7.6v.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></symbol>
         <symbol id="i-sun" viewBox="0 0 24 24"><path d="M3 17h18M6.5 17a5.5 5.5 0 0111 0M12 6v2M5.6 9.6l1.4 1.4M18.4 9.6L17 11M3 13.5h1.5M19.5 13.5H21M8 20.5h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></symbol>
         <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 119.5 4.5a6.5 6.5 0 0010 10z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></symbol>
