@@ -1,12 +1,12 @@
 import type { CourseDTO, StateDTO } from '@albadr/shared';
 import { useEffect, useState } from 'preact/hooks';
-import { asksPermission, cardFor, finalPrefs, initialDraft, pick, pickedCourses, setStep, stepOn, STEPS, type Card, type Draft, type Step } from '../logic/onboarding';
+import { asksPermission, cardFor, finalPrefs, initialDraft, hasSwitch, pick, pickedCourses, setStep, stepHint, stepOn, STEPS, type Card, type Draft, type Step } from '../logic/onboarding';
 import type { Prefs } from '../logic/prefs';
 import { nativeUI } from '../platform';
 import { askPermission, pushPermission } from '../push';
 import { refresh } from '../store';
 import { NextCard, RecordingCard } from './cards';
-import { ar, clock12, courseLabel, dayWord, REMINDER, schedule, slotName } from './format';
+import { ar, clock12, courseLabel, dayWord, schedule, slotName } from './format';
 import { LiveHero } from './LiveHero';
 import { Toggle } from './Notifications';
 import { Icon } from './Star';
@@ -180,12 +180,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
   const text = TEXT[step];
   const card = cardFor(step, picked, state.live);
   const on = stepOn(step, draft, picked);
-  const hint =
-    step === 'prep' && picked.length > 1
-      ? picked.map((c) => `${slotName(c.slot)}: ${REMINDER[c.slot]}`).join('\n')
-      : step === 'prep' && picked.length === 1
-        ? REMINDER[picked[0].slot]
-        : picked.map((c) => courseLabel(c, courses)).join(' و');
+  const hint = stepHint(step, picked, courses);
   return (
     <div class="choose ob">
       {top}
@@ -194,7 +189,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
         <p>{text.body}</p>
       </div>
       {card ? <Example card={card} live={state.live} now={now} /> : text.fallback && <p class="quiet">{text.fallback}</p>}
-      {native && (
+      {native && hasSwitch(step, picked) && (
         <section class="notifs">
           <div class="card">
             <Toggle label={text.switches} hint={hint || undefined} on={on} onToggle={() => setDraft(setStep(draft, step, picked, !on))} />

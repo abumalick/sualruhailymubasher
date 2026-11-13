@@ -301,6 +301,23 @@ describe('the whole flow', () => {
   });
 });
 
+describe('with no lesson listed', () => {
+  it('only the live step has a switch, for other broadcasts; revision and preparation have none', async () => {
+    const api = await import('../src/api');
+    vi.mocked(api.fetchState).mockResolvedValue({ state: { ...FIXTURE_STATE, courses: [] }, fresh: true });
+    await start();
+    next();
+    await heading('استمع مباشرةً');
+    expect(switchOf(LIVE).getAttribute('aria-checked')).toBe('true');
+    next();
+    await heading('راجع الدرس');
+    expect(screen.queryByRole('switch')).toBeNull();
+    next();
+    await heading('حضّر للدرس القادم');
+    expect(screen.queryByRole('switch')).toBeNull();
+  });
+});
+
 describe('replay from المزيد', () => {
   it('leaving or finishing pops back instead of stacking pages, so back never reopens the tour', async () => {
     seedPrefs(store, FIXTURE_STATE.courses);
