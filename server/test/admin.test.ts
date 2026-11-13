@@ -222,6 +222,24 @@ describe('settings and misc', () => {
     expect((await call('PUT', '/api/admin/settings/live_mode', { value: 'x' })).status).toBe(400);
   });
 
+  it('app_update is stored and served in the state', async () => {
+    const policy = { android: { min: '1.0.17', latest: '1.0.17' }, ios: { min: null, latest: null } };
+    expect((await call('PUT', '/api/admin/settings/app_update', policy)).status).toBe(204);
+    const state = (await (await exports.default.fetch('http://example.com/api/state')).json()) as any;
+    expect(state.update).toEqual(policy);
+    expect((await call('PUT', '/api/admin/settings/app_update', {})).status).toBe(204);
+  });
+
+  it.each([
+    [{ android: { min: '1.0.18', latest: '1.0.17' } }],
+    [{ android: { min: '1.0.17', latest: null } }],
+    [{ ios: { min: 'one', latest: null } }],
+    [{ web: { min: null, latest: null } }],
+    [[]],
+  ])('rejects app_update %j', async (body) => {
+    expect((await call('PUT', '/api/admin/settings/app_update', body)).status).toBe(400);
+  });
+
   it('test-push requires a topic', async () => {
     expect((await call('POST', '/api/admin/test-push', {})).status).toBe(400);
   });

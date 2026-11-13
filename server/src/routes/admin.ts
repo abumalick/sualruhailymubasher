@@ -1,4 +1,4 @@
-import { courseTopic, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonPatch } from '@albadr/shared';
+import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonPatch } from '@albadr/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { getFcm, type Env } from '../index';
@@ -143,6 +143,15 @@ adminRoutes.put('/api/admin/settings/live_mode', async (c) => {
   const b = await readJson(c);
   if (!isObject(b) || (b.value !== 'embed' && b.value !== 'direct')) return bad(c);
   await setSetting(c.env.DB, 'live_mode', b.value);
+  return c.body(null, 204);
+});
+
+// {} turns every update notice off.
+adminRoutes.put('/api/admin/settings/app_update', async (c) => {
+  const b = await readJson(c);
+  const problem = updatePolicyProblem(b);
+  if (problem) return c.json({ error: problem }, 400);
+  await setSetting(c.env.DB, 'app_update', JSON.stringify(b));
   return c.body(null, 204);
 });
 

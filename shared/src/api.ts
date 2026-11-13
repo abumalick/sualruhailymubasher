@@ -1,3 +1,4 @@
+import type { UpdatePolicy } from './update';
 export type Slot = 'fajr' | 'maghrib';
 export type ExceptionKind = 'cancel' | 'pause' | 'extra' | 'move';
 
@@ -22,7 +23,7 @@ export interface CourseDTO {
   next: NextPassageDTO | null; exceptions: ExceptionDTO[];  // upcoming only
 }
 export interface LiveDTO { isLive: boolean; mode: 'embed' | 'direct'; embedUrl: string; streamUrl: string | null; courseId: string | null; startedAt: string | null; }
-export interface StateDTO { generatedAt: string; live: LiveDTO; courses: CourseDTO[]; links: { title: string; url: string }[]; }
+export interface StateDTO { generatedAt: string; live: LiveDTO; courses: CourseDTO[]; links: { title: string; url: string }[]; update?: UpdatePolicy; }
 
 // admin writes
 export interface CourseInput { title: string; slot: Slot; weekdays: number[]; offsetMin: number; seriesId: number; pdfUrls: string[]; active: boolean; edition?: string | null; pageOffsets?: number[]; }  // offsetMin: minutes after Fajr / sunset, 0..120
