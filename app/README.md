@@ -88,8 +88,9 @@ Screenshots come from the web build with real lessons from the production API:
 `scripts/store-screenshots.sh ios` writes `fastlane/screenshots/ios/ar-SA/` (1320x2868, the 6.9-inch
 iPhone); `android` writes Play's `fastlane/metadata/android/ar/images/phoneScreenshots/` (1080x1920).
 
-The build number is the latest TestFlight build of `MARKETING_VERSION` plus one, so only
-`MARKETING_VERSION` is bumped by hand. The lane refuses an IPA whose bundle id or version differ from
+The build number is Android's `versionCode`, so both platforms built from one commit carry the same
+version and build number. The lane refuses to build when TestFlight already has that number or a higher
+one for `MARKETING_VERSION` (a version that already shipped needs a bump). The lane refuses an IPA whose bundle id or version differ from
 the project, or that is not signed for production APNs.
 
 Secrets stay outside the repository, in `~/.config/albadrmubasher/` on the Mac (copies in Bitwarden):

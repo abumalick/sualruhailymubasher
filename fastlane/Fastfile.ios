@@ -31,6 +31,11 @@ def ios_marketing_version
   File.read(IOS_PBXPROJ)[/MARKETING_VERSION = ([^;]+);/, 1] || UI.user_error!("MARKETING_VERSION not found")
 end
 
+# Android's versionCode, so both platforms built from one commit carry the same version and build number.
+def ios_build_number
+  File.read("#{IOS_ROOT}/app/android/app/build.gradle")[/versionCode (\d+)/, 1]&.to_i || UI.user_error!("versionCode not found")
+end
+
 # ios.env holds APP_STORE_KEY_ID and APP_STORE_ISSUER_ID; the key sits beside it as AuthKey_<id>.p8
 def ios_asc_key
   @ios_asc ||= begin
@@ -145,9 +150,11 @@ platform :ios do
   desc "Build a signed App Store IPA in .tmp/ios-build without uploading it"
   lane :build do
     key = ios_api_key
+    number = ios_build_number
+    uploaded = latest_testflight_build_number(api_key: key, app_identifier: ios_bundle_id, version: ios_marketing_version, initial_build_number: 0)
+    UI.user_error!("TestFlight already has build #{uploaded} of #{ios_marketing_version}; build #{number} needs a version bump") if uploaded >= number
     ios_install_google_service_plist
     ios_build_web_and_sync
-    number = latest_testflight_build_number(api_key: key, app_identifier: ios_bundle_id, version: ios_marketing_version, initial_build_number: 0) + 1
     ios_build_store_ipa(number)
   end
 

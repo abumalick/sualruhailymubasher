@@ -163,6 +163,19 @@ describe('App Store submission', () => {
 
 describe('TestFlight upload', () => {
   const fastfile = readFileSync(`${root}fastlane/Fastfile.ios`, 'utf8');
+  const buildLane = fastfile.slice(fastfile.indexOf('lane :build do'), fastfile.indexOf('lane :beta do'));
+
+  it('numbers the build with Android versionCode, so both platforms of a commit carry the same version and build', () => {
+    expect(fastfile).toMatch(/def ios_build_number\n\s+File\.read\("#\{IOS_ROOT\}\/app\/android\/app\/build\.gradle"\)\[\/versionCode \(\\d\+\)\/, 1\]/);
+    expect(buildLane).toMatch(/number = ios_build_number/);
+    expect(buildLane).toMatch(/ios_build_store_ipa\(number\)/);
+  });
+
+  it('refuses a number TestFlight already has for this version, instead of an upload Apple rejects', () => {
+    expect(buildLane).toMatch(/latest_testflight_build_number\([^)]*version: ios_marketing_version/);
+    expect(buildLane).toMatch(/UI\.user_error!/);
+  });
+
   const betaLane = fastfile.slice(fastfile.indexOf('lane :beta do'), fastfile.indexOf('lane :metadata do'));
 
   it('gives testers the notes file release.sh wrote, resolved from the repo root', () => {
