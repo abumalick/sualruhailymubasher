@@ -101,9 +101,11 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
   useEffect(() => {
     if (native) void pushPermission().then(setPermission);
   }, []);
+  // The fresh course list can bring a new book after the cached one was shown: start again from the reconciled choices.
+  const courseIds = state?.courses.map((c) => c.id).join(',');
   useEffect(() => {
-    if (state && !draft) setDraft(initialDraft(prefs, state.courses));
-  }, [state]);
+    if (state && (!draft || at === 0)) setDraft(initialDraft(prefs, state.courses));
+  }, [courseIds]);
 
   const back = () => (at > 0 ? setAt(at - 1) : replay ? onLeave() : undefined);
   backRef.current = back;

@@ -266,6 +266,29 @@ describe('the whole flow', () => {
 });
 
 describe('replay from المزيد', () => {
+  it('leaving or finishing pops back instead of stacking pages, so back never reopens the tour', async () => {
+    seedPrefs(store, FIXTURE_STATE.courses);
+    history.replaceState(null, '', '#/more');
+    render(<App />);
+    fireEvent.click(await screen.findByRole('link', { name: /كيف يعمل التطبيق/ }));
+    await heading('أيَّ الدروس تحضر؟');
+    const depth = history.length;
+    fireEvent.click(screen.getByRole('button', { name: 'رجوع' }));
+    await screen.findByRole('link', { name: /كيف يعمل التطبيق/ });
+    expect(history.length).toBe(depth);
+    fireEvent.click(screen.getByRole('link', { name: /كيف يعمل التطبيق/ }));
+    await heading('أيَّ الدروس تحضر؟');
+    const replace = vi.spyOn(location, 'replace');
+    for (const title of ['استمع مباشرةً', 'راجع الدرس', 'حضّر للدرس القادم']) {
+      next();
+      await heading(title);
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'ابدأ' }));
+    await waitFor(() => expect(location.hash).toMatch(/^#\/course\//));
+    expect(replace).toHaveBeenCalledWith('#/');
+    replace.mockRestore();
+  });
+
   it('starts from the saved switches, and leaving from the first screen saves nothing', async () => {
     seedPrefs(store, FIXTURE_STATE.courses, [fajr.id]);
     const before = store.get('prefs');
@@ -282,6 +305,23 @@ describe('replay from المزيد', () => {
     fireEvent.click(screen.getByRole('button', { name: 'رجوع' }));
     await waitFor(() => expect(location.hash).toBe('#/more'));
     expect(store.get('prefs')).toBe(before);
+  });
+});
+
+describe('a new book in the fresh course list', () => {
+  it('is ticked when it inherits the choices of the book it replaced', async () => {
+    const api = await import('../src/api');
+    const b2 = { ...maghrib, id: 'usul-thalatha', title: 'شرح الأصول الثلاثة' };
+    seedPrefs(store, FIXTURE_STATE.courses, [maghrib.id]);
+    store.delete('onboarded');
+    vi.mocked(api.loadCachedState).mockResolvedValue(FIXTURE_STATE);
+    let arrive: (v: { state: typeof FIXTURE_STATE; fresh: boolean }) => void = () => {};
+    vi.mocked(api.fetchState).mockImplementation(() => new Promise((r) => (arrive = r)));
+    await start();
+    arrive({ state: { ...FIXTURE_STATE, courses: [fajr, b2] }, fresh: true });
+    await screen.findByText(b2.title);
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /درس المغرب/ }).getAttribute('aria-checked')).toBe('true'));
+    expect(screen.getByRole('checkbox', { name: /درس الفجر/ }).getAttribute('aria-checked')).toBe('false');
   });
 });
 

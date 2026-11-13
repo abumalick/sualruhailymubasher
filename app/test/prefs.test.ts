@@ -99,6 +99,13 @@ describe('migratePrefs', () => {
     expect(migratePrefs({ topics: ['live-other'], topicCourses: null, follow: null }, courses)!.wanted.sort()).toEqual(topicsFor(courses.map((c) => c.id)).sort());
   });
 
+  it('a followed course that was paused at the update gets its three switches back, as the old version would have', () => {
+    const f: Follow = { ids: ['tafsir-saadi', 'm1'], known: { 'tafsir-saadi': 'fajr', m1: 'maghrib' }, fresh: [], hint: false };
+    const p = migratePrefs({ topics: [`c-tafsir-saadi-rec`], topicCourses: ['tafsir-saadi'], follow: f }, [TAFSIR])!;
+    expect(kindsOf(p, 'm1')).toEqual(['live', 'rec', 'prep']);
+    expect(kindsOf(p, 'tafsir-saadi')).toEqual(['rec']);
+  });
+
   it('nothing stored is a new listener', () => {
     expect(migratePrefs({ topics: null, topicCourses: null, follow: null }, courses)).toBeNull();
   });

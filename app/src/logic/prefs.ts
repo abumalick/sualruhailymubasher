@@ -37,7 +37,12 @@ export function reconcilePrefs(p: Prefs, courses: CourseDTO[]): Prefs {
 export function migratePrefs(old: { topics: string[] | null; topicCourses: string[] | null; follow: Follow | null }, courses: CourseDTO[]): Prefs | null {
   const { topics, topicCourses, follow } = old;
   if (!topics && !follow) return null;
-  if (follow) return reconcilePrefs({ wanted: topics ?? topicsFor(follow.ids), known: Object.entries(follow.known) }, courses);
+  if (follow) {
+    // The old version dropped the topics of a followed course while it was not listed, and gave it all three back on its return.
+    const paused = topics && topicCourses ? follow.ids.filter((id) => !topicCourses.includes(id)) : [];
+    const wanted = [...new Set([...(topics ?? topicsFor(follow.ids)), ...paused.flatMap((id) => COURSE_KINDS.map((k) => courseTopic(id, k)))])];
+    return reconcilePrefs({ wanted, known: Object.entries(follow.known) }, courses);
+  }
   // Before the lesson choice, every course the app had not seen yet was subscribed in full.
   const seen = topicCourses ?? [];
   const fresh = courses.filter((c) => !seen.includes(c.id));

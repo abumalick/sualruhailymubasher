@@ -4,7 +4,7 @@ import { startLive } from './audio/live';
 import { onBackButton } from './backButton';
 import { backAction, bookBack, CLOSED, listeningLive, nextLivePlayer, type LiveEvent } from './logic/live';
 import { player } from './audio/player';
-import { navigate, parseRoute, replaceRoute, useRoute } from './router';
+import { goBack, parseRoute, replaceRoute, useRoute } from './router';
 import { attended } from './logic/prefs';
 import { defaultTab, lessonTabs } from './logic/tabs';
 import { boot, clearLive, finishOnboarding, nowOverride, refresh, setWanted, toggleTick, useAppData } from './store';
@@ -110,8 +110,8 @@ export function App() {
             now={nowOverride() ?? new Date()}
             replay={!!onboarded}
             backRef={onboardingBack}
-            onLeave={() => navigate('#/more')}
-            onDone={(p) => void finishOnboarding(p).then(() => navigate('#/'))}
+            onLeave={() => goBack('#/more')}
+            onDone={(p) => void finishOnboarding(p).then(() => replaceRoute('#/'))}
           />
         </div>
       </div>
