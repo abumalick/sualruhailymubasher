@@ -367,3 +367,8 @@ button.lesson { width: 100%; text-align: start; }
   .install.two .x { order: 1; }
   .install.two .badges { order: 2; flex-basis: 100%; justify-content: center; }
 }
+.install.update > .chip { flex: none; margin-block: 8px; }
+.update-required { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; }
+.update-required h1 { margin: 0; font: 700 var(--fs-title, 22px)/1.4 var(--naskh); color: var(--fg); }
+.update-required p { margin: 0; max-width: 32ch; font: 400 var(--fs-body)/1.7 var(--naskh); color: var(--soft); }
+.update-required .chip { font-size: var(--fs-button); padding: 10px 24px; }

@@ -19,6 +19,8 @@ import { leavesBook, resetZoom } from './zoom';
 import { Notifications } from './ui/Notifications';
 import { About } from './ui/About';
 import { InstallBanner } from './ui/InstallBanner';
+import { UpdateBanner, UpdateRequired } from './ui/Update';
+import { useUpdate } from './update';
 import { More } from './ui/More';
 import { nativeUI } from './platform';
 import { ar, arText } from './ui/format';
@@ -105,6 +107,9 @@ export function App() {
     clearLive();
     if (action === 'open') startLive(state, () => send({ type: 'open', live: { ...state.live, isLive: true, courseId: intent.courseId } }));
   }, [route, data.intent, state]);
+  const notice = useUpdate(data.policy);
+  // Before anything else reads the state: the version this blocks may no longer understand it.
+  if (notice.status.kind === 'required') return <UpdateRequired url={notice.url} />;
   if (onboarded === undefined) return <div class="shell" />;
   if ((!onboarded && !data.tapped) || route.name === 'welcome') {
     return (
@@ -194,6 +199,7 @@ export function App() {
     body = (
       <div class="scroll">
         <InstallBanner />
+        {notice.status.kind === 'available' && <UpdateBanner url={notice.url} onClose={notice.dismiss} />}
         {error && (state || route.name !== 'home') && <p class="err">تعذّر التحديث</p>}
         {page}
       </div>
