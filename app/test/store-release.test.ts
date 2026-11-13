@@ -163,6 +163,22 @@ describe('App Store submission', () => {
 
 describe('TestFlight upload', () => {
   const fastfile = readFileSync(`${root}fastlane/Fastfile.ios`, 'utf8');
+  const buildLane = fastfile.slice(fastfile.indexOf('lane :build do'), fastfile.indexOf('lane :beta do'));
+
+  it('numbers the build with the versionCode release.sh passes, since the Mac has no app/android/', () => {
+    expect(fastfile).not.toMatch(/build\.gradle/);
+    expect(buildLane).toMatch(/lane :build do \|options\|/);
+    expect(buildLane).toMatch(/number = Integer\(options\[:build_number\]\.to_s, exception: false\) \|\| UI\.user_error!/);
+    expect(buildLane).toMatch(/ios_build_store_ipa\(number\)/);
+    expect(fastfile).toMatch(/ipa = build\(build_number: options\[:build_number\]\)/);
+  });
+
+  it('refuses a number TestFlight already has for this version, before the slow web build', () => {
+    expect(buildLane).toMatch(/latest_testflight_build_number\([^)]*version: ios_marketing_version/);
+    expect(buildLane.indexOf('if uploaded == number')).toBeLessThan(buildLane.indexOf('ios_build_web_and_sync'));
+    expect(buildLane).toMatch(/elsif uploaded > number/);
+  });
+
   const betaLane = fastfile.slice(fastfile.indexOf('lane :beta do'), fastfile.indexOf('lane :metadata do'));
 
   it('gives testers the notes file release.sh wrote, resolved from the repo root', () => {

@@ -159,8 +159,8 @@ check "each channel is tagged at the commit it shipped" bash -c "
   for c in github play-internal testflight; do [ \"\$(git -C '$repo' rev-parse release/\$c/$v^{commit})\" = \"\$(git -C '$repo' rev-parse main)\" ] || exit 1; done"
 check "the GitHub APK and the internal bundle are built by separate fastlane runs, APK first" \
   [ "$(grep '^fastlane' "$record.calls" | head -n 2 | tr '\n' ' ')" = "fastlane android github_apk fastlane android internal " ]
-check "TestFlight is built on the Mac, in the pipeline's own folder, with the testers' notes" \
-  grep -q "^ssh .*albadrmubasher-release.*fastlane ios beta changelog_file:.tmp/release-notes/ios/whats-new.txt" "$record.calls"
+check "TestFlight is built on the Mac, in the pipeline's own folder, with Android's versionCode and the testers' notes" \
+  grep -q "^ssh .*albadrmubasher-release.*fastlane ios beta build_number:$(sed -n 's/.*versionCode \([0-9]*\).*/\1/p' "$repo/app/android/app/build.gradle") changelog_file:.tmp/release-notes/ios/whats-new.txt" "$record.calls"
 check "the copy to the Mac never touches the hand-used folder" \
   bash -c "grep '^rsync' '$record.calls' | grep -q 'albadrmubasher-release/' && ! grep '^rsync' '$record.calls' | grep -q 'albadrmubasher/ '"
 check "the Mac lock is released after the build" grep -q "^ssh .*rmdir" "$record.calls"

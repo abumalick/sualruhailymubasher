@@ -82,6 +82,7 @@ step_web() {
 }
 
 version() { node scripts/release.mjs version; }
+version_code() { sed -n 's/.*versionCode \([0-9]*\).*/\1/p' app/android/app/build.gradle; }
 shipped() { git rev-parse -q --verify "refs/tags/release/$1/$(version)" >/dev/null; }
 tag_channel() { git tag "release/$1/$(version)" "${2:-HEAD}"; } # <channel> [commit]
 # A step that finds its work already done says so here: its exit code stays free for real failures
@@ -97,7 +98,7 @@ step_github_apk() {
 step_play_internal() {
   local code locale
   if shipped play-internal; then skipped; return 0; fi
-  code="$(sed -n 's/.*versionCode \([0-9]*\).*/\1/p' app/android/app/build.gradle)"
+  code="$(version_code)"
   node scripts/release.mjs notes play-internal HEAD .tmp/release-notes/play
   for locale in ar en-US; do
     cp ".tmp/release-notes/play/$locale.txt" "fastlane/metadata/android/$locale/changelogs/$code.txt"
@@ -137,7 +138,8 @@ ios_notes() { # <channel> <commit> -> .tmp/release-notes/ios/whats-new.txt (Arab
 step_testflight() {
   if shipped testflight; then skipped; return 0; fi
   ios_notes testflight HEAD
-  on_mac "fastlane ios beta changelog_file:.tmp/release-notes/ios/whats-new.txt"
+  # The Mac's copy has no app/android/: the build number travels from here
+  on_mac "fastlane ios beta build_number:$(version_code) changelog_file:.tmp/release-notes/ios/whats-new.txt"
   tag_channel testflight
 }
 
