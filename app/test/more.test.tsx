@@ -28,6 +28,7 @@ const rows = () => [...document.querySelectorAll('.more .lesson')].map((a) => [a
 
 beforeEach(() => {
   platform.native = false;
+  shareEnv.current = null;
 });
 afterEach(cleanup);
 
@@ -94,6 +95,22 @@ describe('شارك التطبيق', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('ignores a second tap while the share sheet is still open', async () => {
+    let close!: () => void;
+    const nativeShare = vi.fn(() => new Promise<void>((r) => (close = r)));
+    const copy = vi.fn(async () => {});
+    shareEnv.current = { native: true, nativeShare: nativeShare as () => Promise<void>, copy };
+    render(<More />);
+    fireEvent.click(row());
+    fireEvent.click(row());
+    expect(nativeShare).toHaveBeenCalledTimes(1);
+    close();
+    await waitFor(() => expect(copy).not.toHaveBeenCalled());
+    fireEvent.click(row());
+    await waitFor(() => expect(nativeShare).toHaveBeenCalledTimes(2));
+    expect(hint()).toBe('أرسل رابط التطبيق لمن تحب');
   });
 
   it('shows the link when nothing can share or copy it', async () => {

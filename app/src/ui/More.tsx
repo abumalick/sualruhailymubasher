@@ -30,9 +30,14 @@ const SHARE_HINT = 'أرسل رابط التطبيق لمن تحب';
 function ShareRow() {
   const [hint, setHint] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const busy = useRef(false);
   useEffect(() => () => clearTimeout(timer.current), []);
+  // A second share call while the sheet is open is rejected, which would look like a failure and copy the link.
   const share = async () => {
-    const message = shareHint(await shareApp(deviceShareEnv()));
+    if (busy.current) return;
+    busy.current = true;
+    const outcome = await shareApp(deviceShareEnv()).finally(() => (busy.current = false));
+    const message = shareHint(outcome);
     if (!message) return;
     clearTimeout(timer.current);
     setHint(message);
