@@ -49,7 +49,7 @@ export function LiveSheet({ live, course, startedAt, expanded, inBook = false, o
     ctx.book && (
       <a class="chip" href={ctx.book} aria-label={ctx.bookLabel} onClick={onCollapse}>
         <Icon id="i-pdf" />
-        {short ? 'تابع في الكتاب' : ctx.bookLabel}
+        <span>{short ? 'تابع في الكتاب' : ctx.bookLabel}</span>
       </a>
     );
   const stop = (

@@ -3,6 +3,13 @@
   --naskh: "Amiri", "Noto Naskh Arabic", serif;
   --ui: "IBM Plex Sans Arabic", "Noto Naskh Arabic", sans-serif;
   color-scheme: light dark;
+  /* Type scale: iOS HIG and Material 3 minimums, one step up because Arabic script reads smaller than Latin at the same size. */
+  --fs-caption: 13px; /* dates, hints, metadata */
+  --fs-label: 14px; /* chips, pills, tags, tabs, section labels */
+  --fs-body-sm: 17px; /* one-line Naskh titles in the player and book bars */
+  --fs-button: 17px; /* full-width buttons */
+  --fs-body: 18px; /* Naskh lesson texts and paragraphs */
+  --fs-title: 20px; /* page and section titles */
   --bg: #f6f1e6; --bg2: #ece3cf; --fg: #2a1406; --soft: #7a5f43; --gold: #a67c37; --gold-hi: #8a6022;
   --btn: #5b2b00; --btn-fg: #f6f1e6; --card: rgba(91, 43, 0, .05); --line: rgba(166, 124, 55, .35);
   --live: #c8321c; --live-bg: rgba(200, 50, 28, .1); --live-fg: #fff; --lat-op: .10; --paper: #fffdf7; --ok: #3d7a3a;
