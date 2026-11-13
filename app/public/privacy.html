@@ -25,6 +25,9 @@
       ul { padding-inline-start: 22px; }
       a { color: var(--gold); }
       .meta { color: var(--soft); font-size: 14px; }
+      .legal { color: var(--soft); font-size: 12px; line-height: 1.6; margin: 4px 0; }
+      p:not(.legal) + .legal { margin-top: 32px; }
+      .legal bdi { white-space: nowrap; }
       .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin: 16px 0; }
       nav { display: flex; gap: 12px; flex-wrap: wrap; font-family: system-ui, sans-serif; font-size: 14px; margin-bottom: 20px; }
       hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
@@ -73,6 +76,9 @@
 
         <h2>التواصل</h2>
         <p>لأي سؤال عن هذه السياسة: <a href="mailto:contact@albadrmubasher.com" dir="ltr">contact@albadrmubasher.com</a>.</p>
+
+        <p class="legal">‏<bdi>Apple</bdi> وشعار <bdi>Apple</bdi> علامتان تجاريتان لشركة <bdi>Apple Inc.</bdi>، مسجّلتان في الولايات المتحدة وبلدان ومناطق أخرى. و<bdi>App Store</bdi> علامة خدمة لشركة <bdi>Apple Inc.</bdi></p>
+        <p class="legal">‏<bdi>Google Play</bdi> وشعار <bdi>Google Play</bdi> علامتان تجاريتان لشركة <bdi>Google LLC</bdi>.</p>
       </section>
 
       <hr />
@@ -113,6 +119,9 @@
 
         <h2>Contact</h2>
         <p>Questions about this policy: <a href="mailto:contact@albadrmubasher.com">contact@albadrmubasher.com</a>.</p>
+
+        <p class="legal">Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and other countries and regions. App Store is a service mark of Apple Inc.</p>
+        <p class="legal">Google Play and the Google Play logo are trademarks of Google LLC.</p>
       </section>
     </main>
   </body>
