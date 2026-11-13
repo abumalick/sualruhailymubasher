@@ -1,11 +1,12 @@
-import type { CourseDTO, LessonDTO, LiveDTO, NextPassageDTO } from '@albadr/shared';
+import type { CourseDTO, LessonDTO, LiveDTO } from '@albadr/shared';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { fetchLessons } from '../api';
 import { buildLesson } from '../logic/lesson';
 import type { TickKind, Ticks } from '../logic/ticks';
 import { hijriLabel } from '../logic/time';
-import { ar, arText, bookHref, bookLabel, clock12, dayWord, editionPage, pageSuffix, passageLine, printedPage, schedule, slotName } from './format';
+import { ar, arText, bookHref, clock12, dayWord, pageSuffix, printedPage, schedule, slotName } from './format';
+import { NextCard, RecordingCard } from './cards';
 import { LiveCard, LiveHero } from './LiveHero';
 import { Icon, Tick } from './Star';
 
@@ -72,36 +73,6 @@ const Sec = ({ title, hint }: { title: string; hint?: string }) => (
   </h2>
 );
 
-function BookChip({ course, pdfIndex, page, label, marker }: { course: CourseDTO; pdfIndex: number | null; page: number | null; label: string; marker?: boolean }) {
-  const href = bookHref(course, pdfIndex, page, marker);
-  if (href) {
-    return (
-      <a class={marker ? 'chip pri' : 'chip'} href={href}>
-        <Icon id="i-pdf" />
-        {bookLabel(label, printedPage(course, pdfIndex, page))}
-      </a>
-    );
-  }
-  const edition = editionPage(course, page);
-  return edition ? <span class="pill o">{edition}</span> : null;
-}
-
-function Upcoming(p: LessonProps & { next: NextPassageDTO; read: boolean; when: string }) {
-  const { course, next } = p;
-  return (
-    <div class="card reach">
-      <span class="k">
-        الدرس {ar(next.number)} · {p.when}
-      </span>
-      <span class="b">{passageLine(course, next)}</span>
-      <div class="acts start">
-        <BookChip course={course} pdfIndex={next.pdfIndex} page={next.startPage} label="اقرأ في الكتاب" marker />
-        <Tick label="قرأتُه" done={p.read} onClick={() => p.onTick('read', course.id, next.number)} />
-      </div>
-    </div>
-  );
-}
-
 export function Lesson(p: LessonProps) {
   const { course, ticks } = p;
   const model = buildLesson(course, p.live, ticks, p.now);
@@ -155,13 +126,13 @@ export function Lesson(p: LessonProps) {
       {top.kind === 'next' && (
         <>
           <Sec title="الدرس القادم" hint="حضّره" />
-          <Upcoming {...p} next={top.next} read={top.read} when={`${dayWord(top.next.date, p.now)} بعد ${slot} · ${clock12(top.next.time)}`} />
+          <NextCard course={course} next={top.next} read={top.read} when={`${dayWord(top.next.date, p.now)} بعد ${slot} · ${clock12(top.next.time)}`} onTick={() => p.onTick('read', course.id, top.next.number)} />
         </>
       )}
       {top.kind === 'today' && (
         <>
           <Sec title="درس اليوم" />
-          <Upcoming {...p} next={top.next} read={top.read} when={top.ended ? 'انتهى' : `بدأ ${clock12(top.next.time)}`} />
+          <NextCard course={course} next={top.next} read={top.read} when={top.ended ? 'انتهى' : `بدأ ${clock12(top.next.time)}`} onTick={() => p.onTick('read', course.id, top.next.number)} />
         </>
       )}
       {top.kind === 'none' && <p class="quiet">لا يوجد درس قادم مجدول</p>}
@@ -170,18 +141,13 @@ export function Lesson(p: LessonProps) {
         <>
           <Sec title="آخر درس" hint={last.kind === 'recording' ? 'راجعه' : undefined} />
           {last.kind === 'recording' ? (
-            <div class="card reach last">
-              <span class="k">الدرس {ar(last.lesson.number)} · التسجيل متاح</span>
-              <span class="b">{arText(last.lesson.startPoint)}</span>
-              <div class="acts start">
-                <button class="chip pri" onClick={() => p.onPlay(last.lesson, course)}>
-                  <Icon id="play" class="fill" />
-                  استمع
-                </button>
-                <BookChip course={course} pdfIndex={last.lesson.pdfIndex} page={last.lesson.startPage} label="الكتاب" />
-                <Tick label="راجعتُه" done={ticks.reviewed.has(`${course.id}:${last.lesson.number}`)} onClick={() => p.onTick('reviewed', course.id, last.lesson.number)} />
-              </div>
-            </div>
+            <RecordingCard
+              course={course}
+              lesson={last.lesson}
+              reviewed={ticks.reviewed.has(`${course.id}:${last.lesson.number}`)}
+              onPlay={() => p.onPlay(last.lesson, course)}
+              onTick={() => p.onTick('reviewed', course.id, last.lesson.number)}
+            />
           ) : (
             <div class="card reach last">
               <span class="b">التسجيل قريبًا · الدرس {ar(last.lessonNumber)}</span>
