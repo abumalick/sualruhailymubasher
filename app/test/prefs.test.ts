@@ -75,6 +75,30 @@ describe('migratePrefs', () => {
     expect(p.wanted.sort()).toEqual(topicsFor(['tafsir-saadi']).sort());
   });
 
+  it('keeps the order courses were seen, so the next book inherits from the current one, not one that left', () => {
+    const f: Follow = { ids: ['m2'], known: { 'tafsir-saadi': 'fajr', m1: 'maghrib', m2: 'maghrib' }, fresh: [], hint: false };
+    const m2 = book('m2', TAWHID);
+    const p = migratePrefs({ topics: topicsFor(['m2']), topicCourses: ['m2'], follow: f }, [TAFSIR, m2])!;
+    expect(p.known.map(([id]) => id)).toEqual(['tafsir-saadi', 'm1', 'm2']);
+    expect(kindsOf(reconcilePrefs(p, [TAFSIR, book('m3', TAWHID)]), 'm3')).toEqual(['live', 'rec', 'prep']);
+  });
+
+  it('a book that started before the update inherits from the one the old version knew', () => {
+    const f: Follow = { ids: ['m1'], known: { 'tafsir-saadi': 'fajr', m1: 'maghrib' }, fresh: [], hint: false };
+    const p = migratePrefs({ topics: [...topicsFor(['m1'])], topicCourses: ['m1'], follow: f }, [TAFSIR, book('m2', TAWHID)])!;
+    expect(kindsOf(p, 'm2')).toEqual(['live', 'rec', 'prep']);
+    expect(kindsOf(p, 'tafsir-saadi')).toEqual([]);
+  });
+
+  it('without a follow record (before the lesson choice), a course the old version had not seen gets all three, as it did then', () => {
+    const p = migratePrefs({ topics: ['c-kitab-tawhid-rec'], topicCourses: ['kitab-tawhid'], follow: null }, courses)!;
+    expect(p.known).toEqual([['kitab-tawhid', 'maghrib'], ['tafsir-saadi', 'fajr']]);
+    expect(kindsOf(p, 'kitab-tawhid')).toEqual(['rec']);
+    expect(kindsOf(p, 'tafsir-saadi')).toEqual(['live', 'rec', 'prep']);
+    expect(p.wanted).not.toContain('live-other');
+    expect(migratePrefs({ topics: ['live-other'], topicCourses: null, follow: null }, courses)!.wanted.sort()).toEqual(topicsFor(courses.map((c) => c.id)).sort());
+  });
+
   it('nothing stored is a new listener', () => {
     expect(migratePrefs({ topics: null, topicCourses: null, follow: null }, courses)).toBeNull();
   });

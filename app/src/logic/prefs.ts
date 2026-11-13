@@ -1,4 +1,4 @@
-import { courseTopic, type CourseDTO, type Slot } from '@albadr/shared';
+import { courseTopic, LIVE_OTHER_TOPIC, type CourseDTO, type Slot } from '@albadr/shared';
 import { COURSE_KINDS, topicsFor } from './topics';
 
 export type Kind = (typeof COURSE_KINDS)[number];
@@ -32,12 +32,24 @@ export function reconcilePrefs(p: Prefs, courses: CourseDTO[]): Prefs {
   return next;
 }
 
+// Known courses come from the old record in the order it saw them; courses it never saw go through reconcilePrefs,
+// so a book that started before the update inherits from the one it replaced.
 export function migratePrefs(old: { topics: string[] | null; topicCourses: string[] | null; follow: Follow | null }, courses: CourseDTO[]): Prefs | null {
-  const { topics, follow } = old;
+  const { topics, topicCourses, follow } = old;
   if (!topics && !follow) return null;
-  const known: Prefs['known'] = courses.map((c) => [c.id, c.slot]);
-  for (const [id, slot] of Object.entries(follow?.known ?? {})) if (!known.some(([k]) => k === id)) known.push([id, slot]);
-  return { wanted: topics ?? topicsFor(follow!.ids), known };
+  if (follow) return reconcilePrefs({ wanted: topics ?? topicsFor(follow.ids), known: Object.entries(follow.known) }, courses);
+  // Before the lesson choice, every course the app had not seen yet was subscribed in full.
+  const seen = topicCourses ?? [];
+  const fresh = courses.filter((c) => !seen.includes(c.id));
+  const known: Prefs['known'] = [
+    ...seen.flatMap((id): Prefs['known'] => {
+      const slot = courses.find((c) => c.id === id)?.slot;
+      return slot ? [[id, slot]] : [];
+    }),
+    ...fresh.map((c): Prefs['known'][number] => [c.id, c.slot]),
+  ];
+  const added = topicsFor(fresh.map((c) => c.id)).filter((t) => t !== LIVE_OTHER_TOPIC);
+  return { wanted: [...new Set([...topics!, ...added])], known };
 }
 
 const courseOf = (topic: string): string | null => topic.match(/^c-(.+)-(?:live|rec|prep)$/)?.[1] ?? null;
