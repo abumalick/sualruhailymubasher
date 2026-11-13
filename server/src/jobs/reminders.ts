@@ -1,4 +1,4 @@
-import { courseTopic, NOTICE_TAG, toArabicDigits } from '@albadr/shared';
+import { courseTopic, NOTICE_TAG, NOTICE_TITLE, prepNoticeBody } from '@albadr/shared';
 import { nextPassage } from '../estimate';
 import type { Fcm } from '../fcm';
 import { expectedNextNumber, latestLessons, listCourses, listExceptions, markSent, type CourseRow } from '../repo';
@@ -31,14 +31,9 @@ async function remind(course: CourseRow, { db, fcm, now }: RemindersDeps, except
   const latest = await latestLessons(db, course.id, 5);
   const passage = nextPassage(course, latest, next, await expectedNextNumber(db, course.id, next.date, now));
   if (!passage) return;
-  const detail = passage.startPoint
-    ? passage.startPoint
-    : passage.number > 1
-      ? `يتابع من حيث توقف الدرس ${toArabicDigits(passage.number - 1)}`
-      : null;
   await fcm.sendToTopic(courseTopic(course.id, 'prep'), {
-    title: 'حضّر للدرس القادم',
-    body: detail ? `${course.title} · ${detail}` : course.title,
+    title: NOTICE_TITLE.prep,
+    body: prepNoticeBody(course.title, passage.startPoint, passage.number),
     data: { kind: 'prep', courseId: course.id, number: String(passage.number) },
     tag: NOTICE_TAG,
     ttlSec: (medinaInstant(next.date, next.time).getTime() - now.getTime()) / 1000,
