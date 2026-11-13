@@ -76,7 +76,25 @@ describe('the preparation preview', () => {
     expect(book.querySelector('.mkbanner')!.textContent).toBe('بداية الدرس تقريبًا');
     await after(2400);
     expect(pv.dataset.tap).toBeUndefined();
-    expect(book.querySelector('.pdffoot .chip[aria-pressed]')!.getAttribute('aria-pressed')).toBe('false');
+    expect(book.querySelector('.pdffoot .chip')).toBeNull();
+  });
+});
+
+describe('a preparation reminder for a course without a book', () => {
+  it('opens the lesson page on the next-lesson card, says so to screen readers, and never ticks «قرأتُه»', async () => {
+    const bookless = { ...tafsir, pdfUrls: [] };
+    const state = { ...FIXTURE_STATE, courses: [bookless] };
+    const { container } = render(<Preview card={cardFor('prep', [bookless], state.live)!} state={state} now={NOW} />);
+    const pv = container.querySelector<HTMLElement>('.pv')!;
+    expect(pv.previousElementSibling!.textContent).toContain('صفحة الدرس');
+    expect(pv.previousElementSibling!.textContent).not.toContain('الكتاب');
+    await after(4400);
+    expect(pv.querySelector('.pv-target')!.textContent).toContain('الدرس ٤٤٤');
+    for (let ms = 0; ms < BEATS.page.at(-1)!.at; ms += 200) {
+      await after(200);
+      expect(pv.dataset.tap).not.toBe('tick');
+      expect(pv.querySelector('.pv-target .chip[aria-pressed="true"]')).toBeNull();
+    }
   });
 });
 
@@ -85,7 +103,7 @@ describe('every preview', () => {
     const bookless = { ...tafsir, pdfUrls: [] };
     const state = { ...FIXTURE_STATE, courses: [bookless] };
     const { container, rerender } = render(<Preview card={cardFor('rec', [bookless], state.live)!} state={state} now={NOW} />);
-    await after(PLAYS * BEATS.lesson.at(-1)!.at + 10);
+    await after(PLAYS * BEATS.review.at(-1)!.at + 10);
     expect(container.querySelector<HTMLElement>('.pv')!.dataset.still).toBe('');
     rerender(<Preview card={cardFor('prep', [bookless], state.live)!} state={state} now={NOW} />);
     const pv = container.querySelector<HTMLElement>('.pv')!;

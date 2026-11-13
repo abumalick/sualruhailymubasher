@@ -262,7 +262,7 @@ button.lesson { width: 100%; text-align: start; }
 @keyframes pv-tap { 0% { transform: scale(.4); opacity: 0; } 25% { transform: scale(.9); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
 
 /* What the tap opens, over the lesson page: the live player slides up, the book comes in. */
-.pv .sheet { position: absolute; animation-duration: .45s; }
+.pv .sheet { position: absolute; padding-top: 16px; animation-duration: .45s; }
 .pv-mixlr { height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg2); }
 .pv-mixlr span { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--btn); }
 .pv-mixlr span svg { width: 24px; height: 24px; fill: var(--btn-fg); margin-left: 3px; }

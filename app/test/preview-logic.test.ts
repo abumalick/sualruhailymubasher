@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { liveIntentAction } from '../src/logic/liveIntent';
 import { cardFor } from '../src/logic/onboarding';
-import { BEATS, PLAYS, previewAt, previewDestination, previewGeometry, previewNotice, screenOffset, still } from '../src/logic/preview';
+import { BEATS, PLAYS, previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, screenOffset, still } from '../src/logic/preview';
 import { routeForPush } from '../src/logic/topics';
 import { bookHref } from '../src/ui/format';
 
@@ -42,6 +42,17 @@ describe('previewDestination', () => {
   });
 });
 
+describe('previewPlay', () => {
+  it('only shows the live player and the book; on the lesson page highlights the card, and ticks only the recording', () => {
+    const rec = cardFor('rec', [tafsir], quiet)!;
+    const prep = cardFor('prep', [tafsir], quiet)!;
+    expect(previewPlay(cardFor('live', [tafsir], quiet)!, { kind: 'live' })).toBe('live');
+    expect(previewPlay(prep, { kind: 'book', pdfIndex: 0, page: 1, marker: true })).toBe('book');
+    expect(previewPlay(rec, { kind: 'lesson' })).toBe('review');
+    expect(previewPlay(prep, { kind: 'lesson' })).toBe('page');
+  });
+});
+
 describe('previewAt', () => {
   it('opens on a quiet phone, then the notification slides down small, then grows to be read', () => {
     expect(at('live', 0)).toMatchObject({ banner: 'hidden', opened: false, spot: false, tap: null });
@@ -66,19 +77,27 @@ describe('previewAt', () => {
     }
   });
 
-  it('on the lesson page the card is highlighted, then a ghost tap ticks it', () => {
-    expect(at('lesson', 4400)).toMatchObject({ opened: true, spot: true, tap: null, done: false });
-    expect(at('lesson', 6100)).toMatchObject({ spot: true, tap: 'tick', done: false });
-    expect(at('lesson', 6500)).toMatchObject({ spot: true, tap: null, done: true });
+  it('on the lesson page the recording card is highlighted, then a ghost tap ticks it', () => {
+    expect(at('review', 4400)).toMatchObject({ opened: true, spot: true, tap: null, done: false });
+    expect(at('review', 6100)).toMatchObject({ spot: true, tap: 'tick', done: false });
+    expect(at('review', 6500)).toMatchObject({ spot: true, tap: null, done: true });
+  });
+
+  it('a preparation reminder that opens the lesson page only highlights the card: «قرأتُه» is never ticked', () => {
+    expect(at('page', 4400)).toMatchObject({ opened: true, spot: true });
+    for (let ms = 0; ms < loop('page'); ms += 100) {
+      expect(at('page', ms).tap).not.toBe('tick');
+      expect(at('page', ms).done).toBe(false);
+    }
   });
 
   it('fades out at the end of a play, still ticked, and starts again', () => {
-    expect(at('lesson', loop('lesson') - 100)).toMatchObject({ fade: true, done: true });
-    expect(at('lesson', loop('lesson') + 100)).toEqual(at('lesson', 100));
+    expect(at('review', loop('review') - 100)).toMatchObject({ fade: true, done: true });
+    expect(at('review', loop('review') + 100)).toEqual(at('review', 100));
   });
 
   it(`plays ${PLAYS} times, then rests on the still frame with nothing left to wait for`, () => {
-    for (const to of ['live', 'lesson', 'book'] as const) {
+    for (const to of ['live', 'review', 'page', 'book'] as const) {
       const end = PLAYS * loop(to);
       expect(previewAt(to, end - 1, false).wait).toBeGreaterThan(0);
       expect(previewAt(to, end, false)).toEqual({ frame: still(to), wait: null });
@@ -92,7 +111,8 @@ describe('previewAt', () => {
 
   it('the still frame shows the notification above what it opened, with no tap; only the lesson card is highlighted', () => {
     expect(still('live')).toEqual({ banner: 'big', opened: true, spot: false, tap: null, done: false, fade: false, still: true });
-    expect(still('lesson').spot).toBe(true);
+    expect(still('review').spot).toBe(true);
+    expect(still('page').spot).toBe(true);
     expect(still('book').spot).toBe(false);
   });
 

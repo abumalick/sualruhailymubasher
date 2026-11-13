@@ -43,12 +43,18 @@ export interface Beat {
 const beats = (...list: [BeatName, number][]): Beat[] => list.map(([name, at]) => ({ name, at }));
 const OPENING: [BeatName, number][] = [['idle', 0], ['small', 600], ['big', 1300], ['tap', 2700], ['gone', 3200], ['open', 3600]];
 
-// One play per destination; its last beat is the play's length. The live player and the book are only shown (the book's
-// «قرأتُه» sits below what the small phone shows); the lesson's card is highlighted and ticked.
-export const BEATS: Record<Destination['kind'], Beat[]> = {
+// How the picture plays once the phone is open: the live player and the book are only shown; on the lesson page the
+// card is highlighted, and the recording's is then ticked «راجعتُه» (the book's «قرأتُه» sits below what the phone shows).
+export type Play = 'live' | 'book' | 'page' | 'review';
+
+export const previewPlay = (card: Card, to: Destination): Play => (to.kind !== 'lesson' ? to.kind : card.kind === 'recording' ? 'review' : 'page');
+
+// Each play's last beat is its length.
+export const BEATS: Record<Play, Beat[]> = {
   live: beats(...OPENING, ['out', 7600], ['end', 8200]),
-  lesson: beats(...OPENING, ['spot', 4300], ['press', 6000], ['done', 6400], ['out', 8600], ['end', 9200]),
   book: beats(...OPENING, ['out', 7600], ['end', 8200]),
+  page: beats(...OPENING, ['spot', 4300], ['out', 7600], ['end', 8200]),
+  review: beats(...OPENING, ['spot', 4300], ['press', 6000], ['done', 6400], ['out', 8600], ['end', 9200]),
 };
 export const PLAYS = 2;
 
@@ -66,13 +72,13 @@ const SETS: Partial<Record<BeatName, Partial<Frame>>> = {
 const TAPS: Partial<Record<BeatName, Frame['tap']>> = { tap: 'banner', press: 'tick' };
 
 // The frame the preview rests on: the notification above what it opened.
-export const still = (to: Destination['kind']): Frame => ({ ...QUIET, banner: 'big', opened: true, spot: to === 'lesson', still: true });
+export const still = (play: Play): Frame => ({ ...QUIET, banner: 'big', opened: true, spot: play === 'page' || play === 'review', still: true });
 
 // What the preview shows `elapsed` ms after it started, and how long until that changes (null: it rests from now on).
-export function previewAt(to: Destination['kind'], elapsed: number, reduced: boolean): { frame: Frame; wait: number | null } {
-  const list = BEATS[to];
+export function previewAt(play: Play, elapsed: number, reduced: boolean): { frame: Frame; wait: number | null } {
+  const list = BEATS[play];
   const length = list.at(-1)!.at;
-  if (reduced || elapsed >= PLAYS * length) return { frame: still(to), wait: null };
+  if (reduced || elapsed >= PLAYS * length) return { frame: still(play), wait: null };
   const t = elapsed % length;
   let i = 0;
   while (list[i + 1].at <= t) i++;

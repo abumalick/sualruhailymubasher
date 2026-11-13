@@ -2,7 +2,7 @@ import type { StateDTO } from '@albadr/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { bookBack, liveContext } from '../logic/live';
 import type { Card } from '../logic/onboarding';
-import { previewAt, previewDestination, previewGeometry, previewNotice, screenOffset, type Destination } from '../logic/preview';
+import { previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, screenOffset, type Destination, type Play } from '../logic/preview';
 import { BookBar, BookFoot } from './Book';
 import { NextCard, RecordingCard } from './cards';
 import { clock12, dayWord, passageRange, printedPage, slotName } from './format';
@@ -12,10 +12,11 @@ import { Icon } from './Star';
 
 const noop = () => {};
 
-const SPOKEN: Record<Card['kind'], string> = {
+const SPOKEN: Record<Play, string> = {
   live: 'صورة توضيحية: يصلك تنبيه عند بدء البث، فيفتح مشغّل البث المباشر.',
-  recording: 'صورة توضيحية: يصلك تنبيه عند نشر التسجيل، فيفتح الدرس على التسجيل.',
-  next: 'صورة توضيحية: يصلك تذكير قبل الدرس، فيفتح الكتاب على مقطع الدرس القادم.',
+  review: 'صورة توضيحية: يصلك تنبيه عند نشر التسجيل، فيفتح الدرس على التسجيل.',
+  book: 'صورة توضيحية: يصلك تذكير قبل الدرس، فيفتح الكتاب على مقطع الدرس القادم.',
+  page: 'صورة توضيحية: يصلك تذكير قبل الدرس، فيفتح صفحة الدرس على الدرس القادم.',
 };
 
 function useReducedMotion(): boolean {
@@ -31,7 +32,7 @@ function useReducedMotion(): boolean {
 }
 
 // Re-renders at each beat until the preview rests; a new step starts it again.
-function useFrame(to: Destination['kind'], step: string, reduced: boolean) {
+function useFrame(play: Play, step: string, reduced: boolean) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const start = Date.now();
@@ -39,13 +40,13 @@ function useFrame(to: Destination['kind'], step: string, reduced: boolean) {
     const tick = () => {
       const now = Date.now() - start;
       setElapsed(now);
-      const { wait } = previewAt(to, now, reduced);
+      const { wait } = previewAt(play, now, reduced);
       if (wait !== null) timer = setTimeout(tick, wait);
     };
     tick();
     return () => clearTimeout(timer);
-  }, [to, step, reduced]);
-  return previewAt(to, elapsed, reduced).frame;
+  }, [play, step, reduced]);
+  return previewAt(play, elapsed, reduced).frame;
 }
 
 // The live player as it opens over the lesson; Mixlr's own player is drawn, never loaded.
@@ -86,7 +87,7 @@ function BookPage({ card, to }: { card: Card; to: Extract<Destination, { kind: '
           ))}
         </div>
       </div>
-      <BookFoot tick={course.next ? { done: false, onTick: noop } : null} />
+      <BookFoot tick={null} />
     </div>
   );
 }
@@ -96,7 +97,8 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
   const { course } = card;
   const to = previewDestination(card, state);
   const reduced = useReducedMotion();
-  const frame = useFrame(to.kind, `${card.kind}:${course.id}`, reduced);
+  const play = previewPlay(card, to);
+  const frame = useFrame(play, `${card.kind}:${course.id}`, reduced);
   const notice = previewNotice(card, state.live);
   const panel = useRef<HTMLElement>(null);
   const [geo, setGeo] = useState<{ scale: number; bannerScale: number; offset: number } | null>(null);
@@ -123,12 +125,12 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
   const slot = slotName(course.slot);
   const latest = course.latest[0];
   const recording = card.kind === 'recording' ? card.lesson : latest?.recordingUrl ? latest : null;
-  const onPage = (kind: Card['kind']) => (to.kind === 'lesson' && card.kind === kind ? 'pv-target pv-tickable' : undefined);
+  const onPage = (kind: Card['kind']) => (to.kind === 'lesson' && card.kind === kind ? (play === 'review' ? 'pv-target pv-tickable' : 'pv-target') : undefined);
   const scrolled = to.kind === 'lesson' && frame.opened;
   const style = geo ? `--s:${geo.scale};--bs:${geo.bannerScale};--pv-y:${scrolled ? geo.offset : 0}px` : undefined;
   return (
     <>
-      <p class="sr">{SPOKEN[card.kind]}</p>
+      <p class="sr">{SPOKEN[play]}</p>
       <figure
         ref={panel}
         class="pv"

@@ -116,6 +116,16 @@ describe('the live step', () => {
     expect(screen.getByText(/يصلك تنبيه عند بدء البث، فيفتح مشغّل البث المباشر/)).toBeTruthy();
   });
 
+  it('each step starts its own picture, so it never paints the last frame of the step before', async () => {
+    await toLive();
+    const live = document.querySelector('.pv');
+    next();
+    await heading('راجع الدرس');
+    const rec = document.querySelector('.pv')!;
+    expect(rec).not.toBe(live);
+    expect(rec.getAttribute('data-banner')).toBe('hidden');
+  });
+
   it('never shows the big red play button, the one a listener tried to tap', async () => {
     await toLive();
     expect(document.querySelector('.disc')).toBeNull();
