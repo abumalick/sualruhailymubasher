@@ -7,6 +7,9 @@ button:disabled { cursor: default; }
 
 .shell { height: 100%; display: flex; flex-direction: column; position: relative; padding-top: env(safe-area-inset-top, 0px); }
 .shell > * { position: relative; }
+/* Only the book zooms (.pdfwrap). touch-action is intersected up the tree, so it is set on the shell's children other
+   than the book, never on the shell or the page: panning stays, pinch and double-tap zoom go (src/zoom.ts). */
+.shell > :not(.book) { touch-action: pan-x pan-y; }
 .shell.lat::before { content: ""; position: absolute; inset: 0 0 auto; height: 330px; opacity: var(--lat-op); pointer-events: none; background-size: 56px 56px;
   -webkit-mask-image: linear-gradient(#000 40%, transparent); mask-image: linear-gradient(#000 40%, transparent);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpolygon points='30.0,12.0 35.3,17.3 42.7,17.3 42.7,24.7 48.0,30.0 42.7,35.3 42.7,42.7 35.3,42.7 30.0,48.0 24.7,42.7 17.3,42.7 17.3,35.3 12.0,30.0 17.3,24.7 17.3,17.3 24.7,17.3' fill='none' stroke='%23b8893c' stroke-width='1.2'/%3E%3Cpath d='M0 0L12 12M60 0L48 12M0 60L12 48M60 60L48 48M30 0V12M30 60V48M0 30H12M60 30H48' stroke='%23b8893c' stroke-width='1.2'/%3E%3C/svg%3E"); }
@@ -248,19 +251,29 @@ button.lesson { width: 100%; text-align: start; }
 .dots { display: flex; gap: 6px; }
 .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
 .dots i.on { width: 20px; border-radius: 99px; background: var(--gold); }
-.choose.ob { flex: 1 0 auto; }
+.dots i { transition: width .3s ease, background-color .3s ease; }
+/* hidden first, for iOS 15, which lacks clip. */
+.choose.ob { flex: 1 0 auto; overflow-x: hidden; overflow-x: clip; touch-action: pan-y; }
+/* One step of the carousel: a sideways finger anywhere on the screen moves it (vertical scrolling stays the browser's),
+   and it slides in from the side it comes from; in Arabic the next step is on the left. */
+.obstep { display: flex; flex-direction: column; gap: 14px; flex: 1 0 auto; transition: transform .25s ease-out; }
+.obstep.in-fwd { animation: ob-in-fwd .32s cubic-bezier(.3, .7, .2, 1); }
+.obstep.in-back { animation: ob-in-back .32s cubic-bezier(.3, .7, .2, 1); }
+@keyframes ob-in-fwd { from { transform: translateX(-100%); } }
+@keyframes ob-in-back { from { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .obstep, .dots i { animation: none; transition: none; } }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; margin: 0; }
 
 /* The notification preview (logic/preview.ts holds the timing and the numbers: phone 14px from the top, 5px bezel,
    44px status bar, notification 10px from the top). It takes the height left over, within bounds. */
 .pv { position: relative; margin: 0; flex: 1 1 auto; min-height: 180px; max-height: 340px; border-radius: 22px; background: var(--pv-panel); overflow: hidden; isolation: isolate; user-select: none; -webkit-user-select: none; }
 .pv, .pv * { pointer-events: none; }
-.pv-phone { position: absolute; top: 14px; left: 50%; width: calc(390px * var(--s, .45) + 10px); height: calc(844px * var(--s, .45) + 10px); margin-left: calc(-195px * var(--s, .45) - 5px); border-radius: calc(44px * var(--s, .45) + 5px); background: var(--pv-bezel); box-shadow: 0 10px 28px var(--pv-shadow); transition: opacity .5s ease; }
+.pv-phone { position: absolute; top: 14px; left: 50%; width: calc(390px * var(--s, .45) + 10px); height: calc(844px * var(--s, .45) + 10px); margin-left: calc(-195px * var(--s, .45) - 5px); border-radius: calc(44px * var(--s, .45) + 5px); background: var(--pv-bezel); box-shadow: 0 10px 28px var(--pv-shadow); transform: translateY(var(--pv-pan, 0px)); transition: opacity .5s ease, transform .8s cubic-bezier(.3, .7, .2, 1); }
 .pv-screen { position: absolute; top: 5px; left: 5px; width: 390px; height: 844px; transform: scale(var(--s, .45)); transform-origin: 0 0; border-radius: 44px; overflow: hidden; background: linear-gradient(var(--bg), var(--bg2)); }
 .pv-status { position: absolute; inset: 0 0 auto; height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; direction: ltr; font: 600 var(--fs-label) var(--ui); }
 .pv-status i { width: 26px; height: 12px; border: 1.5px solid currentColor; border-radius: 4px; opacity: .8; }
 .pv-app { position: absolute; inset: 44px 0 0; overflow: hidden; transition: opacity .45s ease; }
-.pv .pv-lp { display: flex; flex-direction: column; gap: 13px; position: relative; padding: 16px 18px; transform: translateY(var(--pv-y, 0px)); transition: transform .7s cubic-bezier(.3, .7, .2, 1); }
+.pv .pv-lp { display: flex; flex-direction: column; gap: 13px; position: relative; padding: 16px 18px; }
 .pv-lp > * { transition: opacity .45s ease; }
 .pv-target { border-radius: 16px; transition: transform .5s cubic-bezier(.3, .7, .2, 1), box-shadow .5s; }
 .pv[data-banner=big] .pv-app { opacity: .45; }
@@ -281,23 +294,43 @@ button.lesson { width: 100%; text-align: start; }
 .pv-banner .bd { font: 400 var(--fs-caption) / 1.45 var(--ui); color: var(--soft); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* A ghost finger: a ring pressing where the listener would tap. It never moves what it presses. */
-.pv-ring, .pv[data-tap=tick] .pv-tickable .chip[aria-pressed]::after { position: absolute; top: 50%; left: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; opacity: 0;
+.pv-ring, .pv[data-tap=tick] .pv-tickable .chip[aria-pressed]::after, .pv[data-tap=listen] .pv-tickable button.chip.pri::after, .pv[data-tap=play] .mx-play::after {
+  position: absolute; top: 50%; left: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; opacity: 0;
   background: radial-gradient(circle, color-mix(in srgb, var(--fg) 45%, transparent) 0 30%, transparent 32%); border: 2.5px solid color-mix(in srgb, var(--fg) 45%, transparent); }
-.pv[data-tap=banner] .pv-ring, .pv[data-tap=tick] .pv-tickable .chip[aria-pressed]::after { animation: pv-tap .8s ease-out forwards; }
-.pv[data-tap=tick] .pv-tickable .chip[aria-pressed] { position: relative; }
-.pv[data-tap=tick] .pv-tickable .chip[aria-pressed]::after { content: ""; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-width: 4px; }
+.pv[data-tap=banner] .pv-ring, .pv[data-tap=tick] .pv-tickable .chip[aria-pressed]::after, .pv[data-tap=listen] .pv-tickable button.chip.pri::after, .pv[data-tap=play] .mx-play::after { animation: pv-tap .8s ease-out forwards; }
+.pv[data-tap=tick] .pv-tickable .chip[aria-pressed], .pv[data-tap=listen] .pv-tickable button.chip.pri { position: relative; }
+.pv[data-tap=tick] .pv-tickable .chip[aria-pressed]::after, .pv[data-tap=listen] .pv-tickable button.chip.pri::after, .pv[data-tap=play] .mx-play::after { content: ""; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-width: 4px; }
 @keyframes pv-tap { 0% { transform: scale(.4); opacity: 0; } 25% { transform: scale(.9); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
 
 /* What the tap opens, over the lesson page: the live player slides up, the book comes in. */
 .pv .sheet { position: absolute; padding-top: 16px; animation-duration: .45s; }
-.pv-mixlr { height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg2); }
-.pv-mixlr span { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--btn); }
-.pv-mixlr span svg { width: 24px; height: 24px; fill: var(--btn-fg); margin-left: 3px; }
-.pv-mixlr b { display: flex; align-items: flex-end; gap: 5px; height: 34px; }
-.pv-mixlr i { width: 6px; border-radius: 3px; background: var(--gold); opacity: .7; animation: pv-eq 1.1s ease-in-out infinite alternate; }
-.pv-mixlr i:nth-child(1) { height: 40%; } .pv-mixlr i:nth-child(2) { height: 90%; animation-delay: -.3s; } .pv-mixlr i:nth-child(3) { height: 60%; animation-delay: -.6s; }
-.pv-mixlr i:nth-child(4) { height: 100%; animation-delay: -.2s; } .pv-mixlr i:nth-child(5) { height: 50%; animation-delay: -.8s; }
-@keyframes pv-eq { to { transform: scaleY(.35); } }
+/* Mixlr's embed as it looks on air (its own colours, its channel colour on the play button); playing, play turns to
+   stop and the wave line under the controls moves. */
+.pv-mixlr { flex: 1; position: relative; display: flex; flex-direction: column; padding: 14px; border-radius: 12px; overflow: hidden; direction: ltr; color: #fff;
+  background: radial-gradient(120% 70% at 50% 40%, #5d5446, #2c2a2e); font-family: var(--ui); }
+.pv-mixlr img { border-radius: 50%; }
+.mx-top { display: flex; align-items: center; gap: 10px; font-size: var(--fs-body-sm); }
+.mx-top img { width: 44px; height: 44px; }
+.mx-mid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-size: var(--fs-title); }
+.mx-mid img { width: 116px; height: 116px; border-radius: 10px; }
+.mx-live { display: flex; border-radius: 99px; overflow: hidden; font: 700 var(--fs-caption) var(--ui); }
+.mx-live span { padding: 3px 9px; background: #fde2e4; color: #d81e2c; }
+.mx-live span:first-child { background: #e3152a; color: #fff; }
+.mx-ctl { position: relative; display: flex; align-items: center; justify-content: center; gap: 14px; height: 64px; margin-bottom: 14px; }
+.mx-side { position: relative; width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 255, 255, .2); }
+.mx-play { position: relative; width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: #73552b; box-shadow: 0 2px 10px rgba(0, 0, 0, .25); }
+.mx-play svg { width: 22px; height: 22px; fill: #fff; }
+.mx-wave { position: absolute; inset: 0 -14px; display: flex; align-items: center; justify-content: space-between; }
+.mx-wave i { width: 3px; height: 22px; border-radius: 2px; background: rgba(255, 255, 255, .45); transform: scaleY(.14); }
+.pv-mixlr[data-playing] .mx-wave i { transform: scaleY(var(--h, .5)); animation: pv-eq .9s ease-in-out infinite alternate; }
+.pv-mixlr[data-playing] .mx-wave i:nth-child(3n) { animation-delay: -.3s; } .pv-mixlr[data-playing] .mx-wave i:nth-child(3n + 1) { animation-delay: -.6s; }
+@keyframes pv-eq { from { transform: scaleY(.15); } }
+/* The app's player bar comes up at the bottom of the screen and fills while the recording plays. */
+.pv .pv-app > .mp { position: absolute; inset: auto 0 0; padding-bottom: 22px; animation: pv-in .45s ease-out; }
+.pv[data-playing] .pv-app > .mp .prog { animation: pv-prog 2.2s linear forwards; }
+.pv[data-playing] .pv-app > .mp .rail b { animation: pv-knob 2.2s linear forwards; }
+@keyframes pv-prog { to { width: 100%; } }
+@keyframes pv-knob { to { left: 100%; } }
 .pv .book { position: absolute; inset: 0; background: linear-gradient(var(--bg), var(--bg2)); animation: pv-in .45s ease-out; }
 @keyframes pv-in { from { opacity: 0; transform: translateY(24px); } }
 .pv-page { display: flex; flex-direction: column; gap: 15px; padding: 46px 26px 30px; }

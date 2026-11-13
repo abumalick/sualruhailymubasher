@@ -15,6 +15,7 @@ import { Onboarding } from './ui/Onboarding';
 import { Links } from './ui/Links';
 import { LiveSheet } from './ui/LiveSheet';
 import { MiniPlayer } from './ui/MiniPlayer';
+import { leavesBook, resetZoom } from './zoom';
 import { Notifications } from './ui/Notifications';
 import { About } from './ui/About';
 import { More } from './ui/More';
@@ -50,6 +51,11 @@ export function App() {
   );
   // A layout effect, so a tap on the new page can't land before the collapse it would then undo.
   useLayoutEffect(() => send({ type: 'navigate' }), [route]);
+  const lastRoute = useRef<string | null>(null);
+  useEffect(() => {
+    if (leavesBook(lastRoute.current, route.name)) resetZoom();
+    lastRoute.current = route.name;
+  }, [route.name]);
   useEffect(() => void (state && send({ type: 'state', live: state.live })), [state?.live]);
   const autoPicked = useRef<string | null>(null);
   const freshSeen = useRef(false);

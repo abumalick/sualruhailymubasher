@@ -13,18 +13,31 @@ export function usePlayer() {
   return s;
 }
 
-const PlayButton = ({ s }: { s: PlayerState }) => (
-  <button class="mini" aria-label={s.playing ? 'إيقاف مؤقت' : 'تشغيل'} onClick={() => (s.playing ? player.pause() : void player.resume())}>
+// What the bar can ask of the player; the onboarding's preview draws the same bar with none of them wired.
+export interface PlayerActions {
+  toggle: () => void;
+  skip: (delta: number) => void;
+  seek: (to: number) => void;
+}
+
+const PLAYER: PlayerActions = {
+  toggle: () => (player.state.playing ? player.pause() : void player.resume()),
+  skip: (delta) => player.skip(delta),
+  seek: (to) => player.seek(to),
+};
+
+const PlayButton = ({ s, act }: { s: PlayerState; act: PlayerActions }) => (
+  <button class="mini" aria-label={s.playing ? 'إيقاف مؤقت' : 'تشغيل'} onClick={act.toggle}>
     <Icon id={s.playing ? 'i-pause' : 'play'} />
   </button>
 );
 
-const Skip = ({ delta, ready }: { delta: number; ready: boolean }) => (
+const Skip = ({ delta, ready, act }: { delta: number; ready: boolean; act: PlayerActions }) => (
   <button
     class={delta < 0 ? 'skip' : 'skip fwd'}
     aria-label={`${delta < 0 ? 'رجوع' : 'تقديم'} ${ar(SKIP_SECONDS)} ثانية`}
     disabled={!ready}
-    onClick={() => player.skip(delta)}
+    onClick={() => act.skip(delta)}
   >
     <Icon id="i-rev" />
     <span aria-hidden="true">{ar(SKIP_SECONDS)}</span>
@@ -47,7 +60,7 @@ const Clock = ({ text, shape }: { text: string; shape: string }) => (
 );
 
 // Media timelines run left to right in Arabic too (tape direction), as the play triangle does.
-function Scrubber({ position, duration }: { position: number; duration: number }) {
+function Scrubber({ position, duration, act }: { position: number; duration: number; act: PlayerActions }) {
   const [drag, setDrag] = useState<number | null>(null);
   const pointer = useRef<number | null>(null);
   const ready = duration > 0;
@@ -83,7 +96,7 @@ function Scrubber({ position, duration }: { position: number; duration: number }
         onPointerMove={(e) => mine(e) && setDrag(at(e))}
         onPointerUp={(e) => {
           if (!mine(e)) return;
-          player.seek(at(e));
+          act.seek(at(e));
           end(e);
         }}
         onPointerCancel={end}
@@ -92,7 +105,7 @@ function Scrubber({ position, duration }: { position: number; duration: number }
           const target = ready ? keyTarget(e.key, position, duration) : null;
           if (target === null) return;
           e.preventDefault();
-          player.seek(target);
+          act.seek(target);
         }}
       >
         <i class="prog" style={{ width: `${pct}%` }} />
@@ -105,6 +118,10 @@ function Scrubber({ position, duration }: { position: number; duration: number }
 
 export function MiniPlayer() {
   const s = usePlayer();
+  return <PlayerBar s={s} act={PLAYER} />;
+}
+
+export function PlayerBar({ s, act }: { s: PlayerState; act: PlayerActions }) {
   if (!s.src) return null;
   const meta = (
     <div class="t">
@@ -115,7 +132,7 @@ export function MiniPlayer() {
   if (s.src.kind === 'live')
     return (
       <div class="mp">
-        <PlayButton s={s} />
+        <PlayButton s={s} act={act} />
         {meta}
       </div>
     );
@@ -123,12 +140,12 @@ export function MiniPlayer() {
   return (
     <div class="mp rec">
       <div class="ctl" dir="ltr">
-        <Skip delta={-SKIP_SECONDS} ready={ready} />
-        <PlayButton s={s} />
-        <Skip delta={SKIP_SECONDS} ready={ready} />
+        <Skip delta={-SKIP_SECONDS} ready={ready} act={act} />
+        <PlayButton s={s} act={act} />
+        <Skip delta={SKIP_SECONDS} ready={ready} act={act} />
       </div>
       {meta}
-      <Scrubber key={s.src.url} position={s.position} duration={s.duration} />
+      <Scrubber key={s.src.url} position={s.position} duration={s.duration} act={act} />
     </div>
   );
 }

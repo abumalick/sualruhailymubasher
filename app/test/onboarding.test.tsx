@@ -321,6 +321,179 @@ describe('the whole flow', () => {
   });
 });
 
+// A finger on the step: moves through `points` ([dx, dy] from where it starts), `ms` apart, then lifts.
+function drag(on: Element, points: [number, number][], ms = 40) {
+  const step = on.closest('.ob')!.querySelector('.obstep')!;
+  const at = (x: number, y: number) => ({ clientX: 200 + x, clientY: 400 + y, identifier: 0, target: on });
+  let t = 1000;
+  const fire = (type: string, x: number, y: number, lifted = false) => {
+    const touch = at(x, y);
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.assign(event, { touches: lifted ? [] : [touch], changedTouches: [touch] });
+    Object.defineProperty(event, 'timeStamp', { value: t });
+    on.dispatchEvent(event);
+    t += ms;
+  };
+  fire('touchstart', 0, 0);
+  for (const [x, y] of points) fire('touchmove', x, y);
+  const [x, y] = points.at(-1) ?? [0, 0];
+  fire('touchend', x, y, true);
+  return step;
+}
+const swipeForward = () => drag(document.querySelector('.obstep h3')!, [[20, 2], [60, 4], [140, 6]]);
+const swipeBack = () => drag(document.querySelector('.obstep h3')!, [[-20, 2], [-60, 4], [-140, 6]]);
+
+describe('swiping between steps', () => {
+  it('a finger moving from left to right goes to the next step, which comes in from the left; right to left comes back', async () => {
+    await start();
+    swipeForward();
+    await heading('استمع مباشرةً');
+    expect(document.querySelector('.obstep')!.className).toBe('obstep in-fwd');
+    swipeBack();
+    await heading('أيَّ الدروس تحضر؟');
+    expect(document.querySelector('.obstep')!.className).toBe('obstep in-back');
+  });
+
+  it('the page dots follow the step', async () => {
+    await start();
+    const dots = () => [...document.querySelectorAll('.dots i')].map((i) => i.className);
+    expect(dots()).toEqual(['on', '', '', '']);
+    swipeForward();
+    await heading('استمع مباشرةً');
+    expect(dots()).toEqual(['', 'on', '', '']);
+  });
+
+  it('asks the notification permission where continue would, once', async () => {
+    await toLive();
+    swipeForward();
+    await heading('راجع الدرس');
+    expect(fm.requestPermissions).toHaveBeenCalledOnce();
+    swipeForward();
+    await heading('حضّر للدرس القادم');
+    expect(fm.requestPermissions).toHaveBeenCalledOnce();
+  });
+
+  it('cannot go forward from the first screen with no lesson ticked, as continue cannot', async () => {
+    await start();
+    fireEvent.click(screen.getByRole('checkbox', { name: /درس الفجر/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /درس المغرب/ }));
+    swipeForward();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole('heading', { name: 'أيَّ الدروس تحضر؟' })).toBeTruthy();
+  });
+
+  it('cannot go back from the first screen at first launch, where there is no back button', async () => {
+    await start();
+    swipeBack();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole('heading', { name: 'أيَّ الدروس تحضر؟' })).toBeTruthy();
+  });
+
+  it('on the last step finishes as «ابدأ» does', async () => {
+    await toLive();
+    for (const title of ['راجع الدرس', 'حضّر للدرس القادم']) {
+      next();
+      await heading(title);
+    }
+    swipeForward();
+    await waitFor(() => expect(store.get('onboarded')).toBe('1'));
+  });
+
+  it('a vertical scroll, even one that drifts sideways later, changes nothing', async () => {
+    await toLive();
+    drag(document.querySelector('.obstep h3')!, [[2, 20], [10, 60], [160, 80]]);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole('heading', { name: 'استمع مباشرةً' })).toBeTruthy();
+  });
+
+  it('a short slow drag snaps back to the same step', async () => {
+    await toLive();
+    const step = drag(document.querySelector('.obstep h3')!, [[15, 0], [30, 0], [40, 0]], 300);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole('heading', { name: 'استمع مباشرةً' })).toBeTruthy();
+    expect((step as HTMLElement).style.transform).toBe('');
+  });
+
+  it('the step follows the finger while it drags, and less where it cannot go', async () => {
+    await start();
+    const step = document.querySelector<HTMLElement>('.obstep')!;
+    const h3 = step.querySelector('h3')!;
+    const fire = (type: string, x: number) => {
+      const event = new Event(type, { bubbles: true });
+      const touch = { clientX: 200 + x, clientY: 400, identifier: 0, target: h3 };
+      Object.assign(event, { touches: [touch], changedTouches: [touch] });
+      h3.dispatchEvent(event);
+    };
+    fire('touchstart', 0);
+    fire('touchmove', 30);
+    await waitFor(() => expect(step.style.transform).toBe('translateX(30px)'));
+    fire('touchmove', -40);
+    await waitFor(() => expect(step.style.transform).toBe('translateX(-10px)'));
+  });
+
+  it('a tap on the switch toggles it and moves nowhere', async () => {
+    await toLive();
+    const sw = switchOf(LIVE);
+    drag(sw, []);
+    fireEvent.click(sw);
+    expect(switchOf(LIVE).getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('heading', { name: 'استمع مباشرةً' })).toBeTruthy();
+  });
+
+  it('a tap on a lesson checkbox unticks it and moves nowhere', async () => {
+    await start();
+    const box = screen.getByRole('checkbox', { name: /درس الفجر/ });
+    drag(box, [[3, 2]]);
+    fireEvent.click(box);
+    expect(box.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('heading', { name: 'أيَّ الدروس تحضر؟' })).toBeTruthy();
+  });
+
+  it('two fingers (a pinch) are not a swipe', async () => {
+    await toLive();
+    const h3 = document.querySelector('.obstep h3')!;
+    const fire = (type: string, x: number) => {
+      const event = new Event(type, { bubbles: true });
+      const a = { clientX: 200 + x, clientY: 400, identifier: 0, target: h3 };
+      const b = { clientX: 100 - x, clientY: 400, identifier: 1, target: h3 };
+      Object.assign(event, { touches: type === 'touchend' ? [] : [a, b], changedTouches: [a, b] });
+      h3.dispatchEvent(event);
+    };
+    fire('touchstart', 0);
+    fire('touchmove', 150);
+    fire('touchend', 150);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole('heading', { name: 'استمع مباشرةً' })).toBeTruthy();
+  });
+
+  it('with reduced motion the step changes at once, with no slide and no drag', async () => {
+    const real = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)', addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+    try {
+      await start();
+      swipeForward();
+      await heading('استمع مباشرةً');
+      expect(document.querySelector('.obstep')!.className).toBe('obstep');
+      expect(document.querySelector<HTMLElement>('.obstep')!.style.transform).toBe('');
+    } finally {
+      window.matchMedia = real;
+    }
+  });
+
+  it('a swipe anywhere on the screen counts, also on the page dots above the step', async () => {
+    await toLive();
+    drag(document.querySelector('.dots')!, [[-20, 2], [-60, 4], [-140, 6]]);
+    await heading('أيَّ الدروس تحضر؟');
+  });
+
+  it('the back button also slides the step in from the right', async () => {
+    await toLive();
+    fireEvent.click(screen.getByRole('button', { name: 'رجوع' }));
+    await heading('أيَّ الدروس تحضر؟');
+    expect(document.querySelector('.obstep')!.className).toBe('obstep in-back');
+  });
+});
+
 describe('with no lesson listed', () => {
   it('only the live step has a switch, for other broadcasts; revision and preparation have none', async () => {
     const api = await import('../src/api');

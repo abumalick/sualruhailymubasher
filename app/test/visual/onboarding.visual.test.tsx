@@ -17,7 +17,7 @@ const MON_2110 = new Date('2026-11-02T18:10:00Z');
 
 afterEach(async () => {
   cleanup();
-  await commands.emulateMedia({ colorScheme: null });
+  await commands.emulateMedia({ colorScheme: null, reducedMotion: null });
 });
 
 async function at(steps: number, width = WIDTH, height = HEIGHT) {
@@ -38,8 +38,14 @@ async function at(steps: number, width = WIDTH, height = HEIGHT) {
     await userEvent.click(page.getByRole('button', { name: 'متابعة' }));
     await expect.poll(() => view.container.querySelector('h3')!.textContent).not.toBe(heading);
   }
+  settle();
   return view.container;
 }
+
+// Ends the step's slide, so positions are final.
+const settle = () => {
+  for (const el of document.querySelectorAll('.obstep, .dots i')) for (const a of el.getAnimations()) a.finish();
+};
 
 const primary = (c: Element) => c.querySelector<HTMLElement>('.chip.pri.wide')!;
 
@@ -131,6 +137,84 @@ for (const [width, height] of [
     });
   }
 }
+
+// A finger through `points` ([dx, dy] from the middle of `on`): the browser's own touch events where it can build them
+// (Chromium); desktop WebKit cannot, so there the same events carry plain touch points.
+function finger(on: Element, points: [number, number][]) {
+  const box = on.getBoundingClientRect();
+  const x0 = box.left + box.width / 2;
+  const y0 = box.top + box.height / 2;
+  let native = true;
+  try {
+    new Touch({ identifier: 1, target: on, clientX: 0, clientY: 0 });
+  } catch {
+    native = false;
+  }
+  const touch = (dx: number, dy: number) => {
+    const init = { identifier: 1, target: on, clientX: x0 + dx, clientY: y0 + dy };
+    return native ? new Touch(init) : (init as unknown as Touch);
+  };
+  const fire = (type: string, t: Touch, lifted = false) => {
+    const lists = { touches: lifted ? [] : [t], targetTouches: lifted ? [] : [t], changedTouches: [t] };
+    if (native) return on.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, ...lists }));
+    return on.dispatchEvent(Object.assign(new Event(type, { bubbles: true, cancelable: true }), lists));
+  };
+  fire('touchstart', touch(0, 0));
+  for (const [dx, dy] of points) fire('touchmove', touch(dx, dy));
+  const [dx, dy] = points.at(-1) ?? [0, 0];
+  fire('touchend', touch(dx, dy), true);
+}
+const heading = (c: Element) => c.querySelector('h3')!.textContent;
+
+it('a swipe from left to right brings the next step in from the left, and the way back from the right', async () => {
+  const c = await at(0, 390, 844);
+  finger(c.querySelector('.obstep h3')!, [[20, 0], [80, 2], [150, 3]]);
+  await expect.poll(() => heading(c)).toBe('استمع مباشرةً');
+  const step = c.querySelector<HTMLElement>('.obstep')!;
+  const [slide] = step.getAnimations();
+  slide.finish();
+  const rest = step.getBoundingClientRect();
+  slide.currentTime = 0;
+  slide.pause();
+  expect(step.getBoundingClientRect().right).toBeLessThanOrEqual(rest.left + 1);
+  slide.finish();
+  finger(c.querySelector('.obstep h3')!, [[-20, 0], [-80, 2], [-150, 3]]);
+  await expect.poll(() => heading(c)).toBe('أيَّ الدروس تحضر؟');
+  const back = c.querySelector<HTMLElement>('.obstep')!;
+  const [slideBack] = back.getAnimations();
+  slideBack.finish();
+  const restBack = back.getBoundingClientRect();
+  slideBack.currentTime = 0;
+  slideBack.pause();
+  expect(back.getBoundingClientRect().left).toBeGreaterThanOrEqual(restBack.right - 1);
+});
+
+for (const [width, height] of [
+  [320, 568],
+  [390, 844],
+] as const) {
+  it(`at ${width}×${height} a vertical drag, a tap on the switch and a short drag leave the step where it is`, async () => {
+    const c = await at(1, width, height);
+    finger(c.querySelector('.obstep h3')!, [[3, 20], [6, 60], [8, 120]]);
+    finger(c.querySelector('.obstep h3')!, [[10, 0], [25, 0], [30, 0]]);
+    const sw = c.querySelector<HTMLElement>('[role=switch]')!;
+    finger(sw, []);
+    sw.click();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(heading(c)).toBe('استمع مباشرةً');
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(getComputedStyle(c.querySelector('.ob')!).touchAction).toBe('pan-y');
+  });
+}
+
+it('with reduced motion a swipe changes the step at once, with nothing sliding', async () => {
+  await commands.emulateMedia({ reducedMotion: 'reduce' });
+  const c = await at(0, 390, 844);
+  finger(c.querySelector('.obstep h3')!, [[20, 0], [80, 2], [150, 3]]);
+  await expect.poll(() => heading(c)).toBe('استمع مباشرةً');
+  expect(c.querySelector('.obstep')!.getAnimations()).toEqual([]);
+  expect(c.querySelector<HTMLElement>('.obstep')!.getBoundingClientRect().left).toBeGreaterThanOrEqual(0);
+});
 
 declare module 'vitest/browser' {
   interface BrowserCommands {
