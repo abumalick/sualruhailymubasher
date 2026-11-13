@@ -18,11 +18,11 @@ export const TARGETS = {
 // recording, preparing the next one in the book, and the notifications that bring the listener back.
 // Routes name each course rather than #/, which opens whichever lesson is nearest at capture time.
 export const SHOTS = [
-  { name: '01-fajr', route: '#/course/tafsir-saadi' },
-  { name: '02-maghrib', route: '#/course/kitab-tawhid' },
+  { name: '01-fajr', route: '#/course/tafsir-saadi', slot: 'fajr' },
+  { name: '02-maghrib', route: '#/course/kitab-tawhid', slot: 'maghrib' },
   { name: '03-live', route: '#/welcome', step: 'live' },
-  { name: '04-recording', route: '#/course/tafsir-saadi', step: 'recording' },
-  { name: '05-book', route: '#/course/kitab-tawhid', step: 'book' },
+  { name: '04-recording', route: '#/course/tafsir-saadi', slot: 'fajr', step: 'recording' },
+  { name: '05-book', route: '#/course/kitab-tawhid', slot: 'maghrib', step: 'book' },
   { name: '06-notifications', route: '#/notifications' },
 ];
 
@@ -42,7 +42,10 @@ export const STEPS = {
   },
   // The latest recording, a third of the way in.
   recording: async (page) => {
-    await page.getByRole('button', { name: 'استمع' }).first().click();
+    // The latest lesson's card: a broadcast's «استمع» or an older lesson's play button would start something else
+    const listen = page.locator('.card.last').getByRole('button', { name: 'استمع', exact: true });
+    if ((await listen.count()) === 0) throw new Error(`${page.url()}: the latest lesson has no recording to play`);
+    await listen.click();
     const rail = page.getByRole('slider', { name: 'موضع التسجيل' });
     await page.waitForFunction((el) => Number(el.getAttribute('aria-valuemax')) > 0, await rail.elementHandle());
     const box = await rail.boundingBox();
@@ -51,13 +54,16 @@ export const STEPS = {
   },
   // The book opened from the next lesson's card, at the page where its passage starts.
   book: async (page) => {
-    await page.getByRole('link', { name: /اقرأ في الكتاب/ }).click();
+    const open = page.getByRole('link', { name: /اقرأ في الكتاب/ });
+    if ((await open.count()) === 0) throw new Error(`${page.url()}: no next passage with a book link`);
+    await open.click();
     await page.locator('.pg .mkbanner').waitFor();
+    // Ink on the page: an undrawn canvas is transparent black, so only opaque dark pixels count
     await page.waitForFunction(() => {
       const c = document.querySelector('.pg canvas');
       if (!c?.width) return false;
       const { data } = c.getContext('2d').getImageData(0, 0, c.width, c.height);
-      for (let i = 0; i < data.length; i += 4) if (data[i] < 100) return true;
+      for (let i = 0; i < data.length; i += 4) if (data[i + 3] === 255 && data[i] < 100) return true;
       return false;
     });
   },
@@ -79,6 +85,8 @@ async function capture(browser, base, target) {
     const page = await context.newPage();
     await page.goto(`${base}/${shot.route}`);
     await page.waitForLoadState('networkidle');
+    // A renamed or retired course would otherwise put an empty page in the store
+    if (shot.slot) await page.locator(`.lp[data-slot="${shot.slot}"]`).waitFor({ timeout: 10_000 });
     if (shot.step) await STEPS[shot.step](page);
     await page.evaluate(() => document.fonts.ready);
     const file = join(ROOT, dir, `${shot.name}.png`);

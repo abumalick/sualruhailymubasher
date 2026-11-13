@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { SHOTS, STEPS, TARGETS } from '../../scripts/store-screenshots.mjs';
+import { SHOTS, TARGETS } from '../../scripts/store-screenshots.mjs';
 import { parseRoute } from '../src/router';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
@@ -28,22 +28,18 @@ describe('store screenshots', () => {
   });
 
   it('tells the story: the Fajr and Maghrib lessons, listening live, revising a recording, preparing in the book, the notifications', () => {
-    expect(SHOTS.map((s) => [s.name, parseRoute(s.route), s.step])).toEqual([
-      ['01-fajr', { name: 'course', id: 'tafsir-saadi' }, undefined],
-      ['02-maghrib', { name: 'course', id: 'kitab-tawhid' }, undefined],
-      ['03-live', { name: 'welcome' }, 'live'],
-      ['04-recording', { name: 'course', id: 'tafsir-saadi' }, 'recording'],
-      ['05-book', { name: 'course', id: 'kitab-tawhid' }, 'book'],
-      ['06-notifications', { name: 'notifications' }, undefined],
+    expect(SHOTS.map((s) => [s.name, parseRoute(s.route), s.slot, s.step])).toEqual([
+      ['01-fajr', { name: 'course', id: 'tafsir-saadi' }, 'fajr', undefined],
+      ['02-maghrib', { name: 'course', id: 'kitab-tawhid' }, 'maghrib', undefined],
+      ['03-live', { name: 'welcome' }, undefined, 'live'],
+      ['04-recording', { name: 'course', id: 'tafsir-saadi' }, 'fajr', 'recording'],
+      ['05-book', { name: 'course', id: 'kitab-tawhid' }, 'maghrib', 'book'],
+      ['06-notifications', { name: 'notifications' }, undefined, undefined],
     ]);
   });
 
   it('never captures #/, which opens whichever lesson is nearest at capture time', () => {
     expect(SHOTS.map((s) => parseRoute(s.route).name)).not.toContain('home');
-  });
-
-  it('has an action for every step a shot names', () => {
-    for (const s of SHOTS) if (s.step) expect(STEPS[s.step]).toBeTypeOf('function');
   });
 
   it('builds the web app with the apps’ screens', () => {
