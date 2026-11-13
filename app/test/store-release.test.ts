@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { SHOTS, TARGETS } from '../../scripts/store-screenshots.mjs';
+import { SHOTS, STEPS, TARGETS } from '../../scripts/store-screenshots.mjs';
 import { parseRoute } from '../src/router';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
@@ -27,12 +27,23 @@ describe('store screenshots', () => {
     expect(pixels(TARGETS.ios)).toEqual([1320, 2868]);
   });
 
-  it('shows the lesson the app opens on, the Fajr lesson with its recordings, and the notifications', () => {
-    expect(SHOTS.map((s) => parseRoute(s.route))).toEqual([
-      { name: 'home' },
-      { name: 'course', id: 'tafsir-saadi' },
-      { name: 'notifications' },
+  it('tells the story: the Fajr and Maghrib lessons, listening live, revising a recording, preparing in the book, the notifications', () => {
+    expect(SHOTS.map((s) => [s.name, parseRoute(s.route), s.step])).toEqual([
+      ['01-fajr', { name: 'course', id: 'tafsir-saadi' }, undefined],
+      ['02-maghrib', { name: 'course', id: 'kitab-tawhid' }, undefined],
+      ['03-live', { name: 'welcome' }, 'live'],
+      ['04-recording', { name: 'course', id: 'tafsir-saadi' }, 'recording'],
+      ['05-book', { name: 'course', id: 'kitab-tawhid' }, 'book'],
+      ['06-notifications', { name: 'notifications' }, undefined],
     ]);
+  });
+
+  it('never captures #/, which opens whichever lesson is nearest at capture time', () => {
+    expect(SHOTS.map((s) => parseRoute(s.route).name)).not.toContain('home');
+  });
+
+  it('has an action for every step a shot names', () => {
+    for (const s of SHOTS) if (s.step) expect(STEPS[s.step]).toBeTypeOf('function');
   });
 
   it('builds the web app with the apps’ screens', () => {
@@ -74,8 +85,8 @@ describe('fastlane ignore rules', () => {
     'fastlane/Fastfile.android',
     'fastlane/age_rating.json',
     'fastlane/app_privacy_details.json',
-    'fastlane/screenshots/ios/ar-SA/01-home.png',
-    'fastlane/metadata/android/ar/images/phoneScreenshots/01-home.png',
+    'fastlane/screenshots/ios/ar-SA/01-fajr.png',
+    'fastlane/metadata/android/ar/images/phoneScreenshots/01-fajr.png',
   ])('tracks %s', (path) => {
     expect(ignored(path)).toBe(false);
   });

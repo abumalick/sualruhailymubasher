@@ -4,4 +4,6 @@ export interface ScreenshotTarget {
   dir: string;
 }
 export declare const TARGETS: Record<'ios' | 'android', ScreenshotTarget>;
-export declare const SHOTS: { name: string; route: string }[];
+export type ShotStep = 'live' | 'recording' | 'book';
+export declare const STEPS: Record<ShotStep, (page: unknown) => Promise<void>>;
+export declare const SHOTS: { name: string; route: string; step?: ShotStep }[];
