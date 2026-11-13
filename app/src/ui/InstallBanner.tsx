@@ -8,9 +8,11 @@ import { STORES } from '../site';
 const KEY = 'install-banner-dismissed';
 // Official Arabic badges, unaltered. Google's PNG carries its own clear space, which `.play` crops back into the CSS clear space.
 const BADGES: Record<StoreId, { src: string; alt: string; width: number; height: number }> = {
-  appstore: { src: appStoreBadge, alt: 'تنزيل من App Store', width: 120, height: 40 },
+  appstore: { src: appStoreBadge, alt: 'تنزيل من App Store', width: 119.66, height: 40 },
   play: { src: googlePlayBadge, alt: 'احصل عليه من Google Play', width: 154, height: 60 },
 };
+// Apple asks for its badge first when several stores' badges are shown together.
+const BADGE_ORDER: StoreId[] = ['appstore', 'play'];
 // Holds a dismissal for the visit when the browser refuses storage.
 let dismissedThisVisit = false;
 
@@ -45,7 +47,7 @@ export function InstallBanner() {
         <span>تنبيه عند بدء البث</span>
       </div>
       <div class="badges">
-        {STORES.filter((s) => ids.includes(s.id)).map((s) => (
+        {BADGE_ORDER.filter((id) => ids.includes(id)).map((id) => STORES.find((s) => s.id === id)!).map((s) => (
           <a class={s.id} href={s.url} target="_blank" rel="noopener noreferrer" key={s.id}>
             <img {...BADGES[s.id]} />
           </a>

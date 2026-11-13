@@ -118,7 +118,17 @@ it('on a desktop both badges sit side by side in one row, inside the reading col
   expect(badges.length).toBe(2);
   expect(banner.height).toBeLessThanOrEqual(BADGE_H + 2 * CLEAR + 2);
   expect(Math.abs(badges[0].top - badges[1].top)).toBeLessThan(1);
+  expect(c.querySelector('.install a')!.getAttribute('href')).toContain('apps.apple.com');
 });
+
+for (const width of [470, 760]) {
+  it(`a ${width}px desktop window keeps both badges and the full title in one row`, async () => {
+    const c = await show(width, UA.desktop);
+    const { banner, badges } = expectFits(c, width);
+    expect(badges.length).toBe(2);
+    expect(banner.height).toBeLessThanOrEqual(BADGE_H + 2 * CLEAR + 2);
+  });
+}
 
 for (const width of [320, 360, 390]) {
   it(`a desktop browser as narrow as ${width}px drops the two badges under the text, without overflow`, async () => {
