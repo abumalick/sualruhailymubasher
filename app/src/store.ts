@@ -54,6 +54,7 @@ export function nowOverride(): Date | null {
 }
 
 export async function boot(): Promise<void> {
+  const before = freshFetches;
   const fixture = devParam('fixture') === '1';
   const [state, ticks, follow, used] = await Promise.all([
     fixture ? FIXTURE_STATE : loadCachedState(),
@@ -62,11 +63,13 @@ export async function boot(): Promise<void> {
     usedBeforeChoice(),
   ]);
   returning = !fixture && (used || ticks.read.size + ticks.reviewed.size > 0);
-  update({ state, ticks, error: false, follow, fresh: fixture });
+  // A live notification's fetch can land while the cache is still being read: keep its newer state.
+  update(freshFetches !== before ? { ticks, follow } : { state, ticks, error: false, follow, fresh: fixture });
   if (!fixture) await refresh();
 }
 
 let inflight: Promise<void> | null = null;
+let freshFetches = 0;
 
 export const touch = () => update({});
 
@@ -75,6 +78,7 @@ export function refresh(): Promise<void> {
     try {
       const { state, fresh } = await fetchState();
       const intent = data.intent && { ...data.intent, ...(fresh ? { fresh: true } : { failed: true }) };
+      if (fresh) freshFetches++;
       update(fresh ? { state, error: false, fresh, intent } : { state, error: true, intent });
       if (fresh) freshListeners.forEach((l) => l(state));
     } catch {

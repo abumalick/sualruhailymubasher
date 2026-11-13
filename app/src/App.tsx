@@ -4,7 +4,7 @@ import { startLive } from './audio/live';
 import { onBackButton } from './backButton';
 import { backAction, bookBack, CLOSED, listeningLive, nextLivePlayer, type LiveEvent } from './logic/live';
 import { player } from './audio/player';
-import { replaceRoute, useRoute } from './router';
+import { parseRoute, replaceRoute, useRoute } from './router';
 import { unfollowed } from './logic/follow';
 import { defaultTab, lessonTabs } from './logic/tabs';
 import { boot, clearLive, nowOverride, refresh, toggleTick, useAppData, viewOf } from './store';
@@ -51,17 +51,6 @@ export function App() {
   // A layout effect, so a tap on the new page can't land before the collapse it would then undo.
   useLayoutEffect(() => send({ type: 'navigate' }), [route]);
   useEffect(() => void (state && send({ type: 'state', live: state.live })), [state?.live]);
-  // Declared after the navigate collapse, so the player it opens stays expanded on the lesson's tab.
-  useEffect(() => {
-    const intent = data.intent;
-    if (!intent || !state) return;
-    const followed = intent.courseId === null || state.courses.some((c) => c.id === intent.courseId);
-    if (followed && intent.courseId !== null && !(route.name === 'course' && route.id === intent.courseId)) return;
-    const action = followed ? liveIntentAction(intent, state, intent.fresh, intent.failed) : 'drop';
-    if (action === 'wait') return;
-    clearLive();
-    if (action === 'open') startLive(state, () => send({ type: 'open', live: { ...state.live, isLive: true, courseId: intent.courseId } }));
-  }, [route, data.intent, state]);
   useEffect(() => {
     if (!follow) return;
     if (unfollowed(player.state.src?.courseId, follow)) player.stop();
@@ -93,6 +82,27 @@ export function App() {
       replaceRoute(`#/course/${id}`);
     }
   }, [data.fresh]);
+  // Declared after the navigate collapse and the tab picking, so the player it opens stays expanded.
+  const intentReached = useRef(false);
+  useEffect(() => {
+    const intent = data.intent;
+    if (!intent) {
+      intentReached.current = false;
+      return;
+    }
+    if (!state || route.name === 'home' || JSON.stringify(parseRoute(location.hash)) !== JSON.stringify(route)) return;
+    const followed = intent.courseId === null || state.courses.some((c) => c.id === intent.courseId);
+    const onTarget = intent.courseId === null || (route.name === 'course' && route.id === intent.courseId);
+    if (followed && !onTarget) {
+      if (intentReached.current) clearLive();
+      return;
+    }
+    intentReached.current = true;
+    const action = followed ? liveIntentAction(intent, state, intent.fresh, intent.failed) : 'drop';
+    if (action === 'wait') return;
+    clearLive();
+    if (action === 'open') startLive(state, () => send({ type: 'open', live: { ...state.live, isLive: true, courseId: intent.courseId } }));
+  }, [route, data.intent, state]);
   const notice = (always = false) => data.state && follow && <FollowNotice state={data.state} follow={follow} always={always} />;
   const hidden = (id: string) => !!data.state?.courses.some((c) => c.id === id);
 

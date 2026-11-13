@@ -320,6 +320,32 @@ describe('the live notification', () => {
     expect(currentData().intent).toBeNull();
   });
 
+  it('a listener who leaves the tab before the fresh state never gets a player later', async () => {
+    location.hash = '#/more';
+    vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
+    render(<App />);
+    await screen.findByText('الدروس التي أتابعها');
+    pendingFetch();
+    await tap('kitab-tawhid', '#/course/kitab-tawhid');
+    await go('#/course/tafsir-saadi');
+    await act(async () => answer(liveState('kitab-tawhid')));
+    await go('#/course/kitab-tawhid');
+    await screen.findByRole('heading', { level: 1, name: 'درس المغرب' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(currentData().intent).toBeNull();
+  });
+
+  it('a live-other tap on a cold start keeps the player expanded after the app picks its tab', async () => {
+    pendingFetch();
+    vi.mocked(api.loadCachedState).mockResolvedValue(null);
+    requestLive({ courseId: null });
+    location.hash = '#/';
+    render(<App />);
+    await act(async () => answer(liveState(null)));
+    await waitFor(() => expect(location.hash).toMatch(/^#\/course\//));
+    expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
+  });
+
   it('a live-other tap opens the player and keeps the current tab', async () => {
     location.hash = '#/course/tafsir-saadi';
     vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
