@@ -1,9 +1,18 @@
 import { useState } from 'preact/hooks';
-import { installStores } from '../logic/install';
+import appStoreBadge from '../badges/app-store-ar.svg';
+import googlePlayBadge from '../badges/google-play-ar.png';
+import { installStores, type StoreId } from '../logic/install';
 import { nativeUI } from '../platform';
 import { STORES } from '../site';
 
 const KEY = 'install-banner-dismissed';
+// Official Arabic badges, unaltered. Google's PNG carries its own clear space, which `.play` crops back into the CSS clear space.
+const BADGES: Record<StoreId, { src: string; alt: string; width: number; height: number }> = {
+  appstore: { src: appStoreBadge, alt: 'تنزيل من App Store', width: 119.66, height: 40 },
+  play: { src: googlePlayBadge, alt: 'احصل عليه من Google Play', width: 154, height: 60 },
+};
+// Apple asks for its badge first when several stores' badges are shown together.
+const BADGE_ORDER: StoreId[] = ['appstore', 'play'];
 // Holds a dismissal for the visit when the browser refuses storage.
 let dismissedThisVisit = false;
 
@@ -32,18 +41,17 @@ export function InstallBanner() {
   const ids = installStores({ nativeUI: nativeUI(), ua: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints ?? 0, dismissed });
   if (!ids) return null;
   return (
-    <aside class="install" aria-label="تطبيق الجوال">
-      <img src="/apple-touch-icon.png" alt="" width={40} height={40} />
+    <aside class={ids.length > 1 ? 'install two' : 'install'} aria-label="تطبيق الجوال">
       <div class="t">
         <b>البدر مباشر على جوالك</b>
-        <span>تنبيه عند بدء البث، وتذكير بالتحضير والمراجعة</span>
-        <div class="acts start">
-          {STORES.filter((s) => ids.includes(s.id)).map((s) => (
-            <a class="chip pri" href={s.url} target="_blank" rel="noopener noreferrer" key={s.id}>
-              {s.name}
-            </a>
-          ))}
-        </div>
+        <span>تنبيه عند بدء البث</span>
+      </div>
+      <div class="badges">
+        {BADGE_ORDER.filter((id) => ids.includes(id)).map((id) => STORES.find((s) => s.id === id)!).map((s) => (
+          <a class={s.id} href={s.url} target="_blank" rel="noopener noreferrer" key={s.id}>
+            <img {...BADGES[s.id]} />
+          </a>
+        ))}
       </div>
       <button
         class="x"
@@ -53,7 +61,7 @@ export function InstallBanner() {
           setDismissed(true);
         }}
       >
-        ×
+        <span class="g">×</span>
       </button>
     </aside>
   );

@@ -242,6 +242,7 @@ button.lesson { width: 100%; text-align: start; }
 @media (min-width: 800px) {
   .web .scroll { padding-inline: calc((100% - 720px) / 2); }
   .web .nav { padding-inline: calc((100% - 560px) / 2); }
+  .web .install { margin: 0; border: 1px solid var(--line); border-radius: 14px; }
 }
 .ob .obtop { display: flex; align-items: center; justify-content: space-between; min-height: 30px; }
 .ob .obtop .chip { margin-inline-start: auto; }
@@ -348,10 +349,21 @@ button.lesson { width: 100%; text-align: start; }
 .ob .notifs .lesson .m { white-space: pre-line; }
 
 /* Web only: invites visitors to the mobile app. In the page flow, so it never covers the player, the nav or a button. */
-.install { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); flex: none; }
-.install img { width: 40px; height: 40px; border-radius: 10px; flex: none; }
-.install .t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.install .t b { font: 600 var(--fs-body-sm) var(--ui); color: var(--fg); }
-.install .t span { font: 400 var(--fs-caption) var(--ui); color: var(--soft); }
-.install .acts { margin-top: 6px; }
-.install .x { width: 44px; height: 44px; margin-block: -10px; margin-inline: -10px -12px; display: grid; place-items: center; flex: none; border: 0; background: none; color: var(--soft); font: 400 22px/1 var(--ui); cursor: pointer; }
+/* A full-bleed strip at the top of the page: text, the store badge(s) at 40 px with 10 px clear space, the ×. */
+.install { display: flex; align-items: center; margin: -16px -18px 0; padding-inline-start: 14px; border-bottom: 1px solid var(--line); background: var(--card); flex: none; }
+.install .t { flex: 1; min-width: 0; display: flex; flex-direction: column; padding-block: 8px; }
+.install .t > * { font: 600 var(--fs-caption)/1.35 var(--ui); color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.install .t span { font-weight: 400; color: var(--soft); }
+.install .badges { display: flex; gap: 10px; padding: 10px; flex: none; }
+.install .badges a { display: block; height: 40px; flex: none; border-radius: 6px; }
+.install .badges img { display: block; }
+.install .badges .play { width: 134.3px; overflow: hidden; }
+/* 646×250 file, 564×168 badge centred in it: scaled so the badge is 40 px high. */
+.install .badges .play img { width: 153.8px; height: 59.5px; margin: -9.76px; }
+.install .x { width: 44px; height: 44px; margin-inline-start: -10px; display: grid; place-items: center; flex: none; border: 0; background: none; color: var(--soft); font: 400 22px/1 var(--ui); cursor: pointer; }
+.install .x .g { padding-inline: 2px; }
+@media (max-width: 469px) {
+  .install.two { flex-wrap: wrap; }
+  .install.two .x { order: 1; }
+  .install.two .badges { order: 2; flex-basis: 100%; justify-content: center; }
+}
