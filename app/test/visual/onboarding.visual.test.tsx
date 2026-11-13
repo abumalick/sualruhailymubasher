@@ -20,8 +20,8 @@ afterEach(async () => {
   await commands.emulateMedia({ colorScheme: null });
 });
 
-async function at(steps: number) {
-  await page.viewport(WIDTH, HEIGHT);
+async function at(steps: number, width = WIDTH) {
+  await page.viewport(width, HEIGHT);
   document.documentElement.dir = 'rtl';
   const backRef = { current: null };
   const view = render(
@@ -60,6 +60,31 @@ for (const colorScheme of ['light', 'dark'] as const) {
   }
 }
 
+for (const [steps, name] of [
+  [1, 'the live step'],
+  [3, 'the preparation step, with both reminder times'],
+] as const) {
+  it(`${name} fits a 320 px phone, its switch beside its label`, async () => {
+    const c = await at(steps, 320);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
+    for (const el of c.querySelectorAll('.ob *')) expect(el.getBoundingClientRect().right).toBeLessThanOrEqual(320 + 0.5);
+    const tog = c.querySelector<HTMLElement>('.ob .notifs .tog')!.getBoundingClientRect();
+    const text = c.querySelector<HTMLElement>('.ob .notifs .lesson .t')!.getBoundingClientRect();
+    expect(tog.width).toBeGreaterThan(0);
+    expect(tog.right).toBeLessThanOrEqual(text.left + 0.5);
+  });
+}
+
+it('the preparation switch gives each ticked lesson its reminder time on a line of its own, even at 320 px', async () => {
+  const c = await at(3, 320);
+  const hint = c.querySelector<HTMLElement>('.ob .notifs .lesson .m')!;
+  expect(hint.innerText.split('\n')).toHaveLength(2);
+  const range = document.createRange();
+  range.selectNodeContents(hint);
+  const lines = new Set([...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top)));
+  expect(lines.size).toBe(2);
+});
+
 it('the continue button is on the first screen without scrolling, and on the live step', async () => {
   let c = await at(0);
   expect(primary(c).getBoundingClientRect().bottom).toBeLessThanOrEqual(HEIGHT);
@@ -68,13 +93,13 @@ it('the continue button is on the first screen without scrolling, and on the liv
   expect(primary(c).getBoundingClientRect().bottom).toBeLessThanOrEqual(HEIGHT);
 });
 
-it('each switch row is a thumb-sized target and the example is labelled', async () => {
+it('the step has one thumb-sized switch row, and the example is labelled', async () => {
   const c = await at(1);
   const label = c.querySelector<HTMLElement>('.flabel')!;
   expect(label.textContent).toBe('مثال من درس الفجر');
   expect(label.getBoundingClientRect().height).toBeGreaterThan(0);
   const rows = [...c.querySelectorAll<HTMLElement>('.ob .notifs .lesson')];
-  expect(rows).toHaveLength(3);
+  expect(rows).toHaveLength(1);
   for (const row of rows) expect(row.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 });
 
