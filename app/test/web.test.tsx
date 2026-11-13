@@ -106,7 +106,7 @@ describe('install banner on the web', () => {
   const ANDROID = 'Mozilla/5.0 (Linux; Android 14; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36';
   const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
   const banner = () => document.querySelector('.install');
-  const storeLinks = () => [...banner()!.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
+  const storeLinks = () => [...banner()!.querySelectorAll('a')].map((a) => [a.querySelector('img')!.alt, a.getAttribute('href')]);
 
   beforeEach(() => {
     localStorage.clear();
@@ -119,14 +119,14 @@ describe('install banner on the web', () => {
     await app('#/more');
     expect(banner()!.parentElement!.classList.contains('scroll')).toBe(true);
     expect(banner()!.parentElement!.firstElementChild).toBe(banner());
-    expect(storeLinks()).toEqual([['Google Play', 'https://play.google.com/store/apps/details?id=com.albadrmubasher.app']]);
+    expect(storeLinks()).toEqual([['احصل عليه من Google Play', 'https://play.google.com/store/apps/details?id=com.albadrmubasher.app']]);
     expect(banner()!.textContent!.replace(/غير رسمي/g, '')).not.toMatch(/رسمي/);
   });
 
   it('invites an iPhone visitor to the App Store only', async () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
     await app('#/more');
-    expect(storeLinks()).toEqual([['App Store', 'https://apps.apple.com/app/id6832876968']]);
+    expect(storeLinks()).toEqual([['تنزيل من App Store', 'https://apps.apple.com/app/id6832876968']]);
   });
 
   it('a dismissal is remembered across visits', async () => {
