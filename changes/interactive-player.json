@@ -1,0 +1,5 @@
+{
+  "platforms": ["android", "ios", "web"],
+  "ar": "مشغّل التسجيلات: اسحب شريط التقدّم أو المسه للانتقال داخل الدرس، مع عرض الوقت والمدة، وزرّان للرجوع والتقديم ١٥ ثانية.",
+  "en": "Recordings player: drag or tap the progress bar to move through a lesson, with the time and length shown, plus buttons to go back or forward 15 seconds."
+}
