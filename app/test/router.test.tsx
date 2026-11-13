@@ -60,3 +60,20 @@ it('the page the fallback opens is still the first of the app, so its own back f
   expect(back).not.toHaveBeenCalled();
   expect(location.hash).toBe('#/courses');
 });
+
+it('a repeated hashchange for the hash already shown is not a new route', async () => {
+  const { render } = await import('@testing-library/preact');
+  const routes: unknown[] = [];
+  function Probe() {
+    routes.push(router.useRoute());
+    return null;
+  }
+  render(<Probe />);
+  await Promise.resolve();
+  location.hash = '#/more';
+  dispatchEvent(new HashChangeEvent('hashchange'));
+  dispatchEvent(new HashChangeEvent('hashchange'));
+  await new Promise((r) => setTimeout(r, 20));
+  const distinct = routes.filter((r, i) => r !== routes[i - 1]);
+  expect(distinct).toEqual([{ name: 'home' }, { name: 'more' }]);
+});

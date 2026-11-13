@@ -10,10 +10,11 @@ export interface AppData {
   state: StateDTO | null;
   ticks: Ticks;
   error: boolean;
+  fresh: boolean; // a state fetched from the server this session, not only the cached copy
   follow?: Follow | null; // undefined until loaded, null until the listener chooses
 }
 
-let data: AppData = { state: null, ticks: { read: new Set(), reviewed: new Set() }, error: false };
+let data: AppData = { state: null, ticks: { read: new Set(), reviewed: new Set() }, error: false, fresh: false };
 const listeners = new Set<(d: AppData) => void>();
 const freshListeners = new Set<(state: StateDTO) => void>();
 
@@ -53,7 +54,7 @@ export async function boot(): Promise<void> {
     usedBeforeChoice(),
   ]);
   returning = !fixture && (used || ticks.read.size + ticks.reviewed.size > 0);
-  update({ state, ticks, error: false, follow });
+  update({ state, ticks, error: false, follow, fresh: fixture });
   if (!fixture) await refresh();
 }
 
@@ -65,7 +66,7 @@ export function refresh(): Promise<void> {
   inflight ??= (async () => {
     try {
       const { state, fresh } = await fetchState();
-      update({ state, error: !fresh });
+      update(fresh ? { state, error: false, fresh } : { state, error: true });
       if (fresh) freshListeners.forEach((l) => l(state));
     } catch {
       update({ error: true });

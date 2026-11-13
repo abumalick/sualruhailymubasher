@@ -163,14 +163,9 @@ describe('listeningLive', () => {
 });
 
 describe('bookBack', () => {
-  const listening: LivePlayer = { view: 'collapsed', courseId: 'tafsir-saadi', startedAt: STARTED['tafsir-saadi'] };
-  it('leads back to the live lesson on Home while that lesson is on', () => {
-    expect(bookBack('tafsir-saadi', listening)).toBe('#/');
-    expect(bookBack('tafsir-saadi', { ...listening, view: 'expanded' })).toBe('#/');
-  });
-  it('leads to the course page for any other book', () => {
-    expect(bookBack('kitab-tawhid', listening)).toBe('#/course/kitab-tawhid');
-    expect(bookBack('tafsir-saadi', CLOSED)).toBe('#/course/tafsir-saadi');
+  it("leads to the lesson's tab, which holds the live hero during its broadcast", () => {
+    expect(bookBack('tafsir-saadi')).toBe('#/course/tafsir-saadi');
+    expect(bookBack('kitab-tawhid')).toBe('#/course/kitab-tawhid');
   });
 });
 

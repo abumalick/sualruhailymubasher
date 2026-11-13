@@ -39,6 +39,12 @@ export function navigate(path: string) {
   location.hash = path;
 }
 
+// Swaps the current entry, so back never returns to it.
+export function replaceRoute(path: string) {
+  replacing = true;
+  location.replace(path);
+}
+
 // Each history entry records how many of the app's own entries sit behind it, so a back control can tell whether
 // popping stays in the app. A push or a deep link can open a page with nothing of the app's behind it.
 let depth: number | null = null;
@@ -64,7 +70,11 @@ export function useRoute(): Route {
   const [route, setRoute] = useState(() => parseRoute(location.hash));
   useEffect(() => {
     trackEntry();
+    let shown = location.hash;
+    // Some engines fire hashchange twice for one change; a second one is not a navigation.
     const onChange = () => {
+      if (location.hash === shown) return;
+      shown = location.hash;
       trackEntry();
       setRoute(parseRoute(location.hash));
     };

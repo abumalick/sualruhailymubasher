@@ -14,7 +14,7 @@ export const TARGETS = {
 };
 
 export const SHOTS = [
-  { name: '01-home', route: '#/' },
+  { name: '01-lesson', route: '#/' },
   { name: '02-recordings', route: '#/course/tafsir-saadi' },
   { name: '03-notifications', route: '#/notifications' },
 ];
@@ -24,7 +24,7 @@ async function chooseAllLessons(page) {
   await boxes.first().waitFor();
   for (const box of await boxes.all()) await box.check();
   await page.getByRole('button').last().click();
-  await page.getByRole('link', { name: 'الرئيسية' }).waitFor();
+  await page.getByRole('link', { name: 'المزيد' }).waitFor();
 }
 
 async function capture(browser, base, target) {

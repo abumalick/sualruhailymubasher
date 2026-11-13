@@ -135,10 +135,10 @@ it('opening the book from the live sheet keeps the Mixlr iframe mounted and coll
   expect(session.setPlaybackState).not.toHaveBeenCalledWith({ playbackState: 'none' });
 });
 
-it("the book's back arrow falls back to the live lesson on Home only for the course on air", async () => {
+it("the book's back arrow falls back to the lesson's tab, which holds the live hero", async () => {
   await openLive('kitab-tawhid');
   await go('#/book/kitab-tawhid/0/280?marker=1');
-  expect(document.querySelector('.book')!.getAttribute('data-back')).toBe('#/');
+  expect(document.querySelector('.book')!.getAttribute('data-back')).toBe('#/course/kitab-tawhid');
   await go('#/book/tafsir-saadi/0/12');
   expect(document.querySelector('.book')!.getAttribute('data-back')).toBe('#/course/tafsir-saadi');
   fireEvent.click(screen.getByRole('button', { name: 'إيقاف البث' }));
@@ -153,7 +153,7 @@ it("Android's back button shrinks the open live player without reloading Mixlr o
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByRole('region', { name: 'البث المباشر' })).toBeTruthy();
   expect(screen.getByTitle('البث المباشر')).toBe(frame);
-  expect(location.hash).toBe('#/');
+  expect(location.hash).toBe('#/course/kitab-tawhid');
   expect(back).not.toHaveBeenCalled();
 
   act(() => backButton.press!(true));

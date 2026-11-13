@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/preact';
+import { render } from '@testing-library/preact';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/api', () => ({
@@ -12,13 +12,10 @@ vi.mock('../src/api', () => ({
 import { App } from '../src/App';
 
 describe('boot', () => {
-  it('renders the RTL shell with the name and the four web tabs', () => {
+  it('renders the RTL shell with only المزيد before any state', () => {
     render(<App />);
     expect(document.documentElement.dir).toBe('rtl');
     expect(document.documentElement.lang).toBe('ar');
-    expect(screen.getByRole('heading', { name: 'عبد الرزاق البدر' })).toBeTruthy();
-    for (const label of ['الرئيسية', 'الدروس', 'عن التطبيق', 'روابط']) {
-      expect(screen.getByText(label)).toBeTruthy();
-    }
+    expect([...document.querySelectorAll('.nav a')].map((a) => a.textContent)).toEqual(['المزيد']);
   });
 });

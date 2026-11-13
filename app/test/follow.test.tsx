@@ -268,7 +268,8 @@ describe('App with a course choice', () => {
     vi.mocked(api.fetchState).mockResolvedValue({ state: onlyEvening, fresh: true });
     render(<App />);
     await screen.findByText('لا يُعرض لك أي درس حاليًا');
-    expect(screen.getByText('الرئيسية')).toBeTruthy();
+    expect(screen.getByText('لا تتابع أي درس')).toBeTruthy();
+    expect([...document.querySelectorAll('.nav a')].map((a) => a.textContent)).toEqual(['المزيد']);
   });
 
   it('a live lesson of an unfollowed course shows no live card', async () => {

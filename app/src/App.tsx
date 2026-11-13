@@ -1,17 +1,17 @@
 import type { CourseDTO, LessonDTO } from '@albadr/shared';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { startLive } from './audio/live';
 import { onBackButton } from './backButton';
 import { backAction, bookBack, CLOSED, listeningLive, nextLivePlayer, type LiveEvent } from './logic/live';
 import { player } from './audio/player';
-import { useRoute } from './router';
+import { replaceRoute, useRoute } from './router';
 import { unfollowed } from './logic/follow';
+import { defaultTab, lessonTabs } from './logic/tabs';
 import { boot, nowOverride, refresh, toggleTick, useAppData, viewOf } from './store';
 import { Book } from './ui/Book';
 import { Lesson } from './ui/Lesson';
 import { Chooser, FollowNotice, NotFollowed } from './ui/Follow';
 import { Links } from './ui/Links';
-import { Home } from './ui/Home';
 import { LiveSheet } from './ui/LiveSheet';
 import { MiniPlayer } from './ui/MiniPlayer';
 import { Notifications } from './ui/Notifications';
@@ -47,13 +47,40 @@ export function App() {
       }),
     [],
   );
-  useEffect(() => send({ type: 'navigate' }), [route]);
+  // A layout effect, so a tap on the new page can't land before the collapse it would then undo.
+  useLayoutEffect(() => send({ type: 'navigate' }), [route]);
   useEffect(() => void (state && send({ type: 'state', live: state.live })), [state?.live]);
   useEffect(() => {
     if (!follow) return;
     if (unfollowed(player.state.src?.courseId, follow)) player.stop();
     if (unfollowed(livePlayer.courseId, follow)) send({ type: 'close' });
   }, [follow?.ids.join()]);
+  const autoPicked = useRef<string | null>(null);
+  const freshSeen = useRef(false);
+  useEffect(() => {
+    if (route.name === 'home' && state) {
+      const id = defaultTab(state, nowOverride() ?? new Date());
+      if (id) {
+        autoPicked.current = id;
+        replaceRoute(`#/course/${id}`);
+      }
+    } else if (!(route.name === 'course' && route.id === autoPicked.current)) {
+      autoPicked.current = null;
+    }
+  }, [route, state]);
+  // The cached state rarely knows a broadcast that began while the app was closed: correct the tab picked from it once,
+  // unless the listener has moved since.
+  useEffect(() => {
+    if (!data.fresh || freshSeen.current) return;
+    freshSeen.current = true;
+    const picked = autoPicked.current;
+    if (!picked || !state || route.name !== 'course' || route.id !== picked) return;
+    const id = defaultTab(state, nowOverride() ?? new Date());
+    if (id && id !== picked) {
+      autoPicked.current = id;
+      replaceRoute(`#/course/${id}`);
+    }
+  }, [data.fresh]);
   const notice = (always = false) => data.state && follow && <FollowNotice state={data.state} follow={follow} always={always} />;
   const hidden = (id: string) => !!data.state?.courses.some((c) => c.id === id);
 
@@ -86,7 +113,33 @@ export function App() {
 
   let page = null;
   if (route.name === 'home') {
-    page = <Home state={state} ticks={ticks} now={now} error={error} onTick={onTick} onPlay={onPlay} onLive={onLive} listening={listeningLive(livePlayer, playerSrc)} onRetry={() => void refresh()} notice={notice()} />;
+    if (state) {
+      page =
+        state.courses.length > 0 ? null : data.state?.courses.length ? (
+          <>
+            {notice()}
+            <div class="booker">
+              <p class="quiet">لا تتابع أي درس</p>
+              <a class="chip pri" href="#/follow">
+                اختر الدروس
+              </a>
+            </div>
+          </>
+        ) : (
+          <p class="quiet">لا توجد دروس حالية</p>
+        );
+    } else {
+      page = (
+        <>
+          <p class="quiet">{error ? 'تعذّر التحديث' : '…'}</p>
+          {error && (
+            <button class="chip retry" onClick={() => void refresh()}>
+              إعادة المحاولة
+            </button>
+          )}
+        </>
+      );
+    }
   } else if (route.name === 'more') {
     page = <More state={data.state} follow={follow ?? null} />;
   } else if (route.name === 'course') {
@@ -114,11 +167,11 @@ export function App() {
     body = !course && hidden(route.id) ? (
       <NotFollowed />
     ) : course ? (
-      <Book key={`${course.id}/${route.pdfIndex}`} course={course} pdfIndex={route.pdfIndex} page={route.page} marker={route.marker} ticks={ticks} onTick={onTick} back={bookBack(course.id, livePlayer)} />
+      <Book key={`${course.id}/${route.pdfIndex}`} course={course} pdfIndex={route.pdfIndex} page={route.page} marker={route.marker} ticks={ticks} onTick={onTick} back={bookBack(course.id)} />
     ) : state ? (
       <div class="booker">
         <p class="quiet">تعذّر تحميل الكتاب</p>
-        <a class="chip" href="#/courses">
+        <a class="chip" href="#/">
           الدروس
         </a>
       </div>
@@ -128,7 +181,7 @@ export function App() {
   } else {
     body = (
       <div class="scroll">
-        {route.name !== 'home' && error && !state && <p class="err">تعذّر التحديث</p>}
+        {error && (state || route.name !== 'home') && <p class="err">تعذّر التحديث</p>}
         {page}
       </div>
     );
@@ -137,7 +190,7 @@ export function App() {
   // One tree for every route, so the live player keeps its place and its iframe is never re-mounted.
   const live = livePlayer.view !== 'closed' && state;
   return (
-    <div class={route.name === 'home' || route.name === 'course' ? 'shell lat' : 'shell'}>
+    <div class={route.name === 'course' ? 'shell lat' : 'shell'}>
       <Defs />
       {body}
       {live ? (
@@ -154,7 +207,7 @@ export function App() {
       ) : (
         <MiniPlayer />
       )}
-      {route.name !== 'book' && <NavBar route={route} />}
+      {route.name !== 'book' && <NavBar route={route} tabs={lessonTabs(state)} />}
     </div>
   );
 }
