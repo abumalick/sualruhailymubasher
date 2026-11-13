@@ -8,7 +8,7 @@ vi.mock('../src/logic/ticks', () => ({
 }));
 
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { boot, refresh, watchFreshState, watchState } from '../src/store';
+import { boot, clearLive, currentData, refresh, requestLive, watchFreshState, watchState } from '../src/store';
 
 const cached = { ...FIXTURE_STATE, live: { ...FIXTURE_STATE.live, isLive: false } };
 const live = { ...FIXTURE_STATE, live: { ...FIXTURE_STATE.live, isLive: true } };
@@ -41,5 +41,31 @@ describe('watchFreshState', () => {
     await refresh();
     expect(fresh).not.toHaveBeenCalled();
     stop();
+  });
+});
+
+describe('live intent', () => {
+  it('a requested player waits for a state fetched after the tap', async () => {
+    let answer: (v: unknown) => void = () => {};
+    api.fetchState.mockImplementation(() => new Promise((r) => (answer = r)));
+    requestLive({ courseId: 'kitab-tawhid' });
+    expect(currentData().intent).toEqual({ courseId: 'kitab-tawhid', fresh: false, failed: false });
+    answer({ state: live, fresh: true });
+    await refresh();
+    expect(currentData().intent).toEqual({ courseId: 'kitab-tawhid', fresh: true, failed: false });
+    clearLive();
+    expect(currentData().intent).toBeNull();
+  });
+
+  it('marks the intent failed when the fetch fails or falls back to the cache', async () => {
+    api.fetchState.mockRejectedValueOnce(new Error('offline'));
+    requestLive({ courseId: null });
+    await refresh();
+    expect(currentData().intent).toEqual({ courseId: null, fresh: false, failed: true });
+    api.fetchState.mockResolvedValueOnce({ state: cached, fresh: false });
+    requestLive({ courseId: null });
+    await refresh();
+    expect(currentData().intent).toEqual({ courseId: null, fresh: false, failed: true });
+    clearLive();
   });
 });

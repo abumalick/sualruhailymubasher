@@ -3,9 +3,9 @@ import { afterEach, expect, it } from 'vitest';
 import { commands } from 'vitest/browser';
 import '../../src/styles/tokens.css';
 import '../../src/styles/app.css';
-import { Home } from '../../src/ui/Home';
+import { Lesson } from '../../src/ui/Lesson';
 import { Defs } from '../../src/ui/Star';
-import { liveState } from '../live-state';
+import { liveDTO, TAWHID } from '../live-state';
 
 afterEach(async () => {
   cleanup();
@@ -18,11 +18,12 @@ function hero(listening: boolean) {
   const { container } = render(
     <div class="scroll">
       <Defs />
-      <Home
-        state={liveState('kitab-tawhid')}
+      <Lesson
+        course={TAWHID}
+        live={liveDTO('kitab-tawhid')}
+        otherLive={null}
         ticks={{ read: new Set(), reviewed: new Set() }}
         now={new Date('2026-11-02T18:00:00Z')}
-        error={false}
         onTick={() => {}}
         onPlay={() => {}}
         onLive={() => {}}
@@ -39,7 +40,7 @@ function hero(listening: boolean) {
   return { container, liveRgb };
 }
 
-it('the live hero paints its listen button and disc in the live colour, at a thumb-sized, full-width target', () => {
+it('the live hero on the lesson page paints its listen button and disc in the live colour, at a thumb-sized, full-width target', () => {
   const { container, liveRgb } = hero(false);
   const go = container.querySelector<HTMLElement>('.go-live')!;
   const rect = go.getBoundingClientRect();

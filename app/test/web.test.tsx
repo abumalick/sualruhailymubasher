@@ -25,11 +25,7 @@ import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { followOnly } from '../src/logic/follow';
 import { About } from '../src/ui/About';
-import { Course } from '../src/ui/Course';
-import { Links } from '../src/ui/Links';
-import { tabs } from '../src/ui/NavBar';
 
-const none = { read: new Set<string>(), reviewed: new Set<string>() };
 const tabLabels = () => [...document.querySelectorAll('.nav a')].map((a) => a.textContent);
 
 async function app(hash: string) {
@@ -38,7 +34,7 @@ async function app(hash: string) {
   vi.mocked(api.loadCachedState).mockResolvedValue(FIXTURE_STATE);
   vi.mocked(api.fetchState).mockResolvedValue({ state: FIXTURE_STATE, fresh: true });
   render(<App />);
-  await screen.findByText('الرئيسية');
+  await screen.findAllByText('المزيد');
 }
 
 beforeEach(() => {
@@ -48,14 +44,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   location.hash = '';
-});
-
-describe('tabs', () => {
-  it('the mobile apps keep the notifications tab; the web shows عن التطبيق in its place', () => {
-    expect(tabs(true).map((t) => t.label)).toEqual(['الرئيسية', 'الدروس', 'التنبيهات', 'روابط']);
-    expect(tabs(false).map((t) => t.label)).toEqual(['الرئيسية', 'الدروس', 'عن التطبيق', 'روابط']);
-    expect(tabs(false)[2].href).toBe('#/about');
-  });
 });
 
 describe('About', () => {
@@ -92,23 +80,24 @@ describe('About', () => {
 });
 
 describe('App on the web', () => {
-  it('shows عن التطبيق instead of the notifications tab', async () => {
-    await app('#/');
-    expect(tabLabels()).toEqual(['الرئيسية', 'الدروس', 'عن التطبيق', 'روابط']);
+  it('shows one tab per lesson and المزيد, which leaves out notifications', async () => {
+    await app('#/more');
+    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
+    expect(screen.queryByRole('link', { name: /التنبيهات/ })).toBeNull();
   });
 
   it('an old #/notifications link shows the About page, never the toggles', async () => {
     await app('#/notifications');
     await screen.findByText(/لا تتوفر التنبيهات في نسخة المتصفح/);
     expect(screen.queryByRole('switch')).toBeNull();
-    expect(document.querySelector('.nav a.on')!.textContent).toBe('عن التطبيق');
+    expect(document.querySelector('.nav a.on')!.textContent).toBe('المزيد');
   });
 
-  it('#/about opens the About page without a back button', async () => {
+  it('#/about opens the About page with a way back to المزيد', async () => {
     await app('#/about');
     await screen.findByText(/هذا تطبيق غير رسمي/);
     expect(document.documentElement.classList.contains('web')).toBe(true);
-    expect(screen.queryByRole('link', { name: 'رجوع' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/more');
   });
 
   it('the course chooser does not promise notifications', async () => {
@@ -123,46 +112,26 @@ describe('App in the mobile app', () => {
     platform.native = true;
   });
 
-  it('keeps the notifications tab and screen', async () => {
+  it('reaches notifications from المزيد', async () => {
+    await app('#/more');
+    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
+    expect(screen.getByRole('link', { name: /التنبيهات/ }).getAttribute('href')).toBe('#/notifications');
+    cleanup();
     await app('#/notifications');
-    expect(tabLabels()).toEqual(['الرئيسية', 'الدروس', 'التنبيهات', 'روابط']);
     await screen.findByText('اختر ما يصلك من كل درس تتابعه');
+    expect(document.querySelector('.nav a.on')!.textContent).toBe('المزيد');
   });
 
-  it('reaches About from روابط, with a way back', async () => {
+  it('reaches About from المزيد, with a way back', async () => {
     await app('#/about');
     await screen.findByText(/هذا تطبيق غير رسمي/);
-    expect(document.querySelector('.nav a.on')!.textContent).toBe('روابط');
+    expect(document.querySelector('.nav a.on')!.textContent).toBe('المزيد');
     expect(document.documentElement.classList.contains('web')).toBe(false);
-    expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/links');
+    expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/more');
   });
 
   it('the course chooser still mentions notifications', async () => {
     await app('#/follow');
     await screen.findByText('يتغيّر معها ما تراه وما يصلك من تنبيهات');
-  });
-});
-
-describe('notification links outside the tab', () => {
-  const course = FIXTURE_STATE.courses[0];
-
-  it('the course page links to notifications only in the mobile app', () => {
-    platform.native = true;
-    const { unmount } = render(<Course course={course} ticks={none} onTick={vi.fn()} onPlay={vi.fn()} />);
-    expect(screen.getByRole('link', { name: /التنبيهات/ })).toBeTruthy();
-    unmount();
-    platform.native = false;
-    render(<Course course={course} ticks={none} onTick={vi.fn()} onPlay={vi.fn()} />);
-    expect(screen.queryByRole('link', { name: /التنبيهات/ })).toBeNull();
-  });
-
-  it('روابط lists عن التطبيق in the mobile app only (the web has it as a tab)', () => {
-    platform.native = true;
-    const { unmount } = render(<Links state={FIXTURE_STATE} />);
-    expect(screen.getByRole('link', { name: /عن التطبيق/ }).getAttribute('href')).toBe('#/about');
-    unmount();
-    platform.native = false;
-    render(<Links state={FIXTURE_STATE} />);
-    expect(screen.queryByRole('link', { name: /عن التطبيق/ })).toBeNull();
   });
 });

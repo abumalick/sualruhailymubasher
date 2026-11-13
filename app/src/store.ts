@@ -4,16 +4,25 @@ import { fetchState, loadCachedState } from './api';
 import { FIXTURE_STATE } from './dev/fixture-state';
 import { loadFollow, saveFollow, usedBeforeChoice } from './follow';
 import { filterState, followOnly, reconcile, type Follow } from './logic/follow';
+import type { LiveIntent } from './logic/liveIntent';
 import { loadTicks, setTick, type TickKind, type Ticks } from './logic/ticks';
 
 export interface AppData {
   state: StateDTO | null;
   ticks: Ticks;
   error: boolean;
+  fresh: boolean; // a state fetched from the server this session, not only the cached copy
   follow?: Follow | null; // undefined until loaded, null until the listener chooses
+  intent?: PendingLive | null;
 }
 
-let data: AppData = { state: null, ticks: { read: new Set(), reviewed: new Set() }, error: false };
+// A tapped live notification, settled by the first fetch after the tap.
+export interface PendingLive extends LiveIntent {
+  fresh: boolean;
+  failed: boolean;
+}
+
+let data: AppData = { state: null, ticks: { read: new Set(), reviewed: new Set() }, error: false, fresh: false };
 const listeners = new Set<(d: AppData) => void>();
 const freshListeners = new Set<(state: StateDTO) => void>();
 
@@ -45,6 +54,7 @@ export function nowOverride(): Date | null {
 }
 
 export async function boot(): Promise<void> {
+  const before = freshFetches;
   const fixture = devParam('fixture') === '1';
   const [state, ticks, follow, used] = await Promise.all([
     fixture ? FIXTURE_STATE : loadCachedState(),
@@ -53,11 +63,13 @@ export async function boot(): Promise<void> {
     usedBeforeChoice(),
   ]);
   returning = !fixture && (used || ticks.read.size + ticks.reviewed.size > 0);
-  update({ state, ticks, error: false, follow });
+  // A live notification's fetch can land while the cache is still being read: keep its newer state.
+  update(freshFetches !== before ? { ticks, follow } : { state, ticks, error: false, follow, fresh: fixture });
   if (!fixture) await refresh();
 }
 
 let inflight: Promise<void> | null = null;
+let freshFetches = 0;
 
 export const touch = () => update({});
 
@@ -65,16 +77,25 @@ export function refresh(): Promise<void> {
   inflight ??= (async () => {
     try {
       const { state, fresh } = await fetchState();
-      update({ state, error: !fresh });
+      const intent = data.intent && { ...data.intent, ...(fresh ? { fresh: true } : { failed: true }) };
+      if (fresh) freshFetches++;
+      update(fresh ? { state, error: false, fresh, intent } : { state, error: true, intent });
       if (fresh) freshListeners.forEach((l) => l(state));
     } catch {
-      update({ error: true });
+      update({ error: true, intent: data.intent && { ...data.intent, failed: true } });
     } finally {
       inflight = null;
     }
   })();
   return inflight;
 }
+
+export function requestLive(intent: LiveIntent): void {
+  update({ intent: { ...intent, fresh: false, failed: false } });
+  void refresh();
+}
+
+export const clearLive = (): void => update({ intent: null });
 
 export async function toggleTick(kind: TickKind, courseId: string, n: number): Promise<void> {
   const key = `${courseId}:${n}`;

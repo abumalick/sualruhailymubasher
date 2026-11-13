@@ -93,9 +93,9 @@ export function liveContext(course: CourseDTO | undefined, isLive: boolean, star
 
 export const listeningLive = (p: LivePlayer, src: { kind: 'live' | 'recording' } | null): boolean => p.view !== 'closed' || src?.kind === 'live';
 
-// Where the book's back arrow leads when nothing of the app sits behind it: during that course's broadcast, the live
-// lesson on Home; otherwise the course page.
-export const bookBack = (courseId: string, p: LivePlayer): string => (p.view !== 'closed' && p.courseId === courseId ? '#/' : `#/course/${courseId}`);
+// Where the book's back arrow leads when nothing of the app sits behind it: the lesson's tab, which also holds the
+// live hero during its broadcast.
+export const bookBack = (courseId: string): string => `#/course/${courseId}`;
 
 export const backAction = (p: LivePlayer, canGoBack: boolean): 'collapse' | 'back' | 'none' =>
   p.view === 'expanded' ? 'collapse' : canGoBack ? 'back' : 'none';

@@ -37,10 +37,16 @@ describe('routeForPush', () => {
   const state = structuredClone(FIXTURE_STATE);
   const course = state.courses[0];
 
-  it('live and live-other open home, rec opens the course', () => {
-    expect(routeForPush({ kind: 'live', courseId: course.id, number: '1' }, state)).toBe('#/');
-    expect(routeForPush({ kind: 'live-other', number: '0' }, state)).toBe('#/');
+  it('live and rec open the lesson tab, live-other stays where the listener is', () => {
+    expect(routeForPush({ kind: 'live', courseId: course.id, number: '1' }, state)).toBe(`#/course/${course.id}`);
+    expect(routeForPush({ kind: 'live', courseId: course.id, number: '1' }, null)).toBe(`#/course/${course.id}`);
+    expect(routeForPush({ kind: 'live-other', number: '0' }, state)).toBeNull();
     expect(routeForPush({ kind: 'rec', courseId: course.id, number: '1' }, state)).toBe(`#/course/${course.id}`);
+  });
+
+  it('a course the listener no longer follows opens home', () => {
+    const other = { ...state, courses: state.courses.filter((c) => c.id !== course.id) };
+    expect(routeForPush({ kind: 'live', courseId: course.id, number: '1' }, other)).toBe('#/');
   });
 
   it('prep opens the book at the next passage with the marker', () => {

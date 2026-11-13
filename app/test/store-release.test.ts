@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { SHOTS, TARGETS } from '../../scripts/store-screenshots.mjs';
 import { parseRoute } from '../src/router';
-import { tabs } from '../src/ui/NavBar';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -28,11 +27,12 @@ describe('store screenshots', () => {
     expect(pixels(TARGETS.ios)).toEqual([1320, 2868]);
   });
 
-  it('shows only screens the apps’ tabs lead to, including the notifications web visitors never see', () => {
-    const tabOf = (route: string) => tabs(true).find((t) => t.names.includes(parseRoute(route).name));
-    expect(SHOTS.map((s) => tabOf(s.route)?.label)).toEqual(['الرئيسية', 'الدروس', 'التنبيهات']);
-    const webOnly = tabs(false).filter((w) => !tabs(true).some((n) => n.href === w.href));
-    expect(SHOTS.filter((s) => webOnly.some((w) => w.href === s.route))).toEqual([]);
+  it('shows the lesson the app opens on, the Fajr lesson with its recordings, and the notifications', () => {
+    expect(SHOTS.map((s) => parseRoute(s.route))).toEqual([
+      { name: 'home' },
+      { name: 'course', id: 'tafsir-saadi' },
+      { name: 'notifications' },
+    ]);
   });
 
   it('builds the web app with the apps’ screens', () => {

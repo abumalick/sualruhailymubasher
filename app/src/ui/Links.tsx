@@ -1,5 +1,5 @@
 import type { StateDTO } from '@albadr/shared';
-import { nativeUI } from '../platform';
+import { Back } from './Back';
 import { Icon } from './Star';
 
 const host = (url: string) => {
@@ -14,6 +14,7 @@ export function Links({ state }: { state: StateDTO | null }) {
   return (
     <>
       <div class="bar">
+        <Back fallback="#/more" />
         <div class="t">
           <b>روابط</b>
           <span>الموقع والقنوات والمجتمعات</span>
@@ -32,17 +33,6 @@ export function Links({ state }: { state: StateDTO | null }) {
               <Icon id="i-back" class="fwd" />
             </a>
           ))}
-        </div>
-      )}
-      {nativeUI() && (
-        <div class="card">
-          <a class="lesson" href="#/about">
-            <div class="t">
-              <span class="b">عن التطبيق</span>
-              <span class="m">المصادر وسياسة الخصوصية</span>
-            </div>
-            <Icon id="i-back" class="fwd" />
-          </a>
         </div>
       )}
     </>

@@ -8,7 +8,7 @@ afterEach(cleanup);
 describe('Links', () => {
   it('lists every link as an external anchor', () => {
     render(<Links state={FIXTURE_STATE} />);
-    const anchors = screen.getAllByRole('link');
+    const anchors = screen.getAllByRole('link').filter((a) => a.getAttribute('aria-label') !== 'رجوع');
     expect(anchors).toHaveLength(FIXTURE_STATE.links.length);
     anchors.forEach((a, i) => {
       expect(a.getAttribute('href')).toBe(FIXTURE_STATE.links[i].url);
@@ -20,6 +20,6 @@ describe('Links', () => {
 
   it('renders nothing but the header without state', () => {
     render(<Links state={null} />);
-    expect(screen.queryAllByRole('link')).toHaveLength(0);
+    expect(screen.queryAllByRole('link').map((a) => a.getAttribute('aria-label'))).toEqual(['رجوع']);
   });
 });
