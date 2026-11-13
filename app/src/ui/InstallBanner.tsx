@@ -6,7 +6,7 @@ import { nativeUI } from '../platform';
 import { STORES } from '../site';
 
 const KEY = 'install-banner-dismissed';
-// Official Arabic badges, unaltered. Google's PNG carries its own clear space, which `.gp` crops back into the CSS clear space.
+// Official Arabic badges, unaltered. Google's PNG carries its own clear space, which `.play` crops back into the CSS clear space.
 const BADGES: Record<StoreId, { src: string; alt: string; width: number; height: number }> = {
   appstore: { src: appStoreBadge, alt: 'تنزيل من App Store', width: 120, height: 40 },
   play: { src: googlePlayBadge, alt: 'احصل عليه من Google Play', width: 154, height: 60 },

@@ -364,7 +364,6 @@ button.lesson { width: 100%; text-align: start; }
 .install .x .g { padding-inline: 2px; }
 @media (max-width: 469px) {
   .install.two { flex-wrap: wrap; }
-  .install.two .t { order: 0; }
   .install.two .x { order: 1; }
   .install.two .badges { order: 2; flex-basis: 100%; justify-content: center; }
 }
