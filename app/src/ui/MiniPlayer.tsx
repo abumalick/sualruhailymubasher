@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'preact/hooks';
-import { player } from '../audio/player';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { player, type PlayerState } from '../audio/player';
+import { formatTime, keyTarget, pointerToTime, SKIP_SECONDS } from '../logic/seek';
+import { ar } from './format';
 import { Icon } from './Star';
 
 export function usePlayer() {
@@ -11,20 +13,119 @@ export function usePlayer() {
   return s;
 }
 
+const PlayButton = ({ s }: { s: PlayerState }) => (
+  <button class="mini" aria-label={s.playing ? 'إيقاف مؤقت' : 'تشغيل'} onClick={() => (s.playing ? player.pause() : void player.resume())}>
+    <Icon id={s.playing ? 'i-pause' : 'play'} />
+  </button>
+);
+
+const Skip = ({ delta, ready }: { delta: number; ready: boolean }) => (
+  <button
+    class={delta < 0 ? 'skip' : 'skip fwd'}
+    aria-label={`${delta < 0 ? 'رجوع' : 'تقديم'} ${ar(SKIP_SECONDS)} ثانية`}
+    disabled={!ready}
+    onClick={() => player.skip(delta)}
+  >
+    <Icon id="i-rev" />
+    <span aria-hidden="true">{ar(SKIP_SECONDS)}</span>
+  </button>
+);
+
+const DIGITS = '٠١٢٣٤٥٦٧٨٩';
+
+// The font's Arabic digits differ in width: hidden copies of the label's shape in every digit keep the widest
+// in place, so the bar never moves as the time counts up.
+const Clock = ({ text, shape }: { text: string; shape: string }) => (
+  <time>
+    <span>{text}</span>
+    {[...DIGITS].map((d) => (
+      <span key={d} class="w" aria-hidden="true">
+        {shape.replace(/[٠-٩]/g, d)}
+      </span>
+    ))}
+  </time>
+);
+
+// Media timelines run left to right in Arabic too (tape direction), as the play triangle does.
+function Scrubber({ position, duration }: { position: number; duration: number }) {
+  const [drag, setDrag] = useState<number | null>(null);
+  const pressed = useRef(false);
+  const ready = duration > 0;
+  const shown = drag ?? position;
+  const total = ready ? formatTime(duration) : '--:--';
+  const pct = ready ? Math.min(100, (shown / duration) * 100) : 0;
+  const at = (e: PointerEvent) => pointerToTime(e.clientX, (e.currentTarget as HTMLElement).getBoundingClientRect(), duration, 'ltr');
+  const end = () => {
+    pressed.current = false;
+    setDrag(null);
+  };
+  return (
+    <div class="seek" dir="ltr">
+      <Clock text={formatTime(shown, duration)} shape={total} />
+      <div
+        class="rail"
+        role="slider"
+        tabIndex={ready ? 0 : -1}
+        aria-label="موضع التسجيل"
+        aria-disabled={!ready}
+        aria-valuemin={0}
+        aria-valuemax={Math.floor(duration)}
+        aria-valuenow={Math.floor(shown)}
+        aria-valuetext={`${formatTime(shown, duration)} من ${total}`}
+        onPointerDown={(e) => {
+          if (!ready) return;
+          pressed.current = true;
+          (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+          setDrag(at(e));
+        }}
+        onPointerMove={(e) => pressed.current && setDrag(at(e))}
+        onPointerUp={(e) => {
+          if (!pressed.current) return;
+          player.seek(at(e));
+          end();
+        }}
+        onPointerCancel={end}
+        onKeyDown={(e) => {
+          const target = ready ? keyTarget(e.key, position, duration) : null;
+          if (target === null) return;
+          e.preventDefault();
+          player.seek(target);
+        }}
+      >
+        <i class="prog" style={{ width: `${pct}%` }} />
+        <b style={{ left: `${pct}%` }} />
+      </div>
+      <Clock text={total} shape={total} />
+    </div>
+  );
+}
+
 export function MiniPlayer() {
   const s = usePlayer();
   if (!s.src) return null;
-  const pct = s.duration > 0 ? Math.min(100, (s.position / s.duration) * 100) : 0;
-  return (
-    <div class="mp">
-      <button class="mini" aria-label={s.playing ? 'إيقاف مؤقت' : 'تشغيل'} onClick={() => (s.playing ? player.pause() : void player.resume())}>
-        <Icon id={s.playing ? 'i-pause' : 'play'} />
-      </button>
-      <div class="t">
-        <span class="b">{s.src.title}</span>
-        <span class="m">{s.error ?? (s.src.kind === 'live' ? 'بث مباشر' : s.src.subtitle)}</span>
+  const meta = (
+    <div class="t">
+      <span class="b">{s.src.title}</span>
+      <span class="m">{s.error ?? (s.src.kind === 'live' ? 'بث مباشر' : s.src.subtitle)}</span>
+    </div>
+  );
+  if (s.src.kind === 'live')
+    return (
+      <div class="mp">
+        <PlayButton s={s} />
+        {meta}
       </div>
-      {s.src.kind === 'recording' && <i class="prog" style={{ width: `${pct}%` }} />}
+    );
+  const ready = s.duration > 0;
+  return (
+    <div class="mp rec">
+      <div class="ctl" dir="ltr">
+        <Skip delta={-SKIP_SECONDS} ready={ready} />
+        <PlayButton s={s} />
+        <Skip delta={SKIP_SECONDS} ready={ready} />
+      </div>
+      {meta}
+      <Scrubber position={s.position} duration={s.duration} />
     </div>
   );
 }

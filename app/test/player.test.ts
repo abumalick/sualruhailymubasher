@@ -127,4 +127,70 @@ describe('player', () => {
     expect(player.state.src).toBeNull();
     expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'none' });
   });
+
+  it('clamps a seek to the recording', async () => {
+    const player = await load();
+    await player.play(rec);
+    loaded(3521);
+    player.seek(9999);
+    expect(FakeAudio.last.currentTime).toBe(3521);
+    player.seek(-5);
+    expect(FakeAudio.last.currentTime).toBe(0);
+  });
+
+  it('skips 15 seconds back and forward, and reports the new position to the media session', async () => {
+    const player = await load();
+    await player.play(rec);
+    loaded(3521);
+    FakeAudio.last.currentTime = 600;
+    player.skip(-15);
+    expect(FakeAudio.last.currentTime).toBe(585);
+    expect(player.state.position).toBe(585);
+    expect(session.setPositionState).toHaveBeenLastCalledWith({ duration: 3521, position: 585, playbackRate: 1 });
+    player.skip(15);
+    player.skip(15);
+    expect(FakeAudio.last.currentTime).toBe(615);
+  });
+
+  it('does not skip on the live stream', async () => {
+    const player = await load();
+    await player.play(live);
+    expect(() => player.skip(15)).toThrow();
+  });
+
+  it('wires the notification seek backward and forward once a recording plays', async () => {
+    const player = await load();
+    await player.play(live);
+    expect(actions()).not.toContain('seekbackward');
+    await player.play(rec);
+    await player.play({ ...rec, url: 'https://x/b.mp3' });
+    expect(actions().filter((a) => a === 'seekbackward')).toHaveLength(1);
+    expect(actions().filter((a) => a === 'seekforward')).toHaveLength(1);
+    loaded(3521);
+    FakeAudio.last.currentTime = 600;
+    handler('seekbackward')({ action: 'seekbackward' });
+    expect(FakeAudio.last.currentTime).toBe(585);
+    handler('seekforward')({ action: 'seekforward' });
+    handler('seekforward')({ action: 'seekforward' });
+    expect(FakeAudio.last.currentTime).toBe(615);
+  });
+
+  it('ignores the notification seek buttons on the live stream and the live embed', async () => {
+    const player = await load();
+    await player.play(rec);
+    await player.play(live);
+    expect(() => handler('seekforward')({ action: 'seekforward' })).not.toThrow();
+    player.stop();
+    player.startEmbed('مباشر', () => {});
+    expect(() => handler('seekbackward')({ action: 'seekbackward' })).not.toThrow();
+  });
 });
+
+type Handler = (d: { action: string; seekTime?: number | null }) => void;
+const calls = () => session.setActionHandler.mock.calls as unknown as [{ action: string }, Handler][];
+const actions = () => calls().map(([o]) => o.action);
+const handler = (action: string) => calls().filter(([o]) => o.action === action).at(-1)![1];
+function loaded(duration: number) {
+  FakeAudio.last.duration = duration;
+  FakeAudio.last.dispatchEvent(new Event('loadedmetadata'));
+}

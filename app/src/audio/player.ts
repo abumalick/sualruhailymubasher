@@ -1,4 +1,5 @@
 import { MediaSession } from '@capgo/capacitor-media-session';
+import { clampSeek, SKIP_SECONDS, skipTarget } from '../logic/seek';
 import { ARTWORK } from './artwork';
 
 export interface PlayerSrc {
@@ -70,6 +71,7 @@ function element(): HTMLAudioElement {
 }
 
 let handlersRegistered = false;
+let skipHandlersRegistered = false;
 let stopEmbed: (() => void) | null = null;
 
 function registerHandlers() {
@@ -88,12 +90,25 @@ function registerHandlers() {
   );
 }
 
+// Registered on the first recording only: the Android plugin shows a button for every registered action and cannot
+// unregister one, so a listener who only follows the live stream never sees seek buttons that would do nothing.
+function registerSkipHandlers() {
+  if (skipHandlersRegistered) return;
+  skipHandlersRegistered = true;
+  const skip = (delta: number) => () => {
+    if (state.src?.kind === 'recording' && !stopEmbed) player.skip(delta);
+  };
+  quiet(MediaSession.setActionHandler({ action: 'seekbackward' }, skip(-SKIP_SECONDS)));
+  quiet(MediaSession.setActionHandler({ action: 'seekforward' }, skip(SKIP_SECONDS)));
+}
+
 export const player = {
   async play(src: PlayerSrc): Promise<void> {
     const a = element();
     if (!a.paused) a.pause();
     a.src = src.url;
     set({ src, playing: false, position: 0, duration: 0, error: null });
+    if (src.kind === 'recording') registerSkipHandlers();
     quiet(
       MediaSession.setMetadata({
         title: src.title,
@@ -148,8 +163,13 @@ export const player = {
 
   seek(sec: number): void {
     if (!audio || state.src?.kind !== 'recording') throw new Error('seek is only available for recordings');
-    audio.currentTime = Math.max(0, sec);
+    audio.currentTime = clampSeek(sec, state.duration);
     syncPosition();
+  },
+
+  skip(delta: number): void {
+    if (!audio) throw new Error('nothing is playing');
+    player.seek(skipTarget(audio.currentTime, state.duration, delta));
   },
 
   onChange(cb: (s: PlayerState) => void): () => void {
