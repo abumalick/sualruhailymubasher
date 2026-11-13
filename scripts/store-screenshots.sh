@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Store screenshots from the web build, with real lessons from the production API.
 # Usage: scripts/store-screenshots.sh ios|android...
-# The Android output belongs to the Play listing branch: commit it only from there.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
