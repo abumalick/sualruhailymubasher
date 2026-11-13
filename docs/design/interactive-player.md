@@ -53,4 +53,8 @@ to a point. Today the mini player's progress line is display-only.
 ## Left to the builder
 - Exact sizes and spacing, within the constraints above.
 - Android's notification seek bar follows the system locale; whether it mirrors in Arabic is checked on the phone.
+- Android 13 and later build the media controls from the playback state (play/pause, previous/next, custom actions)
+  and ignore the notification's own buttons and REWIND/FAST_FORWARD, so the ±15 s buttons show only on Android 12
+  and lower (checked on Android 10); there, headset rewind/fast-forward keys still skip. Showing them on 13+ needs
+  custom actions, which the plugin does not offer.
 - iOS lock-screen skip interval: the plugin sets no `preferredIntervals`; not verifiable without an iPhone.

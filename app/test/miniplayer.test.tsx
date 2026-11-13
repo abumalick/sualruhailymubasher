@@ -92,6 +92,44 @@ it('a moved pointer without a press does nothing', () => {
   expect(fake.seek).not.toHaveBeenCalled();
 });
 
+it('a second finger on the bar neither moves nor ends the drag of the first', () => {
+  render(<MiniPlayer />);
+  fireEvent.pointerDown(slider(), { clientX: 150, pointerId: 1, isPrimary: true });
+  fireEvent.pointerDown(slider(), { clientX: 280, pointerId: 2, isPrimary: false });
+  fireEvent.pointerMove(slider(), { clientX: 280, pointerId: 2, isPrimary: false });
+  fireEvent.pointerUp(slider(), { clientX: 280, pointerId: 2, isPrimary: false });
+  expect(fake.seek).not.toHaveBeenCalled();
+  fireEvent.pointerMove(slider(), { clientX: 200, pointerId: 1, isPrimary: true });
+  fireEvent.pointerUp(slider(), { clientX: 200, pointerId: 1, isPrimary: true });
+  expect(fake.seek.mock.calls).toEqual([[1800]]);
+});
+
+it('a right click does not start a drag', () => {
+  render(<MiniPlayer />);
+  fireEvent.pointerDown(slider(), { clientX: 200, pointerId: 1, button: 2 });
+  fireEvent.pointerUp(slider(), { clientX: 200, pointerId: 1, button: 2 });
+  expect(fake.seek).not.toHaveBeenCalled();
+});
+
+it('a drag whose pointer capture is lost ends without seeking', () => {
+  render(<MiniPlayer />);
+  fireEvent.pointerDown(slider(), { clientX: 200, pointerId: 1 });
+  fireEvent(slider(), new PointerEvent('lostpointercapture', { pointerId: 1 }));
+  fireEvent.pointerMove(slider(), { clientX: 250, pointerId: 1 });
+  fireEvent.pointerUp(slider(), { clientX: 250, pointerId: 1 });
+  expect(elapsed()).toBe('٠:٠٢:٠٠');
+  expect(fake.seek).not.toHaveBeenCalled();
+});
+
+it('a drag in progress does not carry over to the next recording', () => {
+  render(<MiniPlayer />);
+  fireEvent.pointerDown(slider(), { clientX: 200, pointerId: 1 });
+  act(() => fake.emit({ src: { ...REC, url: 'https://x/460.mp3' }, position: 0 }));
+  expect(elapsed()).toBe('٠:٠٠:٠٠');
+  fireEvent.pointerUp(slider(), { clientX: 250, pointerId: 1 });
+  expect(fake.seek).not.toHaveBeenCalled();
+});
+
 it('a cancelled drag goes back to the playing position without seeking', () => {
   render(<MiniPlayer />);
   fireEvent.pointerDown(slider(), { clientX: 200, pointerId: 1 });

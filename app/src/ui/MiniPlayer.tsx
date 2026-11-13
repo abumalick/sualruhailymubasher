@@ -49,14 +49,16 @@ const Clock = ({ text, shape }: { text: string; shape: string }) => (
 // Media timelines run left to right in Arabic too (tape direction), as the play triangle does.
 function Scrubber({ position, duration }: { position: number; duration: number }) {
   const [drag, setDrag] = useState<number | null>(null);
-  const pressed = useRef(false);
+  const pointer = useRef<number | null>(null);
   const ready = duration > 0;
   const shown = drag ?? position;
   const total = ready ? formatTime(duration) : '--:--';
   const pct = ready ? Math.min(100, (shown / duration) * 100) : 0;
   const at = (e: PointerEvent) => pointerToTime(e.clientX, (e.currentTarget as HTMLElement).getBoundingClientRect(), duration, 'ltr');
-  const end = () => {
-    pressed.current = false;
+  const mine = (e: PointerEvent) => pointer.current === e.pointerId;
+  const end = (e: PointerEvent) => {
+    if (!mine(e)) return;
+    pointer.current = null;
     setDrag(null);
   };
   return (
@@ -73,18 +75,19 @@ function Scrubber({ position, duration }: { position: number; duration: number }
         aria-valuenow={Math.floor(shown)}
         aria-valuetext={`${formatTime(shown, duration)} من ${total}`}
         onPointerDown={(e) => {
-          if (!ready) return;
-          pressed.current = true;
+          if (!ready || pointer.current !== null || e.button !== 0) return;
+          pointer.current = e.pointerId;
           (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
           setDrag(at(e));
         }}
-        onPointerMove={(e) => pressed.current && setDrag(at(e))}
+        onPointerMove={(e) => mine(e) && setDrag(at(e))}
         onPointerUp={(e) => {
-          if (!pressed.current) return;
+          if (!mine(e)) return;
           player.seek(at(e));
-          end();
+          end(e);
         }}
         onPointerCancel={end}
+        onLostPointerCapture={end}
         onKeyDown={(e) => {
           const target = ready ? keyTarget(e.key, position, duration) : null;
           if (target === null) return;
@@ -125,7 +128,7 @@ export function MiniPlayer() {
         <Skip delta={SKIP_SECONDS} ready={ready} />
       </div>
       {meta}
-      <Scrubber position={s.position} duration={s.duration} />
+      <Scrubber key={s.src.url} position={s.position} duration={s.duration} />
     </div>
   );
 }
