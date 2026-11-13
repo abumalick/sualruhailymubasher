@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const store = new Map<string, string>();
@@ -33,6 +33,7 @@ vi.mock('@capacitor/app', () => ({
 }));
 vi.mock('../src/api', () => ({ loadCachedState: vi.fn(async () => null), fetchState: vi.fn(), fetchLessons: vi.fn(async () => []) }));
 
+import { NOTICE_TITLE } from '@albadr/shared';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { topicsFor } from '../src/logic/topics';
 import { seedPrefs } from './seed';
@@ -105,13 +106,30 @@ describe('the app screen', () => {
 });
 
 describe('the live step', () => {
-  it('shows the live hero of the first lesson exactly as during a broadcast: red, pulsing, with its next lesson', async () => {
+  it('shows a picture of the live notification, worded as the server sends it, that opens the live player', async () => {
     await toLive();
-    expect(screen.getByText('مثال من درس الفجر')).toBeTruthy();
-    expect(screen.getByText('مباشر الآن · درس الفجر')).toBeTruthy();
-    expect(document.querySelector('.frame .disc')!.className).toBe('disc live pulse');
-    expect(screen.getByText(/الدرس ٤٤٤/)).toBeTruthy();
-    expect(screen.getByText(fajr.title)).toBeTruthy();
+    const pv = document.querySelector('.pv')!;
+    expect(pv.textContent).toContain('مثال: هكذا يصلك التنبيه');
+    expect(pv.querySelector('.pv-banner b')!.textContent).toBe(NOTICE_TITLE.live);
+    expect(pv.querySelector('.pv-banner .bd')!.textContent).toBe(`${fajr.title} · الدرس ٤٤٤`);
+    expect(pv.getAttribute('data-to')).toBe('live');
+    expect(screen.getByText(/يصلك تنبيه عند بدء البث، فيفتح مشغّل البث المباشر/)).toBeTruthy();
+  });
+
+  it('each step starts its own picture, so it never paints the last frame of the step before', async () => {
+    await toLive();
+    const live = document.querySelector('.pv');
+    next();
+    await heading('راجع الدرس');
+    const rec = document.querySelector('.pv')!;
+    expect(rec).not.toBe(live);
+    expect(rec.getAttribute('data-banner')).toBe('hidden');
+  });
+
+  it('never shows the big red play button, the one a listener tried to tap', async () => {
+    await toLive();
+    expect(document.querySelector('.disc')).toBeNull();
+    expect(document.querySelector('.go-live')).toBeNull();
   });
 
   it('has one switch for every ticked lesson, on, and none per lesson or for other broadcasts', async () => {
@@ -125,8 +143,8 @@ describe('the live step', () => {
   it('keeps the switch in its own block, outside the example card', async () => {
     await toLive();
     const block = switchOf(LIVE).closest('.notifs')!;
-    expect(block.closest('.frame')).toBeNull();
-    expect(block.contains(document.querySelector('.frame'))).toBe(false);
+    expect(block.closest('.pv')).toBeNull();
+    expect(block.contains(document.querySelector('.pv'))).toBe(false);
   });
 
   it('asks the system permission once, on continue, and not again later', async () => {
@@ -170,14 +188,16 @@ describe('the example cards', () => {
     await toLive();
     next();
     await heading('راجع الدرس');
-    const frame = document.querySelector('.frame')!;
+    const frame = document.querySelector('.pv')!;
     expect(frame.hasAttribute('inert')).toBe(true);
+    expect(frame.getAttribute('aria-hidden')).toBe('true');
     fireEvent.click(screen.getByRole('button', { hidden: true, name: 'راجعتُه' }));
     const link = frame.querySelector('a')!;
+    const before = location.hash;
     const event = new MouseEvent('click', { bubbles: true, cancelable: true });
     link.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
-    expect(location.hash).toBe('#/');
+    expect(location.hash).toBe(before);
     expect([...store.keys()].some((k) => k.startsWith('reviewed:'))).toBe(false);
   });
 });
@@ -221,7 +241,7 @@ describe('the whole flow', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /درس المغرب/ }));
     next();
     await heading('استمع مباشرةً');
-    expect(screen.getByText('درس الفجر')).toBeTruthy();
+    expect(within(document.querySelector<HTMLElement>('.notifs')!).getByText('درس الفجر')).toBeTruthy();
     expect(screen.queryByText(/درس المغرب/)).toBeNull();
     next();
     await heading('راجع الدرس');

@@ -14,6 +14,7 @@
   --btn: #5b2b00; --btn-fg: #f6f1e6; --card: rgba(91, 43, 0, .05); --line: rgba(166, 124, 55, .35);
   --live: #c8321c; --live-bg: rgba(200, 50, 28, .1); --live-fg: #fff; --lat-op: .10; --paper: #fffdf7; --ok: #3d7a3a;
   --dawn: #b86a12; --dawn-bg: rgba(226, 160, 60, .18); --dusk: #6b3f8f; --dusk-bg: rgba(120, 70, 160, .12);
+  --pv-panel: color-mix(in srgb, var(--gold) 14%, var(--bg)); --pv-notif: #fffdf7; --pv-bezel: #3a2414; --pv-shadow: rgba(60, 30, 5, .22);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -21,5 +22,6 @@
     --btn: #e9cf96; --btn-fg: #1c0b1a; --card: rgba(245, 240, 229, .05); --line: rgba(217, 180, 106, .28);
     --live: #ff7a62; --live-bg: rgba(200, 50, 28, .18); --live-fg: #1c0b1a; --lat-op: .13; --paper: #f3ecdc; --ok: #8fcf86;
     --dawn: #f0b55a; --dawn-bg: rgba(240, 181, 90, .13); --dusk: #c3a5ec; --dusk-bg: rgba(183, 154, 230, .13);
+    --pv-panel: color-mix(in srgb, var(--gold) 12%, var(--bg)); --pv-notif: #33202f; --pv-bezel: #0d050c; --pv-shadow: rgba(0, 0, 0, .5);
   }
 }

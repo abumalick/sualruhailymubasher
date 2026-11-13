@@ -1,4 +1,4 @@
-import { courseTopic, DISMISS_LIVE, LIVE_OTHER_TOPIC, LIVE_TAG, toArabicDigits } from '@albadr/shared';
+import { courseTopic, DISMISS_LIVE, lessonNoticeBody, LIVE_OTHER_TOPIC, LIVE_TAG, NOTICE_TITLE } from '@albadr/shared';
 import type { Fcm } from '../fcm';
 import { courseInWindow } from '../schedule';
 import { parseChannelView } from '../sources/mixlr';
@@ -129,8 +129,8 @@ export async function runLivePoll({ db, fetch: f, fcm, now }: LiveDeps): Promise
     if (course) {
       const number = await expectedNextNumber(db, course.id, day, now);
       await fcm.sendToTopic(liveTopic(course.id), {
-        title: '🔴 بدأ البث المباشر',
-        body: `${course.title} · الدرس ${toArabicDigits(number)}`,
+        title: NOTICE_TITLE.live,
+        body: lessonNoticeBody(course.title, number),
         data: { kind: 'live', courseId: course.id, number: String(number) },
         tag: LIVE_TAG,
         ttlSec: LIVE_TTL_SEC,

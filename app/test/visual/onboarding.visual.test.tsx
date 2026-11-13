@@ -20,12 +20,12 @@ afterEach(async () => {
   await commands.emulateMedia({ colorScheme: null });
 });
 
-async function at(steps: number, width = WIDTH) {
-  await page.viewport(width, HEIGHT);
+async function at(steps: number, width = WIDTH, height = HEIGHT) {
+  await page.viewport(width, height);
   document.documentElement.dir = 'rtl';
   const backRef = { current: null };
   const view = render(
-    <div class="shell" style={`height:${HEIGHT}px`}>
+    <div class="shell" style={`height:${height}px`}>
       <Defs />
       <div class="scroll">
         <Onboarding state={FIXTURE_STATE} prefs={null} now={MON_2110} replay={false} backRef={backRef} onDone={() => {}} onLeave={() => {}} />
@@ -93,31 +93,44 @@ it('the continue button is on the first screen without scrolling, and on the liv
   expect(primary(c).getBoundingClientRect().bottom).toBeLessThanOrEqual(HEIGHT);
 });
 
-it('the step has one thumb-sized switch row, and the example is labelled', async () => {
+it('the step has one thumb-sized switch row, and the picture is captioned as an example', async () => {
   const c = await at(1);
-  const label = c.querySelector<HTMLElement>('.flabel')!;
-  expect(label.textContent).toBe('مثال من درس الفجر');
-  expect(label.getBoundingClientRect().height).toBeGreaterThan(0);
+  const caption = c.querySelector<HTMLElement>('.pv-cap')!;
+  expect(caption.textContent).toBe('مثال: هكذا يصلك التنبيه');
+  expect(caption.getBoundingClientRect().height).toBeGreaterThan(0);
   const rows = [...c.querySelectorAll<HTMLElement>('.ob .notifs .lesson')];
   expect(rows).toHaveLength(1);
   for (const row of rows) expect(row.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 });
 
-it('the example live hero paints and pulses like the real one', async () => {
-  const c = await at(1);
-  const disc = c.querySelector<HTMLElement>('.frame .disc .btn')!;
-  const go = c.querySelector<HTMLElement>('.frame .go-live')!;
-  expect(getComputedStyle(disc).backgroundColor).toBe(getComputedStyle(go).backgroundColor);
-  expect(getComputedStyle(disc, '::before').animationName).toBe('ring');
+it('the picture draws the app at under half size, inside a tinted panel, with the switch below it', async () => {
+  const c = await at(2);
+  const pv = c.querySelector<HTMLElement>('.pv')!.getBoundingClientRect();
+  const screen = c.querySelector<HTMLElement>('.pv-screen')!.getBoundingClientRect();
+  expect(screen.width).toBeLessThanOrEqual(WIDTH * 0.5);
+  expect(c.querySelector<HTMLElement>('.ob .notifs')!.getBoundingClientRect().top).toBeGreaterThanOrEqual(pv.bottom);
 });
 
-it('a real tap on the example book link opens nothing', async () => {
+it('a real tap on the picture opens nothing', async () => {
   location.hash = '#/';
   const c = await at(2);
-  const link = c.querySelector<HTMLElement>('.frame a')!;
+  const link = c.querySelector<HTMLElement>('.pv a')!;
   await userEvent.click(link, { force: true });
   expect(location.hash).toBe('#/');
 });
+
+for (const [width, height] of [
+  [320, 568],
+  [390, 844],
+] as const) {
+  for (const steps of [1, 2, 3]) {
+    it(`step ${steps + 1} at ${width}×${height}: the switch and the continue button are on screen, under a picture of at least 180 px`, async () => {
+      const c = await at(steps, width, height);
+      expect(primary(c).getBoundingClientRect().bottom).toBeLessThanOrEqual(height);
+      expect(c.querySelector<HTMLElement>('.pv')!.getBoundingClientRect().height).toBeGreaterThanOrEqual(180);
+    });
+  }
+}
 
 declare module 'vitest/browser' {
   interface BrowserCommands {

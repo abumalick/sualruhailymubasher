@@ -138,7 +138,7 @@ const lines = (el: Element) => {
   return tops.sort((a, b) => a - b).filter((t, i, all) => i === 0 || t - all[i - 1] > half).length;
 };
 // Labels that must stay on one line, and one-line bar titles that must keep room to show their words.
-const ONE_LINE = '.chip, .pill, .tag, .nav a, .cycle i, .sec small, .flabel';
+const ONE_LINE = '.chip, .pill, .tag, .nav a, .cycle i, .sec small, .pv-cap';
 const ROOMY = '.mp .t, .lbar .t, .pdfbar .t';
 const ROOM_PX = 110;
 

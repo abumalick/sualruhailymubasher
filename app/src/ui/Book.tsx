@@ -1,5 +1,6 @@
 import type { CourseDTO } from '@albadr/shared';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
+import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { dropPdf, getPdf } from '../pdf/cache';
 import { nativeUI } from '../platform';
@@ -127,14 +128,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick,
 
   return (
     <div class="book">
-      <div class="pdfbar">
-        <Back fallback={back} />
-        <div class="t">
-          <b>{arText(course.title)}</b>
-          {range && <span>{range}</span>}
-        </div>
-        {pdf && shown !== null && <span class="pill o">ص {ar(shown)}</span>}
-      </div>
+      <BookBar course={course} range={range} shown={pdf ? shown : null} back={back} />
       <div
         class="pdfwrap"
         ref={wrap}
@@ -163,12 +157,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick,
           </div>
         )}
       </div>
-      <div class="pdffoot">
-        {showTick ? (
-          <Tick label="قرأتُه" done={ticks.read.has(`${course.id}:${next.number}`)} onClick={() => onTick('read', course.id, next.number)} />
-        ) : (
-          <span />
-        )}
+      <BookFoot tick={showTick ? { done: ticks.read.has(`${course.id}:${next.number}`), onTick: () => onTick('read', course.id, next.number) } : null}>
         {pdf && (
           <div class="pager">
             <button class="chip" aria-label="الصفحة السابقة" disabled={current <= 1} onClick={() => go(-1)}>
@@ -182,7 +171,30 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick,
             </button>
           </div>
         )}
+      </BookFoot>
+    </div>
+  );
+}
+
+export function BookBar({ course, range, shown, back }: { course: CourseDTO; range: string; shown: number | null; back: string }) {
+  return (
+    <div class="pdfbar">
+      <Back fallback={back} />
+      <div class="t">
+        <b>{arText(course.title)}</b>
+        {range && <span>{range}</span>}
       </div>
+      {shown !== null && <span class="pill o">ص {ar(shown)}</span>}
+    </div>
+  );
+}
+
+// The «قرأتُه» tick of the next lesson, when there is one, then the pager.
+export function BookFoot({ tick, children }: { tick: { done: boolean; onTick: () => void } | null; children?: ComponentChildren }) {
+  return (
+    <div class="pdffoot">
+      {tick ? <Tick label="قرأتُه" done={tick.done} onClick={tick.onTick} /> : <span />}
+      {children}
     </div>
   );
 }

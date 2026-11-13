@@ -1,17 +1,14 @@
 import type { CourseDTO, StateDTO } from '@albadr/shared';
 import { useEffect, useState } from 'preact/hooks';
-import { asksPermission, cardFor, finalPrefs, initialDraft, hasSwitch, pick, pickedCourses, setStep, stepHint, stepOn, STEPS, type Card, type Draft, type Step } from '../logic/onboarding';
+import { asksPermission, cardFor, finalPrefs, initialDraft, hasSwitch, pick, pickedCourses, setStep, stepHint, stepOn, STEPS, type Draft, type Step } from '../logic/onboarding';
 import type { Prefs } from '../logic/prefs';
 import { nativeUI } from '../platform';
 import { askPermission, pushPermission } from '../push';
 import { refresh } from '../store';
-import { NextCard, RecordingCard } from './cards';
-import { ar, clock12, courseLabel, dayWord, schedule, slotName } from './format';
-import { LiveHero } from './LiveHero';
+import { ar, clock12, courseLabel, schedule, slotName } from './format';
 import { Toggle } from './Notifications';
+import { Preview } from './Preview';
 import { Icon } from './Star';
-
-const noop = () => {};
 
 const TEXT: Record<Exclude<Step, 'app'>, { title: string; body: string; switches: string; fallback: string }> = {
   live: {
@@ -33,27 +30,6 @@ const TEXT: Record<Exclude<Step, 'app'>, { title: string; body: string; switches
     fallback: 'يظهر هنا مقطع الدرس القادم عند جدولته',
   },
 };
-
-// Off air, the hero is shown as it will look once this lesson starts: it then reads the next lesson from the course.
-const onAir = (live: StateDTO['live'], course: CourseDTO) => (live.isLive && live.courseId === course.id ? live : { ...live, isLive: true, courseId: course.id, startedAt: null });
-
-// A card shown as an example: it looks real but nothing in it can be tapped, focused or read twice by a screen reader.
-function Example({ card, live, now }: { card: Card; live: StateDTO['live']; now: Date }) {
-  const { course } = card;
-  const slot = slotName(course.slot);
-  const block = (e: Event) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-  return (
-    <div class="frame" inert aria-hidden="true" onClickCapture={block}>
-      <span class="flabel">مثال من درس {slot}</span>
-      {card.kind === 'live' && <LiveHero course={course} live={onAir(live, course)} listening={false} onLive={noop} />}
-      {card.kind === 'recording' && <RecordingCard course={course} lesson={card.lesson} reviewed={false} onPlay={noop} onTick={noop} />}
-      {card.kind === 'next' && <NextCard course={course} next={card.next} read={false} when={`${dayWord(card.next.date, now)} بعد ${slot} · ${clock12(card.next.time)}`} onTick={noop} />}
-    </div>
-  );
-}
 
 function Pick({ course: c, all, on, onToggle }: { course: CourseDTO; all: CourseDTO[]; on: boolean; onToggle: () => void }) {
   const label = courseLabel(c, all);
@@ -188,7 +164,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
         <h3>{text.title}</h3>
         <p>{text.body}</p>
       </div>
-      {card ? <Example card={card} live={state.live} now={now} /> : text.fallback && <p class="quiet">{text.fallback}</p>}
+      {card ? <Preview key={step} card={card} state={state} now={now} /> : text.fallback && <p class="quiet">{text.fallback}</p>}
       {native && hasSwitch(step, picked) && (
         <section class="notifs">
           <div class="card">

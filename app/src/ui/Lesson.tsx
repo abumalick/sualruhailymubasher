@@ -66,33 +66,18 @@ function useArchive(course: CourseDTO) {
   return { lessons, failed, retry: () => setFailed(false), sentinel };
 }
 
-const Sec = ({ title, hint }: { title: string; hint?: string }) => (
+export const Sec = ({ title, hint }: { title: string; hint?: string }) => (
   <h2 class="sec lsec">
     {title}
     {hint && <small>· {hint}</small>}
   </h2>
 );
 
-export function Lesson(p: LessonProps) {
-  const { course, ticks } = p;
-  const model = buildLesson(course, p.live, ticks, p.now);
-  const { lessons, failed, retry, sentinel } = useArchive(course);
-  const archive = lessons.filter((l) => l.number !== model.archiveSkip);
+export function LessonHead({ course, now }: { course: CourseDTO; now: Date }) {
   const slot = slotName(course.slot);
-  const { weekday, day } = hijriLabel(p.now);
-  const next = course.next;
-  const latest = course.latest[0];
-  const knownPage = next?.startPage ?? latest?.endPage ?? latest?.startPage ?? null;
-  const { top, last } = model;
-
+  const { weekday, day } = hijriLabel(now);
   return (
-    <div class="lp" data-slot={course.slot}>
-      {p.otherLive &&
-        (p.otherLive.course ? (
-          <LiveCard course={p.otherLive.course} live={p.live} onLive={p.onLive} />
-        ) : (
-          <LiveHero course={undefined} live={p.live} listening={p.listening} onLive={p.onLive} />
-        ))}
+    <>
       <div class="lh">
         <span class="sym">
           <Icon id={course.slot === 'fajr' ? 'i-sun' : 'i-moon'} />
@@ -110,6 +95,30 @@ export function Lesson(p: LessonProps) {
         </div>
       </div>
       <p class="ct">{course.title}</p>
+    </>
+  );
+}
+
+export function Lesson(p: LessonProps) {
+  const { course, ticks } = p;
+  const model = buildLesson(course, p.live, ticks, p.now);
+  const { lessons, failed, retry, sentinel } = useArchive(course);
+  const archive = lessons.filter((l) => l.number !== model.archiveSkip);
+  const slot = slotName(course.slot);
+  const next = course.next;
+  const latest = course.latest[0];
+  const knownPage = next?.startPage ?? latest?.endPage ?? latest?.startPage ?? null;
+  const { top, last } = model;
+
+  return (
+    <div class="lp" data-slot={course.slot}>
+      {p.otherLive &&
+        (p.otherLive.course ? (
+          <LiveCard course={p.otherLive.course} live={p.live} onLive={p.onLive} />
+        ) : (
+          <LiveHero course={undefined} live={p.live} listening={p.listening} onLive={p.onLive} />
+        ))}
+      <LessonHead course={course} now={p.now} />
       {knownPage === null && course.pdfUrls.length > 1 && (
         <div class="acts start">
           {course.pdfUrls.map((_, i) => (
