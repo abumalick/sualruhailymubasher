@@ -10,7 +10,7 @@ vi.mock('@capacitor/preferences', () => ({
   },
 }));
 
-import type { LiveDTO } from '@albadr/shared';
+import type { LiveDTO } from '@sualruhaily/shared';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { buildLesson, LESSON_MS, nextStart } from '../src/logic/lesson';
 import { loadTicks, setTick, type Ticks } from '../src/logic/ticks';

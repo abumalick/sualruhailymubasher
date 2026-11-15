@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { FirebaseMessaging, Importance } from '@capacitor-firebase/messaging';
-import { LIVE_TAG, type PushData, type StateDTO } from '@albadr/shared';
+import { LIVE_TAG, type PushData, type StateDTO } from '@sualruhaily/shared';
 import { tapNavigation } from './logic/topics';
 import { subscriptionPlan, type Prefs } from './logic/prefs';
 import { navigate, parseRoute, replaceRoute } from './router';

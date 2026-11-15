@@ -7,7 +7,7 @@ import '../../src/styles/app.css';
 import { UpdateBanner, UpdateRequired } from '../../src/ui/Update';
 
 const HEIGHT = 700;
-const URL = 'https://play.google.com/store/apps/details?id=com.albadrmubasher.app';
+const URL = 'https://play.google.com/store/apps/details?id=com.sualruhailymubasher.app';
 const rect = (el: Element) => el.getBoundingClientRect();
 
 afterEach(() => {

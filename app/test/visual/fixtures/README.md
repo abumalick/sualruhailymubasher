@@ -1,7 +1,7 @@
 # Book viewer visual fixture
 
 `tawhid-v1-p235.pdf` is page 235 of volume 1 of Kitab at-Tawhid
-(`https://al-badr.net/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_01.pdf`). It uses
+(`https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_01.pdf`). It uses
 embedded Type 1C subset fonts with WinAnsi encoding and no ToUnicode map, the case that
 broke in the app.
 

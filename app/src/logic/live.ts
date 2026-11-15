@@ -1,4 +1,4 @@
-import type { CourseDTO, LiveDTO } from '@albadr/shared';
+import type { CourseDTO, LiveDTO } from '@sualruhaily/shared';
 import { ar, bookHref, editionPage, pageSuffix, printedPage, startText } from '../ui/format';
 import { hijriToday, medinaDate } from './time';
 

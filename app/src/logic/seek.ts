@@ -1,4 +1,4 @@
-import { toArabicDigits } from '@albadr/shared';
+import { toArabicDigits } from '@sualruhaily/shared';
 
 export const SKIP_SECONDS = 15;
 

@@ -1,4 +1,4 @@
-import { toArabicDigits, type CourseDTO, type NextPassageDTO, type Slot } from '@albadr/shared';
+import { toArabicDigits, type CourseDTO, type NextPassageDTO, type Slot } from '@sualruhaily/shared';
 import { medinaDate } from '../logic/time';
 
 export const ar = (n: number) => toArabicDigits(n);

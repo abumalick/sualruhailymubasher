@@ -3,7 +3,7 @@ import { afterEach, expect, it } from 'vitest';
 import { commands } from 'vitest/browser';
 import '../../src/styles/tokens.css';
 import '../../src/styles/app.css';
-import type { CourseDTO } from '@albadr/shared';
+import type { CourseDTO } from '@sualruhaily/shared';
 import { FIXTURE_STATE } from '../../src/dev/fixture-state';
 import { Lesson } from '../../src/ui/Lesson';
 import { NavBar } from '../../src/ui/NavBar';

@@ -17,7 +17,7 @@ export function shareMethod({ native, webShare, clipboard }: { native: boolean; 
 // The text leaves the link out: the Android share sheet and most Web Share targets append the url to it.
 export const shareMessage = (): ShareMessage => ({
   title: APP_NAME,
-  text: `تطبيق ${APP_NAME}: البث المباشر لدروس الشيخ عبد الرزاق البدر في المسجد النبوي وتسجيلاتها، مع موضع كل درس في الكتاب.`,
+  text: `تطبيق ${APP_NAME}: البث المباشر لدروس الشيخ سليمان الرحيلي في المسجد النبوي وتسجيلاتها، مع موضع كل درس في الكتاب.`,
   url: SITE,
 });
 

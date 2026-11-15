@@ -1,6 +1,6 @@
 # app
 
-Capacitor 8 + Preact. iOS bundle id `com.albadrmubasher.app` (Apple team H8JDJQSJ7M); Android application id: see `applicationId` in `android/app/build.gradle`.
+Capacitor 8 + Preact. iOS bundle id `com.sualruhailymubasher.app` (Apple team H8JDJQSJ7M); Android application id: see `applicationId` in `android/app/build.gradle`.
 
 ## Web build
 
@@ -11,23 +11,23 @@ Untracked config required: `app/android/app/google-services.json`, `app/ios/App/
 
 ## Android release
 
-Signing reads `ALBADR_KEYSTORE`, `ALBADR_KEYSTORE_PASSWORD`, `ALBADR_KEY_ALIAS`, `ALBADR_KEY_PASSWORD` from the environment. A release build (`assembleRelease`, `bundleRelease`) fails without them rather than produce an unsigned app; debug builds do not need them.
+Signing reads `SUALRUHAILY_KEYSTORE`, `SUALRUHAILY_KEYSTORE_PASSWORD`, `SUALRUHAILY_KEY_ALIAS`, `SUALRUHAILY_KEY_PASSWORD` from the environment. A release build (`assembleRelease`, `bundleRelease`) fails without them rather than produce an unsigned app; debug builds do not need them.
 
-    set -a; source ~/.config/albadrmubasher/env; set +a
+    set -a; source ~/.config/sualruhailymubasher/env; set +a
     cd app/android && ./gradlew assembleRelease
     apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
     adb install -r app/build/outputs/apk/release/app-release.apk
 
-`google-services.json` must contain a client for `com.albadrmubasher.app`: without one the google-services
+`google-services.json` must contain a client for `com.sualruhailymubasher.app`: without one the google-services
 plugin fails the build, and without the file it is skipped and push silently stops working. The current
-file is `~/.config/albadrmubasher/google-services.com.albadrmubasher.app.json`.
+file is `~/.config/sualruhailymubasher/google-services.com.sualruhailymubasher.app.json`.
 
 ## Google Play (fastlane)
 
 Everything Play-side goes through fastlane, run from the repo root. The listing (texts, icon, feature
 graphic, screenshots, changelogs) is in `fastlane/metadata/android/`. Secrets stay in
-`~/.config/albadrmubasher/`: `env` (upload key, read by the `build` lane) and `play-service-account.json`
-(Play API key; override with `ALBADR_PLAY_JSON_KEY`). Play App Signing re-signs the bundle.
+`~/.config/sualruhailymubasher/`: `env` (upload key, read by the `build` lane) and `play-service-account.json`
+(Play API key; override with `SUALRUHAILY_PLAY_JSON_KEY`). Play App Signing re-signs the bundle.
 
 Releases normally go through `scripts/release.sh` (see "Releases" in the root `CLAUDE.md`): `bump` raises
 `versionCode` and `versionName` together and writes the changelogs from `changes/`. The lanes below are what
@@ -49,7 +49,7 @@ access have no API: they are answered in the console (answers in `docs/store/goo
 ## Sideloaded APK (GitHub releases, Obtainium)
 
 Besides Play, each release is published as an APK on the public, releases-only repository
-[abumalick/albadrmubasher](https://github.com/abumalick/albadrmubasher) (no source there), which
+[abumalick/sualruhailymubasher](https://github.com/abumalick/sualruhailymubasher) (no source there), which
 [Obtainium](https://github.com/ImranR98/Obtainium) follows. `scripts/release.sh` publishes it with every
 version bump, before the Play internal upload. On its own, or to retry a failed publish:
 
@@ -59,15 +59,15 @@ version bump, before the Play internal upload. On its own, or to retry a failed 
 It needs `gh` logged in with write access to the repository, and the SDK build-tools (`aapt2`,
 `apksigner`) under `$ANDROID_HOME` (default `~/Android/Sdk`).
 
-The APK is signed by its own key, not the Play upload key: `~/.config/albadrmubasher/obtainium-apk.env`
-(override with `ALBADR_GITHUB_APK_SIGNING_ENV`) and `obtainium-apk.jks` beside it, both backed up in Bitwarden
-("Albadr Mubasher Obtainium APK signing key"). The lane overrides any signing variables already in the
+The APK is signed by its own key, not the Play upload key: `~/.config/sualruhailymubasher/obtainium-apk.env`
+(override with `SUALRUHAILY_GITHUB_APK_SIGNING_ENV`) and `obtainium-apk.jks` beside it, both backed up in Bitwarden
+("Sualruhaily Mubasher Obtainium APK signing key"). The lane overrides any signing variables already in the
 environment. Losing this key means Obtainium users must uninstall and reinstall; a Play install and an
 Obtainium install cannot update each other.
 
 `scripts/github-apk.mjs` refuses to publish unless the APK's package and versions match `build.gradle` and
 its only signer is the certificate pinned in `SIGNER_SHA256`. The release is tagged `v<versionName>`
-(Obtainium compares it with the installed versionName), carries one asset, `albadr-mubasher.apk`, with the
+(Obtainium compares it with the installed versionName), carries one asset, `sualruhaily-mubasher.apk`, with the
 notes `scripts/release.sh` wrote to `.tmp/release-notes/github/` (the Android entries since the previous
 GitHub release), and is marked latest. A tag that already exists is never replaced, so raise
 `versionName` together with `versionCode` for every release.
@@ -95,13 +95,13 @@ is this commit's (an upload that succeeded before the step could tag it), tag `r
 by hand; a build Apple rejected while processing still uses its number, so the version needs a bump. The lane refuses an IPA whose bundle id or version differ from
 the project, or that is not signed for production APNs.
 
-Secrets stay outside the repository, in `~/.config/albadrmubasher/` on the Mac (copies in Bitwarden):
+Secrets stay outside the repository, in `~/.config/sualruhailymubasher/` on the Mac (copies in Bitwarden):
 
 | File | Content |
 | --- | --- |
 | `ios.env` | `APP_STORE_KEY_ID`, `APP_STORE_ISSUER_ID` of the App Store Connect API key |
 | `AuthKey_<APP_STORE_KEY_ID>.p8` | that API key |
-| `GoogleService-Info.com.albadrmubasher.app.plist` | Firebase iOS app config; the lane copies it into `app/ios/App/App/` |
+| `GoogleService-Info.com.sualruhailymubasher.app.plist` | Firebase iOS app config; the lane copies it into `app/ios/App/App/` |
 | `review-contact.env` | `FIRST_NAME`, `LAST_NAME`, `PHONE_NUMBER`, `EMAIL_ADDRESS` for App Review |
 
 The App Privacy answers are entered by hand in App Store Connect (App Privacy, then Publish), from
@@ -109,6 +109,6 @@ The App Privacy answers are entered by hand in App Store Connect (App Privacy, t
 `privacy` lane's Apple ID login is refused when Apple cannot send it a verification code. Change the JSON
 first, then the form, and keep both in line with the privacy page and Play's data-safety form.
 
-Push notifications use the APNs key `HW2PGQ6N8R`, uploaded to the Firebase project `albadr-lessons`.
+Push notifications use the APNs key `HW2PGQ6N8R`, uploaded to the Firebase project `sualruhaily-lessons`.
 Submitting for review is a decision for the owner: run `submit` only on their go. It declares that the
 app shows third-party content, which states that the owner holds the rights to it.

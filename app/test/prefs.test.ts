@@ -1,4 +1,4 @@
-import type { CourseDTO } from '@albadr/shared';
+import type { CourseDTO } from '@sualruhaily/shared';
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { attended, kindsOf, migratePrefs, reconcilePrefs, subscriptionPlan, type Follow, type Prefs } from '../src/logic/prefs';

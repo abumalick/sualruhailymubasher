@@ -1,4 +1,4 @@
-import { lessonNoticeBody, NOTICE_TITLE, prepNoticeBody, type LiveDTO, type PushKind, type StateDTO } from '@albadr/shared';
+import { lessonNoticeBody, NOTICE_TITLE, prepNoticeBody, type LiveDTO, type PushKind, type StateDTO } from '@sualruhaily/shared';
 import { parseRoute } from '../router';
 import { liveLesson } from './live';
 import { liveIntentAction } from './liveIntent';

@@ -45,7 +45,7 @@ describe('planRelease', () => {
   const same = { before: v('1.0.9', 9), after: v('1.0.9', 9) };
 
   it('ships nothing for a merge of the agent or the docs', () => {
-    expect(planRelease({ changedPaths: ['agent/albadr_agent/x.py', 'docs/a.md', 'CLAUDE.md'], ...same })).toEqual([]);
+    expect(planRelease({ changedPaths: ['agent/sualruhaily_agent/x.py', 'docs/a.md', 'CLAUDE.md'], ...same })).toEqual([]);
   });
 
   it('deploys the server and the web for an app, server, shared or web change', () => {

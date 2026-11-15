@@ -1,4 +1,4 @@
-import type { StateDTO } from '@albadr/shared';
+import type { StateDTO } from '@sualruhaily/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { bookBack, liveContext } from '../logic/live';
 import type { Card } from '../logic/onboarding';
@@ -112,7 +112,7 @@ function LivePlayer({ card, state, playing }: { card: Card; state: StateDTO; pla
 const WAVE = [0.3, 0.55, 0.8, 0.45, 1, 0.6, 0.35, 0.7, 0.9, 0.4, 0.65, 0.25, 0.85, 0.5, 0.75, 0.3, 0.95, 0.55, 0.4, 0.8, 0.6, 0.35, 0.7, 0.45, 0.9, 0.3, 0.6, 0.5, 0.75, 0.4];
 
 // The channel's name on Mixlr, as its embed shows it.
-const MIXLR_CHANNEL = 'دروس عبد الرزاق البدر';
+const MIXLR_CHANNEL = 'دروس سليمان الرحيلي';
 
 // The book open at the next passage, «قرأتُه» in its footer; its page is drawn, never downloaded.
 function BookPage({ card, to, read }: { card: Card; to: Extract<Destination, { kind: 'book' }>; read: boolean }) {
@@ -255,7 +255,7 @@ export function Preview({ card, state, now, variant }: { card: Card; state: Stat
             <img src="/favicon.png" alt="" />
             <div class="t">
               <span class="h">
-                <span>البدر مباشر</span>
+                <span>سليمان الرحيلي مباشر</span>
                 <span>الآن</span>
               </span>
               <b>{notice.title}</b>

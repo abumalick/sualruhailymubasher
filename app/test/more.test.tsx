@@ -117,7 +117,7 @@ describe('شارك التطبيق', () => {
     shareEnv.current = { native: false, nativeShare: vi.fn() };
     render(<More />);
     fireEvent.click(row());
-    await waitFor(() => expect(hint()).toBe('تعذّرت المشاركة، الرابط: albadrmubasher.com'));
+    await waitFor(() => expect(hint()).toBe('تعذّرت المشاركة، الرابط: sualruhailymubasher.com'));
   });
 });
 

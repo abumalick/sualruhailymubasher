@@ -1,4 +1,4 @@
-package com.albadrmubasher.app;
+package com.sualruhailymubasher.app;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -1,15 +1,15 @@
-import type { StateDTO } from '@albadr/shared';
+import type { StateDTO } from '@sualruhaily/shared';
 
-const tafsirMp3 = (n: number) => `https://al-badr.net/download/esound/choroohat/tafsir-assidi/${n}.mp3`;
+const tafsirMp3 = (n: number) => `https://media.sualruhailymubasher.com/download/esound/choroohat/tafsir-assidi/${n}.mp3`;
 const tawhidMp3 = (n: number) =>
-  `https://al-badr.net/download/esound/choroohat/taohid/taqrirat-ala-kitab-tauhid/${String(n).padStart(3, '0')}.mp3`;
+  `https://media.sualruhailymubasher.com/download/esound/choroohat/taohid/taqrirat-ala-kitab-tauhid/${String(n).padStart(3, '0')}.mp3`;
 
 export const FIXTURE_STATE: StateDTO = {
   generatedAt: '2026-11-02T02:30:00.000Z',
   live: {
     isLive: false,
     mode: 'embed',
-    embedUrl: 'https://albadrnet.mixlr.com/embed',
+    embedUrl: 'https://sualruhaily.mixlr.com/embed',
     streamUrl: null,
     courseId: null,
     startedAt: null,
@@ -21,7 +21,7 @@ export const FIXTURE_STATE: StateDTO = {
       slot: 'fajr',
       weekdays: [0, 1, 2, 3, 4, 5],
       time: '05:25',
-      pdfUrls: ['https://al-badr.net/download/mutun/TafsirAsSaadi.pdf'],
+      pdfUrls: ['https://media.sualruhailymubasher.com/download/mutun/TafsirAsSaadi.pdf'],
       edition: null,
       latest: [
         {
@@ -80,9 +80,9 @@ export const FIXTURE_STATE: StateDTO = {
       weekdays: [0, 1, 2, 3, 4],
       time: '18:20',
       pdfUrls: [
-        'https://al-badr.net/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_01.pdf',
-        'https://al-badr.net/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_02.pdf',
-        'https://al-badr.net/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_03.pdf',
+        'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_01.pdf',
+        'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_02.pdf',
+        'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_03.pdf',
       ],
       pageOffsets: [2, 2, 2],
       edition: null,
@@ -126,11 +126,9 @@ export const FIXTURE_STATE: StateDTO = {
     },
   ],
   links: [
-    { title: 'موقع الشيخ', url: 'https://al-badr.net' },
-    { title: 'البث المباشر على الموقع', url: 'https://al-badr.net/streaming' },
-    { title: 'قناة التلغرام', url: 'https://t.me/albadrnet' },
-    { title: 'روابط الشيخ', url: 'https://beacons.ai/albadr' },
-    { title: 'مجتمع واتساب ١', url: 'https://chat.whatsapp.com/LNdo3uxE29RDlgVtLmNHZi' },
-    { title: 'مجتمع واتساب ٢', url: 'https://chat.whatsapp.com/DZCeVH4kiLT8Gul4yMicY0' },
+    { title: 'الموقع الرسمي', url: 'https://sualruhaily.com' },
+    { title: 'قناة التلغرام', url: 'https://t.me/Sulalruhaily' },
+    { title: 'يوتيوب', url: 'https://www.youtube.com/@sualruhaily' },
+    { title: 'البث المباشر', url: 'https://sualruhaily.mixlr.com' },
   ],
 };

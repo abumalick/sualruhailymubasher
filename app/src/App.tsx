@@ -1,4 +1,4 @@
-import type { CourseDTO, LessonDTO } from '@albadr/shared';
+import type { CourseDTO, LessonDTO } from '@sualruhaily/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { startLive } from './audio/live';
 import { onBackButton } from './backButton';

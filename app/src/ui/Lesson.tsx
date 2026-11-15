@@ -1,4 +1,4 @@
-import type { CourseDTO, LessonDTO, LiveDTO } from '@albadr/shared';
+import type { CourseDTO, LessonDTO, LiveDTO } from '@sualruhaily/shared';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { fetchLessons } from '../api';

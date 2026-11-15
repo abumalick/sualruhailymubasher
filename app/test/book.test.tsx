@@ -86,7 +86,7 @@ describe('getPdf in the mobile app', () => {
     expect(http.get).not.toHaveBeenCalled();
   });
 
-  it('downloads al-badr.net directly on a miss and stores it for the next open', async () => {
+  it('downloads media.sualruhailymubasher.com directly on a miss and stores it for the next open', async () => {
     http.get.mockResolvedValue({ status: 200, data: b64 });
     const out = await getPdf(file);
     expect([...out]).toEqual([...bytes]);
@@ -108,12 +108,12 @@ describe('getPdf in the mobile app', () => {
 });
 
 describe('getPdf in a browser', () => {
-  it('reads the book through the API proxy, never al-badr.net, and keeps no file copy', async () => {
+  it('reads the book through the API proxy, never media.sualruhailymubasher.com, and keeps no file copy', async () => {
     const fetchMock = vi.fn(async (..._: unknown[]) => new Response(bytes));
     vi.stubGlobal('fetch', fetchMock);
     const out = await getPdf({ ...file, index: 2 });
     expect([...out]).toEqual([...bytes]);
-    expect(fetchMock).toHaveBeenCalledWith(`https://api.albadrmubasher.com/api/courses/${course.id}/pdf/2`);
+    expect(fetchMock).toHaveBeenCalledWith(`https://api.sualruhailymubasher.com/api/courses/${course.id}/pdf/2`);
     expect(http.get).not.toHaveBeenCalled();
     expect(fs.readFile).not.toHaveBeenCalled();
     expect(fs.writeFile).not.toHaveBeenCalled();
@@ -125,7 +125,7 @@ describe('getPdf in a browser', () => {
   });
 
   it('builds the proxy URL from the course id and volume index', () => {
-    expect(proxyUrl({ courseId: 'a b', index: 1, url })).toBe('https://api.albadrmubasher.com/api/courses/a%20b/pdf/1');
+    expect(proxyUrl({ courseId: 'a b', index: 1, url })).toBe('https://api.sualruhailymubasher.com/api/courses/a%20b/pdf/1');
   });
 
   it('dropPdf has nothing to remove', async () => {

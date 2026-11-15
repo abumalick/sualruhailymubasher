@@ -26,7 +26,7 @@ class FakeAudio extends EventTarget {
 }
 vi.stubGlobal('Audio', FakeAudio);
 
-import type { CourseDTO } from '@albadr/shared';
+import type { CourseDTO } from '@sualruhaily/shared';
 import { player } from '../src/audio/player';
 import { LiveSheet, SLIDE_MS, type LiveSheetProps } from '../src/ui/LiveSheet';
 import { TAFSIR, TAWHID } from './live-state';
@@ -57,7 +57,7 @@ it('embeds the Mixlr page with autoplay', () => {
 it('owns the media session while open and the notification pause closes it', () => {
   const onClose = vi.fn();
   const { rerender } = render(<div>{sheet({ course: TAFSIR, onClose })}</div>);
-  expect(session.setMetadata).toHaveBeenCalledWith(expect.objectContaining({ title: 'شرح تفسير السعدي', artist: 'الشيخ عبد الرزاق البدر' }));
+  expect(session.setMetadata).toHaveBeenCalledWith(expect.objectContaining({ title: 'شرح تفسير السعدي', artist: 'الشيخ سليمان الرحيلي' }));
   expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'playing' });
 
   handlers.get('pause')!();

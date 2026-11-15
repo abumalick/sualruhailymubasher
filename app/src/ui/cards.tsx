@@ -1,4 +1,4 @@
-import type { CourseDTO, LessonDTO, NextPassageDTO } from '@albadr/shared';
+import type { CourseDTO, LessonDTO, NextPassageDTO } from '@sualruhaily/shared';
 import { ar, arText, bookHref, bookLabel, editionPage, passageLine, printedPage } from './format';
 import { Icon, Tick } from './Star';
 

@@ -1,4 +1,4 @@
-import { courseTopic, LIVE_OTHER_TOPIC, type CourseDTO, type LessonDTO, type LiveDTO, type NextPassageDTO } from '@albadr/shared';
+import { courseTopic, LIVE_OTHER_TOPIC, type CourseDTO, type LessonDTO, type LiveDTO, type NextPassageDTO } from '@sualruhaily/shared';
 import { attended, kindsOf, type Kind, type Prefs } from './prefs';
 import { COURSE_KINDS, topicsFor } from './topics';
 import { courseLabel, REMINDER, slotName } from '../ui/format';

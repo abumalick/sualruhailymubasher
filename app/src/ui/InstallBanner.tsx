@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { installStores } from '../logic/install';
+import { installStores, listedStores } from '../logic/install';
 import { nativeUI } from '../platform';
 import { StoreBadges } from './StoreBadges';
 
@@ -35,12 +35,13 @@ function dismiss() {
 
 export function InstallBanner() {
   const [dismissed, setDismissed] = useState(wasDismissed);
-  const ids = installStores({ nativeUI: nativeUI(), ua: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints ?? 0, dismissed });
-  if (!ids) return null;
+  const visitorStores = installStores({ nativeUI: nativeUI(), ua: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints ?? 0, dismissed });
+  const ids = visitorStores && listedStores(visitorStores);
+  if (!ids?.length) return null;
   return (
     <aside class={ids.length > 1 ? 'install two' : 'install'} aria-label="تطبيق الجوال">
       <div class="t">
-        <b>البدر مباشر على جوالك</b>
+        <b>التطبيق على جوالك</b>
         <span>تنبيه عند بدء البث</span>
       </div>
       <StoreBadges ids={ids} />

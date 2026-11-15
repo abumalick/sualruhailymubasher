@@ -1,4 +1,4 @@
-import { compareVersions, type UpdatePlatform, type UpdatePolicy } from '@albadr/shared';
+import { compareVersions, type UpdatePlatform, type UpdatePolicy } from '@sualruhaily/shared';
 import { STORES } from '../site';
 
 export interface UpdateInput {
@@ -23,7 +23,7 @@ export function updateStatus({ platform, installed, policy, dismissed }: UpdateI
 }
 
 // The sideloaded APK is signed with its own key, so Play can't update it: its build passes its own link.
-export function updateUrl(platform: UpdatePlatform, androidOverride?: string): string {
+export function updateUrl(platform: UpdatePlatform, androidOverride?: string): string | null {
   if (platform === 'android' && androidOverride) return androidOverride;
-  return STORES.find((s) => s.id === (platform === 'android' ? 'play' : 'appstore'))!.url;
+  return STORES.find((s) => s.id === (platform === 'android' ? 'play' : 'appstore'))?.url ?? null;
 }

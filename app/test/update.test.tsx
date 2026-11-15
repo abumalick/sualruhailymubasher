@@ -70,7 +70,7 @@ describe('update gate', () => {
     await mount();
     expect(await screen.findByText('يلزم تحديث التطبيق')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'تحديث' }).getAttribute('href')).toBe(
-      'https://play.google.com/store/apps/details?id=com.albadrmubasher.app',
+      'https://play.google.com/store/apps/details?id=com.sualruhailymubasher.app',
     );
     expect(document.querySelector('.nav')).toBeNull();
   });

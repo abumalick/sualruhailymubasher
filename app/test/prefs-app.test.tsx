@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StateDTO } from '@albadr/shared';
+import type { StateDTO } from '@sualruhaily/shared';
 
 const store = new Map<string, string>();
 // Reads of these keys reject, the way a corrupt or locked store does; 'keys' makes Preferences.keys() reject.

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { StateDTO, UpdatePolicy } from '@albadr/shared';
+import type { StateDTO, UpdatePolicy } from '@sualruhaily/shared';
 import { fetchState, loadCachedPolicy, loadCachedState } from './api';
 import { FIXTURE_STATE } from './dev/fixture-state';
 import { migratePrefs, reconcilePrefs, type Prefs } from './logic/prefs';

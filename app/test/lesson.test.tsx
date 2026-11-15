@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CourseDTO, LessonDTO, LiveDTO } from '@albadr/shared';
+import type { CourseDTO, LessonDTO, LiveDTO } from '@sualruhaily/shared';
 
 vi.mock('../src/api', () => ({ loadCachedState: vi.fn(), fetchState: vi.fn(), fetchLessons: vi.fn() }));
 

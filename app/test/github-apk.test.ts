@@ -22,12 +22,12 @@ import {
 const root = fileURLToPath(new URL('../..', import.meta.url));
 
 // Captured from the 1.0.6 release APK: `aapt2 dump badging` and `apksigner verify --print-certs`
-const BADGING = `package: name='com.albadrmubasher.app' versionCode='6' versionName='1.0.6' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+const BADGING = `package: name='com.sualruhailymubasher.app' versionCode='6' versionName='1.0.6' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
 minSdkVersion:'24'
 targetSdkVersion:'36'
 native-code: 'arm64-v8a' 'armeabi-v7a' 'x86' 'x86_64'
 `;
-const SIGNED_BY_SIDELOAD_KEY = `Signer #1 certificate DN: CN=Albadr Mubasher, O=H2 Alliance
+const SIGNED_BY_SIDELOAD_KEY = `Signer #1 certificate DN: CN=Sualruhaily Mubasher, O=H2 Alliance
 Signer #1 certificate SHA-256 digest: 7979d855f5a8ed011c9e9d54467dd431b227a6bf34451dd39c66708a330cac83
 Signer #1 certificate SHA-1 digest: 0532034ba24b1d18a34c137cbe277d2b7df18ee1
 Signer #1 certificate MD5 digest: 85978e55501abd2125755bf0829199a1
@@ -44,7 +44,7 @@ describe('sideload APK checks', () => {
   });
 
   it('reads package and versions from aapt2', () => {
-    expect(parseBadging(BADGING)).toEqual({ packageName: 'com.albadrmubasher.app', versionCode: '6', versionName: '1.0.6' });
+    expect(parseBadging(BADGING)).toEqual({ packageName: 'com.sualruhailymubasher.app', versionCode: '6', versionName: '1.0.6' });
   });
 
   it('reads the signer certificates from apksigner', () => {
@@ -63,7 +63,7 @@ describe('sideload APK checks', () => {
 
   it('refuses a version or package other than the checkout’s', () => {
     expect(apkProblems({ badging: parseBadging(BADGING), signers: [SIGNER_SHA256], expected: { versionCode: '7', versionName: '1.0.7' } })).toHaveLength(2);
-    const other = parseBadging(BADGING.replace('com.albadrmubasher.app', 'com.example.app'));
+    const other = parseBadging(BADGING.replace('com.sualruhailymubasher.app', 'com.example.app'));
     expect(apkProblems({ badging: other, signers: [SIGNER_SHA256], expected })).toHaveLength(1);
   });
 });
@@ -74,7 +74,7 @@ describe('GitHub release', () => {
   });
 
   it('keeps one asset name across releases, so /releases/latest/download/<name> stays valid', () => {
-    expect(ASSET_NAME).toBe('albadr-mubasher.apk');
+    expect(ASSET_NAME).toBe('sualruhaily-mubasher.apk');
   });
 
   it('publishes a full release marked latest on the releases-only repo', () => {

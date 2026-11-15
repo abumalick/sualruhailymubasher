@@ -1,4 +1,4 @@
-package com.albadrmubasher.app;
+package com.sualruhailymubasher.app;
 
 import static org.junit.Assert.*;
 
@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
-        assertEquals("com.albadrmubasher.app", appContext.getPackageName());
+        assertEquals("com.sualruhailymubasher.app", appContext.getPackageName());
     }
 }

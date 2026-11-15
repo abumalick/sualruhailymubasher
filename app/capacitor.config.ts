@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.albadrmubasher.app',
-  appName: 'البدر مباشر',
+  appId: 'com.sualruhailymubasher.app',
+  appName: 'سليمان الرحيلي مباشر',
   webDir: 'dist',
   experimental: {
     ios: {

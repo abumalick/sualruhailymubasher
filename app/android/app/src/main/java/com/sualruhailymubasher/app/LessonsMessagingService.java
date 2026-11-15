@@ -1,4 +1,4 @@
-package com.albadrmubasher.app;
+package com.sualruhailymubasher.app;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationManagerCompat;

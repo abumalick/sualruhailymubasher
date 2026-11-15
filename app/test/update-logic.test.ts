@@ -1,4 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../src/site', async (importOriginal) => {
+  const site = await importOriginal<typeof import('../src/site')>();
+  return { ...site, STORES: [...site.STORES, { id: 'appstore', name: 'App Store', url: 'https://apps.apple.com/app/id1234567890' }] };
+});
+
+
 import { updateStatus, updateUrl } from '../src/logic/update';
 
 const policy = { android: { min: '1.0.17', latest: '1.0.19' }, ios: { min: null, latest: '1.0.18' } };
@@ -45,12 +52,12 @@ describe('updateStatus', () => {
 
 describe('updateUrl', () => {
   it('opens each platform store', () => {
-    expect(updateUrl('android')).toBe('https://play.google.com/store/apps/details?id=com.albadrmubasher.app');
-    expect(updateUrl('ios')).toBe('https://apps.apple.com/app/id6832876968');
+    expect(updateUrl('android')).toBe('https://play.google.com/store/apps/details?id=com.sualruhailymubasher.app');
+    expect(updateUrl('ios')).toBe('https://apps.apple.com/app/id1234567890');
   });
 
   it('opens the build-time link instead in the sideloaded APK', () => {
     expect(updateUrl('android', 'https://example.com/latest')).toBe('https://example.com/latest');
-    expect(updateUrl('ios', 'https://example.com/latest')).toBe('https://apps.apple.com/app/id6832876968');
+    expect(updateUrl('ios', 'https://example.com/latest')).toBe('https://apps.apple.com/app/id1234567890');
   });
 });

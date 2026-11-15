@@ -1,4 +1,4 @@
-import type { CourseDTO, LessonDTO, LiveDTO, NextPassageDTO } from '@albadr/shared';
+import type { CourseDTO, LessonDTO, LiveDTO, NextPassageDTO } from '@sualruhaily/shared';
 import type { Ticks } from './ticks';
 import { liveLesson } from './live';
 import { hijriToday, lessonInstant } from './time';

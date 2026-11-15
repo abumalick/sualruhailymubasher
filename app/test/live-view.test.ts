@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CourseDTO } from '@albadr/shared';
+import type { CourseDTO } from '@sualruhaily/shared';
 import { backAction, bookBack, CLOSED, listeningLive, liveContext, liveLesson, nextLivePlayer, type LiveEvent, type LivePlayer } from '../src/logic/live';
 import { endedState, liveDTO, STARTED, TAFSIR, TAWHID, TAWHID_14 } from './live-state';
 

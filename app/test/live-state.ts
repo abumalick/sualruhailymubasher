@@ -1,4 +1,4 @@
-import type { CourseDTO, LessonDTO, LiveDTO, StateDTO } from '@albadr/shared';
+import type { CourseDTO, LessonDTO, LiveDTO, StateDTO } from '@sualruhaily/shared';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 
 const [tafsir, tawhid] = FIXTURE_STATE.courses;

@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.albadrmubasher.app"
+    namespace = "com.sualruhailymubasher.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.albadrmubasher.app"
+        applicationId "com.sualruhailymubasher.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 17
@@ -18,17 +18,17 @@ android {
     }
     signingConfigs {
         release {
-            if (System.getenv('ALBADR_KEYSTORE')) {
-                storeFile file(System.getenv('ALBADR_KEYSTORE'))
-                storePassword System.getenv('ALBADR_KEYSTORE_PASSWORD')
-                keyAlias System.getenv('ALBADR_KEY_ALIAS')
-                keyPassword System.getenv('ALBADR_KEY_PASSWORD')
+            if (System.getenv('SUALRUHAILY_KEYSTORE')) {
+                storeFile file(System.getenv('SUALRUHAILY_KEYSTORE'))
+                storePassword System.getenv('SUALRUHAILY_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('SUALRUHAILY_KEY_ALIAS')
+                keyPassword System.getenv('SUALRUHAILY_KEY_PASSWORD')
             }
         }
     }
     buildTypes {
         release {
-            if (System.getenv('ALBADR_KEYSTORE')) {
+            if (System.getenv('SUALRUHAILY_KEYSTORE')) {
                 signingConfig signingConfigs.release
             }
             minifyEnabled false
@@ -40,8 +40,8 @@ android {
 // A release build without the upload key would be unsigned, and Play refuses it
 gradle.taskGraph.whenReady { graph ->
     def release = graph.allTasks.find { it.project == project && it.name ==~ /(assemble|bundle|package)Release/ }
-    if (release && !System.getenv('ALBADR_KEYSTORE')) {
-        throw new GradleException("${release.name} needs the upload key: set ALBADR_KEYSTORE, ALBADR_KEYSTORE_PASSWORD, ALBADR_KEY_ALIAS and ALBADR_KEY_PASSWORD (see app/README.md)")
+    if (release && !System.getenv('SUALRUHAILY_KEYSTORE')) {
+        throw new GradleException("${release.name} needs the upload key: set SUALRUHAILY_KEYSTORE, SUALRUHAILY_KEYSTORE_PASSWORD, SUALRUHAILY_KEY_ALIAS and SUALRUHAILY_KEY_PASSWORD (see app/README.md)")
     }
 }
 

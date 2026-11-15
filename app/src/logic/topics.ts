@@ -1,4 +1,4 @@
-import { courseTopic, LIVE_OTHER_TOPIC, type PushData, type StateDTO } from '@albadr/shared';
+import { courseTopic, LIVE_OTHER_TOPIC, type PushData, type StateDTO } from '@sualruhaily/shared';
 import { bookHref } from '../ui/format';
 
 export const COURSE_KINDS = ['live', 'rec', 'prep'] as const;

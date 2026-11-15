@@ -1,4 +1,4 @@
-import type { CourseDTO, LiveDTO } from '@albadr/shared';
+import type { CourseDTO, LiveDTO } from '@sualruhaily/shared';
 import { liveContext, liveLesson } from '../logic/live';
 import { ar, slotName } from './format';
 import { Disc, Icon } from './Star';

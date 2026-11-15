@@ -1,4 +1,4 @@
-import { courseTopic, LIVE_OTHER_TOPIC, type CourseDTO, type Slot } from '@albadr/shared';
+import { courseTopic, LIVE_OTHER_TOPIC, type CourseDTO, type Slot } from '@sualruhaily/shared';
 import { COURSE_KINDS, topicsFor } from './topics';
 
 export type Kind = (typeof COURSE_KINDS)[number];

@@ -1,4 +1,4 @@
-import type { StateDTO } from '@albadr/shared';
+import type { StateDTO } from '@sualruhaily/shared';
 import { Back } from './Back';
 import { Icon } from './Star';
 

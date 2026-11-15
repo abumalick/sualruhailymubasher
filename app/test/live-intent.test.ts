@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { StateDTO } from '@albadr/shared';
+import type { StateDTO } from '@sualruhaily/shared';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { liveIntentAction } from '../src/logic/liveIntent';
 import { liveDTO } from './live-state';

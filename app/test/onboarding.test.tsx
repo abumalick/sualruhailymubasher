@@ -34,7 +34,12 @@ vi.mock('@capacitor/app', () => ({
 }));
 vi.mock('../src/api', () => ({ loadCachedState: vi.fn(async () => null), fetchState: vi.fn(), fetchLessons: vi.fn(async () => []) }));
 
-import { NOTICE_TITLE } from '@albadr/shared';
+vi.mock('../src/site', async (importOriginal) => {
+  const site = await importOriginal<typeof import('../src/site')>();
+  return { ...site, STORES: [...site.STORES, { id: 'appstore', name: 'App Store', url: 'https://apps.apple.com/app/id1234567890' }] };
+});
+
+import { NOTICE_TITLE } from '@sualruhaily/shared';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { topicsFor } from '../src/logic/topics';
 import { seedPrefs } from './seed';

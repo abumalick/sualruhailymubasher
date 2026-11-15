@@ -1,4 +1,4 @@
-import type { Slot, StateDTO } from '@albadr/shared';
+import type { Slot, StateDTO } from '@sualruhaily/shared';
 import { courseLabel, slotName } from '../ui/format';
 import { LESSON_MS, nextStart } from './lesson';
 

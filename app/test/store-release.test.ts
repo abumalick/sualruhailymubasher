@@ -41,7 +41,7 @@ describe('store screenshots', () => {
   // Shape and values from production's /api/state, Friday 13 Nov 2026, between lessons
   const offAir = {
     generatedAt: '2026-11-13T17:38:43.903Z',
-    live: { isLive: false, mode: 'embed', embedUrl: 'https://albadrnet.mixlr.com/embed', streamUrl: null, courseId: null, startedAt: null },
+    live: { isLive: false, mode: 'embed', embedUrl: 'https://sualruhaily.mixlr.com/embed', streamUrl: null, courseId: null, startedAt: null },
     courses: [
       { id: 'tafsir-saadi', slot: 'fajr', time: '05:41', next: { date: '2026-11-15', time: '05:41', number: 465 } },
       { id: 'kitab-tawhid', slot: 'maghrib', time: '18:05', next: null },
@@ -123,7 +123,7 @@ describe('repository ignore rules', () => {
     'firebase-service-account.json',
     'play-service-account.json',
     'app/android/app/google-services.json',
-    'google-services.com.albadrmubasher.app.json',
+    'google-services.com.sualruhailymubasher.app.json',
   ])('keeps %s out of git', (path) => {
     expect(ignored(path)).toBe(true);
   });

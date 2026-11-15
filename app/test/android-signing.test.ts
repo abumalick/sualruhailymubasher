@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const androidDir = fileURLToPath(new URL('../android', import.meta.url));
-const SIGNING_VARS = ['ALBADR_KEYSTORE', 'ALBADR_KEYSTORE_PASSWORD', 'ALBADR_KEY_ALIAS', 'ALBADR_KEY_PASSWORD'];
+const SIGNING_VARS = ['SUALRUHAILY_KEYSTORE', 'SUALRUHAILY_KEYSTORE_PASSWORD', 'SUALRUHAILY_KEY_ALIAS', 'SUALRUHAILY_KEY_PASSWORD'];
 const hasJava = spawnSync('java', ['-version']).status === 0;
 // Gradle can only evaluate the project once `npx cap sync android` has generated the plugin projects
 const synced = existsSync(`${androidDir}/capacitor-cordova-android-plugins/cordova.variables.gradle`);

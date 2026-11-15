@@ -88,10 +88,10 @@ describe('fetchLessons', () => {
     const f = vi.fn((..._: unknown[]) => ok([])());
     vi.stubGlobal('fetch', f);
     await fetchLessons('kitab-tawhid');
-    expect(f.mock.calls[0][0]).toBe('https://api.albadrmubasher.com/api/courses/kitab-tawhid/lessons?limit=20');
+    expect(f.mock.calls[0][0]).toBe('https://api.sualruhailymubasher.com/api/courses/kitab-tawhid/lessons?limit=20');
     const g = vi.fn((..._: unknown[]) => ok(FIXTURE_STATE)());
     await fetchState(g as unknown as typeof fetch);
-    expect(g.mock.calls[0][0]).toBe('https://api.albadrmubasher.com/api/state');
+    expect(g.mock.calls[0][0]).toBe('https://api.sualruhailymubasher.com/api/state');
     vi.unstubAllGlobals();
   });
 
