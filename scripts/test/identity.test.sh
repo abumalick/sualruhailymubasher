@@ -12,22 +12,28 @@ patterns=(
   '6832876968'
   'albadr-lessons'
   'ALBADR_'
+  'عبد الرزاق البدر'
 )
 pattern="$(IFS='|'; echo "${patterns[*]}")"
 fixtures='scripts/test/fixtures/identity'
 self='scripts/test/identity.test.sh'
 
+# rg exits 0 on a match, 1 on none, and 2 or more on a real failure.
+rg_hits() {
+  local status=0
+  rg "$@" || status=$?
+  [ "$status" -le 1 ] || { echo "identity guard: rg failed with exit $status" >&2; exit "$status"; }
+}
+
 # Prints "path:line:text" for each hit among the NUL-separated paths on stdin;
 # a path that matches by name is reported too.
 scan() {
-  local files hits
-  mkdir -p "$root/.tmp"
-  files="$(mktemp -p "$root/.tmp" scan.XXXXXX)"
-  cat > "$files"
-  hits="$(tr '\0' '\n' < "$files" | rg -i -e "$pattern" | sed 's/$/ (path)/' || true)"
+  local files=() hits
+  mapfile -d '' files
+  [ "${#files[@]}" -gt 0 ] || return 0
+  hits="$(printf '%s\n' "${files[@]}" | rg_hits -i -e "$pattern" | sed 's/$/ (path)/')"
   [ -z "$hits" ] || printf '%s\n' "$hits"
-  xargs -0 -r -a "$files" rg -i -n --no-heading --with-filename -e "$pattern" -- || true
-  rm -f "$files"
+  rg_hits -i -n --no-heading --with-filename -e "$pattern" -- "${files[@]}"
 }
 
 failures=0
