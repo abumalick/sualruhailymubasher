@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Env } from '../src/index';
-import { ensureSection, insertLessonIfNew, latestLessons, upsertCourse } from '../src/repo';
+import { ensureSection, insertLessonIfNew, latestLessons, patchLesson, upsertCourse } from '../src/repo';
 import { adminRoutes } from '../src/routes/admin';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -47,6 +47,18 @@ describe('/api/admin/sections/:courseId', () => {
     expect(res.status).toBe(204);
     expect((await latestLessons(env.DB, 'sec-c', 2)).map((l) => l.section)).toEqual(['كتاب الصلاة', 'كتاب الزكاة']);
     expect(await (await call('GET', '/api/admin/sections/sec-c')).json()).toEqual(['كتاب الزكاة', 'كتاب الصلاة']);
+  });
+
+  it('re-chains a start at a section boundary to the new predecessor', async () => {
+    await env.DB.exec('DELETE FROM lessons');
+    await add(1, 'كتاب الصلاة', 1);
+    await patchLesson(env.DB, 'sec-c', 1, { pdfIndex: 0, endPage: 40, endPdfIndex: 0 });
+    await add(2, 'كتاب الزكاة', 1);
+    await patchLesson(env.DB, 'sec-c', 2, { endPage: 90, endPdfIndex: 0 });
+    const start = async (n: number) => (await env.DB.prepare('SELECT start_page FROM lessons WHERE course_id = ? AND number = ?').bind('sec-c', n).first<{ start_page: number | null }>())!.start_page;
+    expect(await start(2)).toBe(40);
+    await call('PUT', '/api/admin/sections/sec-c', { order: ['كتاب الزكاة', 'كتاب الصلاة'] });
+    expect(await start(1)).toBe(90);
   });
 
   it.each([

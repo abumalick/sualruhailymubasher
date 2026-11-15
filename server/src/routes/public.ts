@@ -62,7 +62,7 @@ publicRoutes.get('/api/state', async (c) => {
       const latest = await latestLessons(db, course.id, 5);
       const mine = exceptions.filter((e) => e.courseId === null || e.courseId === course.id);
       const next = nextLessonDate(course, mine, now);
-      const unpublished = await heldSinceLatest(db, course.id, next?.date ?? addDays(medinaDate(now), 1), now);
+      const unpublished = await heldSinceLatest(db, course.id, next?.date ?? addDays(medinaDate(now), 1));
       return {
         id: course.id,
         title: course.title,
