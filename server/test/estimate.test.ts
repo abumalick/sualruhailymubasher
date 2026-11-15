@@ -9,6 +9,10 @@ const lesson = (number: number, o: Partial<LessonDTO> = {}): LessonDTO => ({
   number,
   hijriDate: '',
   startPoint: 'x',
+  section: '',
+  sectionNumber: null,
+  label: '',
+  dateFlag: false,
   pdfIndex: null,
   startPage: null,
   endPoint: null,
@@ -34,7 +38,6 @@ describe('nextPassage', () => {
     latest.push(lesson(0, { startPage: 5, endPage: 7 }));
     expect(nextPassage(course, latest, next)).toEqual({
       ...next,
-      number: 4,
       startPoint: null,
       pdfIndex: 1,
       startPage: 16,
@@ -46,7 +49,6 @@ describe('nextPassage', () => {
   it('uses the transcribed end point exactly', () => {
     const latest = [lesson(3, { startPage: 14, endPage: 16, endPoint: 'باب', pdfIndex: 2 })];
     expect(nextPassage(course, latest, next)).toMatchObject({
-      number: 4,
       startPoint: 'باب',
       startPage: 16,
       pdfIndex: 2,
@@ -61,7 +63,6 @@ describe('nextPassage', () => {
       lesson(2, { startPage: 12, endPage: 14 }),
     ];
     expect(nextPassage(course, latest, next)).toMatchObject({
-      number: 4,
       startPoint: null,
       startPage: 20,
       estimated: false,
@@ -75,24 +76,22 @@ describe('nextPassage', () => {
 
   it('estimates past lessons held but not yet published', () => {
     const latest = [lesson(3, { startPage: 14, endPage: 16, endPoint: 'باب', pdfIndex: 2 })];
-    expect(nextPassage(course, latest, next, 5)).toMatchObject({
-      number: 5,
+    expect(nextPassage(course, latest, next, 1)).toMatchObject({
       startPoint: null,
       startPage: 18,
       pdfIndex: 2,
       estEndPage: 20,
       estimated: true,
     });
-    expect(nextPassage(course, [lesson(3, { startPage: 14 })], next, 5)).toMatchObject({ startPage: 18, estEndPage: 20 });
+    expect(nextPassage(course, [lesson(3, { startPage: 14 })], next, 1)).toMatchObject({ startPage: 18, estEndPage: 20 });
   });
 
   it('leaves pages null when nothing is known', () => {
     expect(nextPassage(course, [lesson(5)], next)).toMatchObject({
-      number: 6,
       startPage: null,
       estEndPage: null,
       estimated: true,
     });
-    expect(nextPassage(course, [], next)).toMatchObject({ number: 1, startPage: null, pdfIndex: null });
+    expect(nextPassage(course, [], next)).toMatchObject({ startPage: null, pdfIndex: null });
   });
 });

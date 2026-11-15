@@ -120,13 +120,13 @@ it('opening the book from the live sheet keeps the Mixlr iframe mounted and coll
   expect(screen.getByText('book page 280')).toBeTruthy();
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByRole('region', { name: 'البث المباشر' })).toBeTruthy();
-  expect(screen.getByText('مباشر · الدرس ١٥')).toBeTruthy();
+  expect(screen.getByText('بث مباشر')).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' })).toBeNull();
   expect(screen.getByTitle('البث المباشر')).toBe(frame);
 
   await go('#/more');
   await go('#/');
-  fireEvent.click(screen.getByRole('button', { name: /مباشر · الدرس ١٥/ }));
+  fireEvent.click(screen.getByRole('button', { name: /بث مباشر/ }));
   expect(screen.getByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
 
   w.flush();
@@ -197,6 +197,7 @@ it('playing a recording while the bar is up stops the live player first and keep
   await act(async () => {});
   expect(screen.queryByTitle('البث المباشر')).toBeNull();
   expect(player.state.src?.kind).toBe('recording');
+  expect(player.state.src?.title).toBe('شرح كتاب الكبائر للذهبي · المجلس ١٤');
   expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'playing' });
 });
 

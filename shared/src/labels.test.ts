@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lessonLabel } from './labels';
+import { lessonLabel, noticePlace } from './labels';
 
 describe('lessonLabel', () => {
   it('names a sectioned lesson by its section and Arabic-Indic number', () => {
@@ -13,5 +13,15 @@ describe('lessonLabel', () => {
 
   it('ignores the course word when there is a section', () => {
     expect(lessonLabel('المجلس', 'كتاب الحدود', 11)).toBe('كتاب الحدود – الدرس ١١');
+  });
+});
+
+describe('noticePlace', () => {
+  it('joins the title and the place', () => {
+    expect(noticePlace('شرح كتاب الكبائر للذهبي', 'مسجد قباء')).toBe('شرح كتاب الكبائر للذهبي · مسجد قباء');
+  });
+
+  it('is the title alone without a place', () => {
+    expect(noticePlace('شرح كتاب الكبائر للذهبي', '')).toBe('شرح كتاب الكبائر للذهبي');
   });
 });

@@ -18,17 +18,15 @@ export function nextPassage(
   _course: CourseRow,
   latest: LessonDTO[],
   next: { date: string; time: string } | null,
-  number = (latest[0]?.number ?? 0) + 1,
+  unpublished = 0,
 ): NextPassageDTO | null {
   if (!next) return null;
   const last = latest[0];
   const step = pace(latest);
   const ended = !!last && last.endPage !== null;
-  const unpublished = last ? number - last.number - 1 : 0;
   const base = {
     date: next.date,
     time: next.time,
-    number,
     pdfIndex: (ended ? last!.endPdfIndex ?? last!.pdfIndex : last?.pdfIndex) ?? null,
   };
 

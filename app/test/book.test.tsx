@@ -218,7 +218,7 @@ describe('Book', () => {
     const onTick = vi.fn();
     render(book(10, true, { onTick }));
     fireEvent.click(await screen.findByRole('button', { name: 'قرأتُه' }));
-    expect(onTick).toHaveBeenCalledWith('read', course.id, course.next!.number);
+    expect(onTick).toHaveBeenCalledWith('read', course.id, (course.latest[0]?.number ?? 0) + 1 + course.unpublished);
   });
 
   it('footer tick shows without the marker too', async () => {

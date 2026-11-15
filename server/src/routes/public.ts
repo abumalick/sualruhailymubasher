@@ -5,7 +5,7 @@ import type { Env } from '../index';
 import { nextPassage } from '../estimate';
 import { servePdf } from '../pdf';
 import {
-  expectedNextNumber,
+  heldSinceLatest,
   getLive,
   getSetting,
   latestLessons,
@@ -14,7 +14,7 @@ import {
   listExceptions,
 } from '../repo';
 import { lessonTime, nextLessonDate } from '../schedule';
-import { medinaDate } from '../time';
+import { addDays, medinaDate } from '../time';
 
 const EMBED_URL = 'https://sualruhaily.mixlr.com/embed';
 const DEFAULT_LIMIT = 20;
@@ -62,9 +62,11 @@ publicRoutes.get('/api/state', async (c) => {
       const latest = await latestLessons(db, course.id, 5);
       const mine = exceptions.filter((e) => e.courseId === null || e.courseId === course.id);
       const next = nextLessonDate(course, mine, now);
+      const unpublished = await heldSinceLatest(db, course.id, next?.date ?? addDays(medinaDate(now), 1), now);
       return {
         id: course.id,
         title: course.title,
+        lessonWord: course.lessonWord,
         slot: course.slot,
         place: course.place,
         weekdays: course.weekdays,
@@ -73,7 +75,8 @@ publicRoutes.get('/api/state', async (c) => {
         edition: course.edition,
         pageOffsets: course.pageOffsets,
         latest,
-        next: next && nextPassage(course, latest, next, await expectedNextNumber(db, course.id, next.date, now)),
+        unpublished,
+        next: next && nextPassage(course, latest, next, unpublished),
         exceptions: mine,
       };
     }),

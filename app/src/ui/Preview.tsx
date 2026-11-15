@@ -5,7 +5,7 @@ import type { Card } from '../logic/onboarding';
 import { PHONE_HEIGHT, phonePan, PREVIEW_DURATION, previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, STATUS_BAR, type Destination, type Frame, type Play, type Variant } from '../logic/preview';
 import { BookBar, BookFoot } from './Book';
 import { NextCard, RecordingCard } from './cards';
-import { ar, arText, clock12, dayWord, passageRange, printedPage, slotName } from './format';
+import { arText, clock12, dayWord, passageRange, printedPage, slotName } from './format';
 import { LessonHead, Sec } from './Lesson';
 import { LiveHero } from './LiveHero';
 import { LiveHead } from './LiveSheet';
@@ -146,7 +146,7 @@ function StreamPlayer({ card, state, frame }: { card: Card; state: StateDTO; fra
 function RecordingPlayer({ card, frame }: { card: Card; frame: Frame }) {
   if (card.kind !== 'recording' || !(frame.playing || frame.ended)) return null;
   const { course, lesson } = card;
-  const src = { url: lesson.recordingUrl ?? '', title: `${course.title} · الدرس ${ar(lesson.number)}`, subtitle: arText(lesson.startPoint), kind: 'recording' as const, courseId: course.id };
+  const src = { url: lesson.recordingUrl ?? '', title: `${course.title} · ${lesson.label}`, subtitle: arText(lesson.startPoint), kind: 'recording' as const, courseId: course.id };
   return <PlayerBar s={{ src, playing: frame.playing, position: frame.ended ? PREVIEW_DURATION : 0, duration: PREVIEW_DURATION, error: null }} act={INERT} />;
 }
 

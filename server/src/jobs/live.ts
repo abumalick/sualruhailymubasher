@@ -127,7 +127,7 @@ export async function runLivePoll({ db, fetch: f, fcm, now }: LiveDeps): Promise
     if (course) {
       await fcm.sendToTopic(liveTopic(course.id), {
         title: NOTICE_TITLE.live,
-        body: lessonNoticeBody(course.title),
+        body: lessonNoticeBody(course.title, course.place),
         data: { kind: 'live', courseId: course.id, number: '' },
         tag: LIVE_TAG,
         ttlSec: LIVE_TTL_SEC,

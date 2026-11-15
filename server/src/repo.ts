@@ -8,6 +8,7 @@ import type {
   PendingTranscription,
   Slot,
 } from '@sualruhaily/shared';
+import { lessonLabel } from '@sualruhaily/shared';
 import { hijriToMedinaDate, normalizeHijri, weekday } from './time';
 
 export interface CourseRow {
@@ -56,6 +57,10 @@ const toLesson = (r: Row): LessonDTO => ({
   number: r.number as number,
   hijriDate: r.hijri_date as string,
   startPoint: r.start_point as string,
+  section: r.section as string,
+  sectionNumber: (r.section_number as number | null) ?? null,
+  label: lessonLabel((r.lesson_word as string | undefined) ?? 'الدرس', r.section as string, (r.section_number as number | null) ?? (r.number as number)),
+  dateFlag: r.date_flag === 1,
   pdfIndex: r.pdf_index as number | null,
   startPage: r.start_page as number | null,
   endPoint: r.end_point as string | null,
@@ -67,20 +72,16 @@ const toLesson = (r: Row): LessonDTO => ({
 
 export interface LessonRow extends LessonDTO {
   courseId: string;
-  section: string;
-  sectionNumber: number | null;
 }
 
 const toLessonRow = (r: Row): LessonRow => ({
   ...toLesson(r),
   courseId: r.course_id as string,
-  section: r.section as string,
-  sectionNumber: (r.section_number as number | null) ?? null,
 });
 
 // Sequence order is the sheikh's own: section ord, then section_number. Sections never registered
 // (legacy rows, section '') sort first; a NULL section_number sorts after the numbered ones, by number.
-const SEQ_ROWS = `SELECT l.*, coalesce(s.ord, 0) AS ord, l.section_number IS NULL AS no_sn, coalesce(l.section_number, 0) AS sn
+const SEQ_ROWS = `SELECT l.*, (SELECT lesson_word FROM courses WHERE id = l.course_id) AS lesson_word, coalesce(s.ord, 0) AS ord, l.section_number IS NULL AS no_sn, coalesce(l.section_number, 0) AS sn
   FROM lessons l LEFT JOIN sections s ON s.course_id = l.course_id AND s.section = l.section`;
 const SEQ = `seq AS (${SEQ_ROWS} WHERE l.course_id = ?1)`;
 const SEQ_COLS = 'ord, no_sn, sn, number';
@@ -191,7 +192,7 @@ export const latestLessons = (db: D1Database, courseId: string, limit: number) =
 export async function insertLessonIfNew(
   db: D1Database,
   courseId: string,
-  l: Omit<LessonDTO, 'pdfIndex' | 'startPage' | 'endPoint' | 'endPage' | 'endPdfIndex'> & {
+  l: Omit<LessonDTO, 'pdfIndex' | 'startPage' | 'endPoint' | 'endPage' | 'endPdfIndex' | 'section' | 'sectionNumber' | 'label' | 'dateFlag'> & {
     section?: string;
     sectionNumber?: number | null;
     sourceRef?: string | null;
@@ -409,11 +410,10 @@ export async function recordBroadcast(
     .run();
 }
 
-// Number of the lesson held on Medina date `on`: lessons arrive after a delay, so lesson days
-// broadcast after the latest scraped lesson was held (and before `on`) are counted too.
-// Days, not uids, so a reconnect that yields a second uid counts once. When the held date cannot be
-// derived from the hijri date, the lesson's created_at is the anchor instead.
-export async function expectedNextNumber(db: D1Database, courseId: string, on: string, now: Date): Promise<number> {
+// Lesson days broadcast after the newest lesson was held (and before `on`) that have no published lesson yet:
+// lessons arrive after a delay. Days, not uids, so a reconnect that yields a second uid counts once. When the
+// held date cannot be derived from the hijri date, the lesson's created_at is the anchor instead.
+export async function heldSinceLatest(db: D1Database, courseId: string, on: string, _now: Date): Promise<number> {
   const [last] = await latestLessons(db, courseId, 1);
   const created = last
     ? await db
@@ -431,7 +431,7 @@ export async function expectedNextNumber(db: D1Database, courseId: string, on: s
     )
     .bind(courseId, on, held, created?.created_at ?? '')
     .first<{ n: number }>();
-  return (last?.number ?? 0) + 1 + r!.n;
+  return r!.n;
 }
 
 export async function pendingTranscriptions(db: D1Database): Promise<PendingTranscription[]> {

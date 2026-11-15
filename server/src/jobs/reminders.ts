@@ -1,7 +1,7 @@
 import { courseTopic, NOTICE_TAG, NOTICE_TITLE, prepNoticeBody } from '@sualruhaily/shared';
 import { nextPassage } from '../estimate';
 import type { Fcm } from '../fcm';
-import { expectedNextNumber, latestLessons, listCourses, listExceptions, markSent, type CourseRow } from '../repo';
+import { heldSinceLatest, latestLessons, listCourses, listExceptions, markSent, type CourseRow } from '../repo';
 import { nextLessonDate } from '../schedule';
 import { addDays, medinaDate, medinaInstant } from '../time';
 
@@ -33,12 +33,12 @@ async function remind(course: CourseRow, { db, fcm, now }: RemindersDeps, except
   if (!(await markSent(db, `prep:${course.id}:${next.date}`))) return;
 
   const latest = await latestLessons(db, course.id, 5);
-  const passage = nextPassage(course, latest, next, await expectedNextNumber(db, course.id, next.date, now));
+  const passage = nextPassage(course, latest, next, await heldSinceLatest(db, course.id, next.date, now));
   if (!passage) return;
   await fcm.sendToTopic(courseTopic(course.id, 'prep'), {
     title: NOTICE_TITLE.prep,
-    body: prepNoticeBody(course.title, passage.startPoint, passage.number),
-    data: { kind: 'prep', courseId: course.id, number: String(passage.number) },
+    body: prepNoticeBody(course.title, course.place, passage.startPoint),
+    data: { kind: 'prep', courseId: course.id, number: '' },
     tag: NOTICE_TAG,
     ttlSec: (medinaInstant(next.date, next.time).getTime() - now.getTime()) / 1000,
   });

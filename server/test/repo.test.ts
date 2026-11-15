@@ -13,7 +13,7 @@ import {
   markSent,
   patchLesson,
   pendingTranscriptions,
-  expectedNextNumber,
+  heldSinceLatest,
   recordBroadcast,
   setLive,
   setRecordingUrl,
@@ -68,6 +68,10 @@ describe('lessons', () => {
     expect(latest.map((l) => l.number)).toEqual([5, 4, 3]);
     expect(latest[0]).toEqual({
       ...lesson(5),
+      section: '',
+      sectionNumber: 5,
+      label: 'الدرس ٥',
+      dateFlag: false,
       pdfIndex: null,
       startPage: null,
       endPoint: null,
@@ -144,7 +148,7 @@ describe('lessons', () => {
   });
 });
 
-describe('expectedNextNumber', () => {
+describe('heldSinceLatest', () => {
   const backdate = (courseId: string) =>
     db.prepare("UPDATE lessons SET created_at = '2026-10-01T00:00:00.000Z' WHERE course_id = ?").bind(courseId).run();
 
@@ -153,28 +157,28 @@ describe('expectedNextNumber', () => {
   const FALLBACK_NOW = new Date('2026-11-01T00:00:00Z');
 
   it('counts lesson days broadcast after the latest scraped lesson (created_at fallback)', async () => {
-    expect(await expectedNextNumber(db, 'n-none', '2026-11-01', FALLBACK_NOW)).toBe(1);
+    expect(await heldSinceLatest(db, 'n-none', '2026-11-01', FALLBACK_NOW)).toBe(0);
     await recordBroadcast(db, 'n0', 'n-none', '2026-10-20T02:30:00.000Z');
-    expect(await expectedNextNumber(db, 'n-none', '2026-11-01', FALLBACK_NOW)).toBe(2);
+    expect(await heldSinceLatest(db, 'n-none', '2026-11-01', FALLBACK_NOW)).toBe(1);
 
     await insertLessonIfNew(db, 'n-c', undated(7));
     await backdate('n-c');
-    expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(8);
+    expect(await heldSinceLatest(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(0);
     await recordBroadcast(db, 'b1', 'n-c', '2026-09-30T02:30:00.000Z');
     await recordBroadcast(db, 'b2', 'n-c', '2026-10-20T02:30:00.000Z');
     await recordBroadcast(db, 'b2', 'n-c', '2026-10-20T02:30:00.000Z');
     await recordBroadcast(db, 'b3', 'n-c', '2026-10-20T03:10:00.000Z');
     await recordBroadcast(db, 'b4', 'other', '2026-10-21T02:30:00.000Z');
     await recordBroadcast(db, 'b5', null, '2026-10-21T02:30:00.000Z');
-    expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(9);
-    expect(await expectedNextNumber(db, 'n-c', '2026-10-20', FALLBACK_NOW)).toBe(8);
+    expect(await heldSinceLatest(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(1);
+    expect(await heldSinceLatest(db, 'n-c', '2026-10-20', FALLBACK_NOW)).toBe(0);
 
     await insertLessonIfNew(db, 'n-c', undated(8));
-    expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(9);
+    expect(await heldSinceLatest(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(0);
   });
 });
 
-describe('expectedNextNumber anchored on the held date', () => {
+describe('heldSinceLatest anchored on the held date', () => {
   const now = new Date('2026-10-21T12:00:00Z');
   const held = (number: number, hijriDate: string) =>
     insertLessonIfNew(db, 'h-c', { ...lesson(number), hijriDate });
@@ -183,9 +187,18 @@ describe('expectedNextNumber anchored on the held date', () => {
     await recordBroadcast(db, 'h7', 'h-c', '2026-10-20T02:30:00.000Z');
     await recordBroadcast(db, 'h8', 'h-c', '2026-10-21T02:30:00.000Z');
     await held(7, '09-05-1448');
-    expect(await expectedNextNumber(db, 'h-c', '2026-10-22', now)).toBe(9);
+    expect(await heldSinceLatest(db, 'h-c', '2026-10-22', now)).toBe(1);
     await held(8, '10-05-1448');
-    expect(await expectedNextNumber(db, 'h-c', '2026-10-22', now)).toBe(9);
+    expect(await heldSinceLatest(db, 'h-c', '2026-10-22', now)).toBe(0);
+  });
+});
+
+describe('heldSinceLatest counting', () => {
+  it('counts 2 after two broadcast days following the newest lesson', async () => {
+    await insertLessonIfNew(db, 'h2-c', { ...lesson(7), hijriDate: '09-05-1448' });
+    await recordBroadcast(db, 'k1', 'h2-c', '2026-10-21T02:30:00.000Z');
+    await recordBroadcast(db, 'k2', 'h2-c', '2026-10-22T02:30:00.000Z');
+    expect(await heldSinceLatest(db, 'h2-c', '2026-10-23', new Date('2026-10-23T00:00:00Z'))).toBe(2);
   });
 });
 

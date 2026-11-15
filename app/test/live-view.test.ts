@@ -48,53 +48,54 @@ describe('nextLivePlayer', () => {
 describe('liveLesson', () => {
   const flipped: CourseDTO = {
     ...TAWHID,
-    next: { ...TAWHID.next!, date: '2026-11-03', number: 16, startPoint: null, startPage: 285, estEndPage: 290, estimated: true },
+    unpublished: 1,
+    next: { ...TAWHID.next!, date: '2026-11-03', startPoint: null, startPage: 285, estEndPage: 290, estimated: true },
   };
 
-  it('the next lesson is the one on air when it is dated the broadcast day', () => {
+  it('the next lesson is the one on air when it is dated the broadcast day, and has no label before it is published', () => {
     expect(liveLesson(TAWHID, STARTED['kabair'])).toEqual({
-      number: 15,
+      label: null,
       start: { startPoint: TAWHID_14.endPoint, pdfIndex: 0, startPage: 280 },
     });
   });
 
   it('a long broadcast keeps its lesson after next has moved on: starts where the previous lesson ended', () => {
     expect(liveLesson(flipped, STARTED['kabair'])).toEqual({
-      number: 15,
+      label: null,
       start: { startPoint: 'من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…', pdfIndex: 0, startPage: 280 },
     });
   });
 
   it('after next has moved on, a published lesson on air gives its own start', () => {
-    const published = { ...flipped, latest: [{ ...TAWHID_14, number: 15, startPoint: 'بداية الدرس ١٥', startPage: 281 }, ...flipped.latest] };
-    expect(liveLesson(published, STARTED['kabair']).start).toEqual({ startPoint: 'بداية الدرس ١٥', pdfIndex: 0, startPage: 281 });
+    const published = { ...flipped, unpublished: 0, latest: [{ ...TAWHID_14, number: 15, label: 'المجلس ١٥', startPoint: 'بداية الدرس ١٥', startPage: 281 }, ...flipped.latest] };
+    expect(liveLesson(published, STARTED['kabair'])).toEqual({ label: 'المجلس ١٥', start: { startPoint: 'بداية الدرس ١٥', pdfIndex: 0, startPage: 281 } });
   });
 
   it('after next has moved on with no known previous end, the start is unknown', () => {
-    expect(liveLesson({ ...flipped, latest: [] }, STARTED['kabair'])).toEqual({ number: 15, start: null });
+    expect(liveLesson({ ...flipped, latest: [] }, STARTED['kabair'])).toEqual({ label: null, start: null });
   });
 
   it('a lesson published while still on air stays the lesson, although next already counts past it', () => {
-    const fifteen = { ...TAWHID_14, number: 15, hijriDate: '22-05-1448', startPoint: TAWHID_14.endPoint!, startPage: 280, endPoint: null, endPage: null };
+    const fifteen = { ...TAWHID_14, number: 15, label: 'المجلس ١٥', hijriDate: '22-05-1448', startPoint: TAWHID_14.endPoint!, startPage: 280, endPoint: null, endPage: null };
     const published: CourseDTO = {
       ...TAWHID,
       latest: [fifteen, ...TAWHID.latest],
-      next: { ...TAWHID.next!, date: '2026-11-02', number: 16, startPoint: null, startPage: 285, estimated: true },
+      next: { ...TAWHID.next!, date: '2026-11-02', startPoint: null, startPage: 285, estimated: true },
     };
     expect(liveLesson(published, STARTED['kabair'])).toEqual({
-      number: 15,
+      label: 'المجلس ١٥',
       start: { startPoint: 'من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…', pdfIndex: 0, startPage: 280 },
     });
   });
 
   it('a broadcast that runs past Medina midnight keeps next when next is dated the day before', () => {
-    expect(liveLesson(TAWHID, '2026-11-02T21:30:00Z').number).toBe(15);
+    expect(liveLesson(TAWHID, '2026-11-02T21:30:00Z').start?.startPage).toBe(280);
   });
 
   it('without a broadcast start or next lesson it falls back', () => {
-    expect(liveLesson(TAWHID, null).number).toBe(15);
-    expect(liveLesson(TAWHID, 'not a date').number).toBe(15);
-    expect(liveLesson({ ...TAFSIR, next: null }, STARTED['kitab-tawhid'])).toEqual({ number: 444, start: null });
+    expect(liveLesson(TAWHID, null)).toMatchObject({ label: null, start: { startPage: 280 } });
+    expect(liveLesson(TAWHID, 'not a date')).toMatchObject({ label: null, start: { startPage: 280 } });
+    expect(liveLesson({ ...TAFSIR, next: null }, STARTED['kitab-tawhid'])).toEqual({ label: null, start: null });
   });
 });
 
@@ -102,12 +103,12 @@ describe('liveContext', () => {
   it('Tafsir: start text as served, printed page with edition, no book link', () => {
     expect(liveContext(TAFSIR, true, STARTED['kitab-tawhid'])).toEqual({
       title: 'شرح كتاب التوحيد',
-      header: 'البث المباشر · الدرس ٤٦٠',
+      header: 'البث المباشر',
       start: 'تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ لَا يَرْقُبُوا فِيكُمْ إِلًّا وَلَا ذِمَّةً...﴾',
       edition: 'ص ٦٣٦ · طبعة دار ابن الجوزي',
       book: null,
       bookLabel: 'تابع في الكتاب · ص ٦٣٦',
-      status: { live: true, text: 'مباشر · الدرس ٤٦٠ · ص ٦٣٦ · طبعة دار ابن الجوزي' },
+      status: { live: true, text: 'بث مباشر · ص ٦٣٦ · طبعة دار ابن الجوزي' },
     });
   });
 
@@ -117,7 +118,7 @@ describe('liveContext', () => {
     expect(ctx.edition).toBeNull();
     expect(ctx.book).toBe('#/book/kabair/0/280?marker=1');
     expect(ctx.bookLabel).toBe('تابع في الكتاب · ص ٢٧٨');
-    expect(ctx.status).toEqual({ live: true, text: 'مباشر · الدرس ١٥' });
+    expect(ctx.status).toEqual({ live: true, text: 'بث مباشر' });
   });
 
   it('once the broadcast has ended the status stops claiming live', () => {
@@ -128,14 +129,14 @@ describe('liveContext', () => {
   it('unknown start text or page falls back to the previous lesson and page 1', () => {
     const c: CourseDTO = { ...TAWHID, next: { ...TAWHID.next!, startPoint: null, startPage: null } };
     const ctx = liveContext(c, true, STARTED['kabair']);
-    expect(ctx.start).toBe('يتابع من حيث توقف الدرس ١٤');
+    expect(ctx.start).toBe('يتابع من حيث توقف المجلس ١٤');
     expect(ctx.book).toBe('#/book/kabair/0/1');
     expect(ctx.bookLabel).toBe('تابع في الكتاب');
   });
 
-  it('no next lesson: lesson number from the latest one, no start, no book', () => {
+  it('no next lesson: no label, no start, no book', () => {
     const ctx = liveContext({ ...TAFSIR, next: null }, true, STARTED['kitab-tawhid']);
-    expect(ctx.header).toBe('البث المباشر · الدرس ٤٤٤');
+    expect(ctx.header).toBe('البث المباشر');
     expect([ctx.start, ctx.edition, ctx.book]).toEqual([null, null, null]);
   });
 

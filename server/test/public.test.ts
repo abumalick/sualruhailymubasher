@@ -33,12 +33,16 @@ describe('GET /api/state', () => {
     expect(body.courses.map((c: any) => c.id)).toEqual(['kitab-tawhid', 'kabair', 'targhib', 'dalil-talib']);
     const saadi = body.courses[3];
     expect(Object.keys(saadi).sort()).toEqual(
-      ['edition', 'exceptions', 'id', 'latest', 'next', 'pageOffsets', 'pdfUrls', 'place', 'slot', 'time', 'title', 'weekdays'].sort(),
+      ['edition', 'exceptions', 'id', 'latest', 'lessonWord', 'next', 'pageOffsets', 'pdfUrls', 'place', 'slot', 'time', 'title', 'unpublished', 'weekdays'].sort(),
     );
     expect(saadi).toMatchObject({ slot: 'asr', place: 'المسجد النبوي (حلقة ٢)', weekdays: [4, 5, 6], pageOffsets: [] });
     expect(body.courses[1]).toMatchObject({ slot: 'asr', place: 'مسجد قباء' });
     expect(saadi.latest.map((l: any) => l.number)).toEqual([7, 6, 5, 4, 3]);
-    expect(saadi.next.number).toBe(8);
+    expect(saadi.next).not.toHaveProperty('number');
+    expect(saadi).toMatchObject({ lessonWord: 'الدرس', unpublished: 0 });
+    expect(saadi.latest.every((l: any) => typeof l.label === 'string' && l.label !== '')).toBe(true);
+    expect(saadi.latest[0]).toMatchObject({ label: 'الدرس ٧', section: '', sectionNumber: 7, dateFlag: false });
+    expect(body.courses[1].lessonWord).toBe('المجلس');
     expect(saadi.time).toBe(saadi.next.time);
     expect(saadi.time).toMatch(/^1[56]:\d\d$/);
     expect(body.links).toHaveLength(4);
@@ -46,14 +50,14 @@ describe('GET /api/state', () => {
     expect(body.links[3].url).toBe('https://sualruhaily.mixlr.com');
   });
 
-  it('counts lessons broadcast but not yet on media.sualruhailymubasher.com in next.number', async () => {
-    const next = async () => ((await (await get('/api/state')).json()) as any).courses[3].next.number;
+  it('counts lessons broadcast but not yet on media.sualruhailymubasher.com as unpublished', async () => {
+    const next = async () => ((await (await get('/api/state')).json()) as any).courses[3].unpublished;
     await insertLessonIfNew(env.DB, 'dalil-talib', { ...lesson(7), hijriDate: '30-01-1448' });
     await env.DB.prepare("UPDATE lessons SET created_at = '2026-01-01T00:00:00.000Z'").run();
     await recordBroadcast(env.DB, 'b-8', 'dalil-talib', '2026-01-04T02:30:00.000Z');
-    expect(await next()).toBe(9);
+    expect(await next()).toBe(1);
     await insertLessonIfNew(env.DB, 'dalil-talib', { ...lesson(8), hijriDate: '30-01-1448' });
-    expect(await next()).toBe(9);
+    expect(await next()).toBe(0);
   });
 
   it('hides streamUrl in embed mode even when live', async () => {

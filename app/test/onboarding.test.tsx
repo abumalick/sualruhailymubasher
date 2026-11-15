@@ -119,7 +119,7 @@ describe('the live step', () => {
     const pv = document.querySelector('.pv')!;
     expect(pv.textContent).toContain('مثال: هكذا يصلك التنبيه');
     expect(pv.querySelector('.pv-banner b')!.textContent).toBe(NOTICE_TITLE.live);
-    expect(pv.querySelector('.pv-banner .bd')!.textContent).toBe(`${fajr.title} · الدرس ٤٤٤`);
+    expect(pv.querySelector('.pv-banner .bd')!.textContent).toBe(`${fajr.title} · ${fajr.place}`);
     expect(pv.getAttribute('data-to')).toBe('live');
     expect(screen.getByText(/يصلك تنبيه عند بدء البث، فيفتح مشغّل البث المباشر/)).toBeTruthy();
   });
@@ -219,7 +219,7 @@ describe('the whole flow', () => {
     fireEvent.click(switchOf(REC));
     next();
     await heading('حضّر للدرس القادم');
-    expect(screen.getByText(/الدرس ٤٤٤ ·/)).toBeTruthy();
+    expect(screen.getByText(`${fajr.title} · ${fajr.place}`)).toBeTruthy();
     expect(screen.getByText(/الفجر: مساء اليوم السابق/)).toBeTruthy();
     expect(screen.getByText(/العصر: قبل الدرس بثلاث ساعات/)).toBeTruthy();
     expect(switchOf(PREP).getAttribute('aria-checked')).toBe('true');

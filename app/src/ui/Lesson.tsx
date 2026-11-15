@@ -2,7 +2,7 @@ import type { CourseDTO, LessonDTO, LiveDTO } from '@sualruhaily/shared';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { fetchLessons } from '../api';
-import { buildLesson } from '../logic/lesson';
+import { buildLesson, nextTickNumber } from '../logic/lesson';
 import type { TickKind, Ticks } from '../logic/ticks';
 import { hijriLabel } from '../logic/time';
 import { ar, arText, bookHref, clock12, dayWord, pageSuffix, printedPage, schedule, slotName } from './format';
@@ -136,13 +136,13 @@ export function Lesson(p: LessonProps) {
       {top.kind === 'next' && (
         <>
           <Sec title="الدرس القادم" hint="حضّره" />
-          <NextCard course={course} next={top.next} read={top.read} when={`${dayWord(top.next.date, p.now)} بعد ${slot} · ${clock12(top.next.time)}`} onTick={() => p.onTick('read', course.id, top.next.number)} />
+          <NextCard course={course} next={top.next} read={top.read} when={`${dayWord(top.next.date, p.now)} بعد ${slot} · ${clock12(top.next.time)}`} onTick={() => p.onTick('read', course.id, nextTickNumber(course))} />
         </>
       )}
       {top.kind === 'today' && (
         <>
           <Sec title="درس اليوم" />
-          <NextCard course={course} next={top.next} read={top.read} when={top.ended ? 'انتهى' : `بدأ ${clock12(top.next.time)}`} onTick={() => p.onTick('read', course.id, top.next.number)} />
+          <NextCard course={course} next={top.next} read={top.read} when={top.ended ? 'انتهى' : `بدأ ${clock12(top.next.time)}`} onTick={() => p.onTick('read', course.id, nextTickNumber(course))} />
         </>
       )}
       {top.kind === 'none' && <p class="quiet">لا يوجد درس قادم مجدول</p>}
@@ -160,7 +160,7 @@ export function Lesson(p: LessonProps) {
             />
           ) : (
             <div class="card reach last">
-              <span class="b">التسجيل قريبًا · الدرس {ar(last.lessonNumber)}</span>
+              <span class="b">{last.label ? `التسجيل قريبًا · ${last.label}` : 'التسجيل قريبًا'}</span>
               <span class="m">يُتاح التسجيل بعد نشره على موقع الشيخ</span>
             </div>
           )}
@@ -183,7 +183,7 @@ export function Lesson(p: LessonProps) {
                   </span>
                 )}
                 <div class="t">
-                  <span class="b">الدرس {ar(l.number)}</span>
+                  <span class="b">{l.label}</span>
                   <span class="m">
                     {arText(l.startPoint)}
                     {pageSuffix(printedPage(course, l.pdfIndex, l.startPage))}

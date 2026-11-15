@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CourseDTO, LessonDTO, LiveDTO } from '@sualruhaily/shared';
+import { toArabicDigits, type CourseDTO, type LessonDTO, type LiveDTO } from '@sualruhaily/shared';
 
 vi.mock('../src/api', () => ({ loadCachedState: vi.fn(), fetchState: vi.fn(), fetchLessons: vi.fn() }));
 
@@ -17,7 +17,7 @@ const MON_1900 = new Date('2026-11-02T16:00:00Z');
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
 const none = (): Ticks => ({ read: new Set(), reviewed: new Set() });
 const noop = () => {};
-const lesson = (number: number): LessonDTO => ({ ...tafsir.latest[0], number, startPoint: `سورة الأنفال ${number}` });
+const lesson = (number: number): LessonDTO => ({ ...tafsir.latest[0], number, sectionNumber: number, label: `الدرس ${toArabicDigits(number)}`, startPoint: `سورة الأنفال ${number}` });
 
 function page(course: CourseDTO, extra: Partial<LessonProps> = {}) {
   return render(
@@ -72,7 +72,7 @@ describe('Lesson page', () => {
   it('الدرس القادم shows the lesson, the day and time, the passage, the book and the read tick', () => {
     const onTick = vi.fn();
     page(tafsir, { onTick });
-    expect(screen.getByText('الدرس ٤٤٤ · غدًا بعد الفجر · ٥:٢٥ ص')).toBeTruthy();
+    expect(screen.getByText('غدًا بعد الفجر · ٥:٢٥ ص')).toBeTruthy();
     expect(screen.getByText('يتابع من حيث توقف الدرس ٤٤٣ · إلى نحو ص ٣١٤')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'اقرأ في الكتاب · ص ٣١٢' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/312?marker=1');
     fireEvent.click(screen.getByRole('button', { name: 'قرأتُه' }));
@@ -132,20 +132,20 @@ describe('Lesson page', () => {
     expect(sections()[0]).toBe('الدرس القادم· حضّره');
   });
 
-  it('awaiting shows التسجيل قريبًا with the lesson number, and the previous recording leads كل الدروس', () => {
+  it('awaiting shows التسجيل قريبًا without a lesson label, and the previous recording leads كل الدروس', () => {
     page(tawhid);
-    expect(screen.getByText('التسجيل قريبًا · الدرس ٣')).toBeTruthy();
+    expect(screen.getByText('التسجيل قريبًا')).toBeTruthy();
     expect(screen.getByText('يُتاح التسجيل بعد نشره على موقع الشيخ')).toBeTruthy();
-    expect(archive()).toEqual(['الدرس ٢', 'الدرس ١']);
+    expect(archive()).toEqual(['المجلس ٢', 'المجلس ١']);
   });
 
   it('درس اليوم after the start, then انتهى after 150 minutes', () => {
     page(tawhid, { now: MON_1900 });
     expect(sections()[0]).toBe('درس اليوم');
-    expect(screen.getByText('الدرس ٣ · بدأ ٦:٢٠ م')).toBeTruthy();
+    expect(screen.getByText('بدأ ٦:٢٠ م')).toBeTruthy();
     cleanup();
     page(tawhid, { now: MON_2110 });
-    expect(screen.getByText('الدرس ٣ · انتهى')).toBeTruthy();
+    expect(screen.getByText('انتهى')).toBeTruthy();
   });
 
   it('لا يوجد درس قادم مجدول without next', () => {
