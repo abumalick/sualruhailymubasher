@@ -1,18 +1,21 @@
 import type { CourseDTO, StateDTO } from '@albadr/shared';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { asksPermission, cardFor, finalPrefs, initialDraft, hasSwitch, pick, pickedCourses, setStep, stepHint, stepOn, STEPS, type Draft, type Step } from '../logic/onboarding';
+import { asksPermission, cardFor, finalPrefs, initialDraft, hasSwitch, pick, pickedCourses, setStep, stepHint, stepOn, stepsFor, type Draft, type Step } from '../logic/onboarding';
 import type { Prefs } from '../logic/prefs';
 import { dragShift, swipeAxis, swipeEnd } from '../logic/swipe';
 import { nativeUI } from '../platform';
+import { installStores } from '../logic/install';
 import { askPermission, pushPermission } from '../push';
 import { refresh } from '../store';
 import { ar, clock12, courseLabel, schedule, slotName } from './format';
 import { Toggle } from './Notifications';
 import { Preview, useReducedMotion } from './Preview';
 import { Icon } from './Star';
+import { hideInstallBannerThisVisit } from './InstallBanner';
+import { StoreBadges } from './StoreBadges';
 
-const TEXT: Record<Exclude<Step, 'app'>, { title: string; body: string; switches: string; fallback: string }> = {
+const TEXT: Record<Exclude<Step, 'app' | 'invite'>, { title: string; body: string; switches: string; fallback: string }> = {
   live: {
     title: 'استمع مباشرةً',
     body: 'يُبَثّ الدرس من المسجد النبوي وقت إلقائه، فتستمع إليه من هنا أينما كنت.',
@@ -52,9 +55,9 @@ function Pick({ course: c, all, on, onToggle }: { course: CourseDTO; all: Course
   );
 }
 
-const Dots = ({ at }: { at: number }) => (
-  <div class="dots" aria-label={`الخطوة ${ar(at + 1)} من ${ar(STEPS.length)}`}>
-    {STEPS.map((_, i) => (
+const Dots = ({ at, count }: { at: number; count: number }) => (
+  <div class="dots" aria-label={`الخطوة ${ar(at + 1)} من ${ar(count)}`}>
+    {Array.from({ length: count }, (_, i) => (
       <i class={i === at ? 'on' : ''} />
     ))}
   </div>
@@ -114,9 +117,10 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
   }
 
   const courses = state.courses;
-  const step = STEPS[at];
+  const steps = stepsFor(native);
+  const step = steps[at];
   const picked = pickedCourses(draft, courses);
-  const last = at === STEPS.length - 1;
+  const last = at === steps.length - 1;
 
   const go = async () => {
     if (busy) return;
@@ -126,7 +130,10 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
       setPermission(await askPermission());
       setBusy(false);
     }
-    if (last) onDone(finalPrefs(draft, courses, prefs));
+    if (last) {
+      if (!native) hideInstallBannerThisVisit();
+      onDone(finalPrefs(draft, courses, prefs));
+    }
     else move(at + 1, 'fwd');
   };
 
@@ -169,7 +176,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
 
   const top = (
     <div class="obtop">
-      <Dots at={at} />
+      <Dots at={at} count={steps.length} />
       {(at > 0 || replay) && (
         <button type="button" class="chip plain" onClick={back}>
           رجوع
@@ -204,6 +211,30 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
     );
   }
 
+  if (step === 'invite') {
+    const card = cardFor(step, picked, state.live);
+    const stores = installStores({ nativeUI: false, ua: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints ?? 0, dismissed: false })!;
+    return (
+      <div class="choose ob" {...swipe}>
+        {top}
+        {slide(
+          <>
+            <div class="intro">
+              <h3>التنبيهات في تطبيق الجوال</h3>
+              <p>لا تصل التنبيهات على الموقع. ثبّت التطبيق ليصلك تنبيه عند بدء البث، وعند نشر التسجيل، وتذكير قبل الدرس.</p>
+            </div>
+            {card && <Preview key={step} card={card} state={state} now={now} variant="invite" />}
+            <section class="obstores" aria-label="تطبيق الجوال">
+              <StoreBadges ids={stores} />
+            </section>
+            <button class="chip pri wide" disabled={busy} onClick={() => void go()}>
+              متابعة على الموقع
+            </button>
+          </>,
+        )}
+      </div>
+    );
+  }
   const text = TEXT[step];
   const card = cardFor(step, picked, state.live);
   const on = stepOn(step, draft, picked);
@@ -217,7 +248,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
             <h3>{text.title}</h3>
             <p>{text.body}</p>
           </div>
-          {card ? <Preview key={step} card={card} state={state} now={now} /> : text.fallback && <p class="quiet">{text.fallback}</p>}
+          {card ? <Preview key={step} card={card} state={state} now={now} variant={native ? 'apps' : 'web'} /> : text.fallback && <p class="quiet">{text.fallback}</p>}
           {native && hasSwitch(step, picked) && (
             <section class="notifs">
               <div class="card">

@@ -66,6 +66,8 @@ const next = () => fireEvent.click(screen.getByRole('button', { name: 'متاب�
 const heading = (name: string) => screen.findByRole('heading', { name });
 const switchOf = (name: string) => screen.getByRole('switch', { name });
 const LIVE = 'نبّهني عند بدء البث';
+const INVITE = 'التنبيهات في تطبيق الجوال';
+const ON_SITE = 'متابعة على الموقع';
 const REC = 'نبّهني عند نشر التسجيل';
 const PREP = 'ذكّرني بالتحضير';
 const tabLabels = () => [...document.querySelectorAll('.nav a')].map((a) => a.textContent);
@@ -304,7 +306,9 @@ describe('the whole flow', () => {
     await heading('راجع الدرس');
     next();
     await heading('حضّر للدرس القادم');
-    fireEvent.click(screen.getByRole('button', { name: 'ابدأ' }));
+    next();
+    await heading(INVITE);
+    fireEvent.click(screen.getByRole('button', { name: ON_SITE }));
     await waitFor(() => expect(store.get('onboarded')).toBe('1'));
     expect(saved().wanted.filter((t: string) => t.startsWith('c-')).sort()).toEqual(topicsFor([maghrib.id]).filter((t) => t !== 'live-other').sort());
     expect(fm.requestPermissions).not.toHaveBeenCalled();
@@ -492,6 +496,92 @@ describe('swiping between steps', () => {
     fireEvent.click(screen.getByRole('button', { name: 'رجوع' }));
     await heading('أيَّ الدروس تحضر؟');
     expect(document.querySelector('.obstep')!.className).toBe('obstep in-back');
+  });
+});
+
+describe('on the web', () => {
+  beforeEach(() => {
+    native.on = false;
+    localStorage.clear();
+  });
+  async function toInvite() {
+    await start();
+    for (const h of ['استمع مباشرةً', 'راجع الدرس', 'حضّر للدرس القادم', INVITE]) {
+      next();
+      await heading(h);
+    }
+  }
+
+  it('the previews show no notification, the steps have no switch, and there are five steps', async () => {
+    await toLive();
+    expect(document.querySelector('.pv-banner')).toBeNull();
+    expect(screen.queryByRole('switch')).toBeNull();
+    expect(document.querySelectorAll('.dots i')).toHaveLength(5);
+  });
+
+  it('the big red play button appears only inside the picture, which ignores taps', async () => {
+    await toLive();
+    const discs = [...document.querySelectorAll('.disc')];
+    expect(discs.length).toBeGreaterThan(0);
+    expect(discs.every((d) => d.closest('.pv[inert]'))).toBe(true);
+    expect([...document.querySelectorAll('.go-live')].every((d) => d.closest('.pv[inert]'))).toBe(true);
+  });
+
+  it('the last step invites to the app, with its notification and the store badges', async () => {
+    await toInvite();
+    expect(screen.getByText(/لا تصل التنبيهات على الموقع/)).toBeTruthy();
+    expect(document.querySelector('.pv-banner b')!.textContent).toBe(NOTICE_TITLE.live);
+    expect(document.querySelectorAll('.obstores a')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'ابدأ' })).toBeNull();
+  });
+
+  it('«متابعة على الموقع» finishes, saves the lessons, and the install banner stays hidden for this visit', async () => {
+    await toInvite();
+    fireEvent.click(screen.getByRole('button', { name: ON_SITE }));
+    await waitFor(() => expect(store.get('onboarded')).toBe('1'));
+    await waitFor(() => expect(document.querySelector('.nav')).not.toBeNull());
+    expect(document.querySelector('aside.install')).toBeNull();
+    expect(localStorage.getItem('install-banner-dismissed')).toBeNull();
+    expect(fm.requestPermissions).not.toHaveBeenCalled();
+  });
+
+  it('with no lesson listed, the invite has the text, the badges and the button, without a picture', async () => {
+    const api = await import('../src/api');
+    vi.mocked(api.fetchState).mockResolvedValue({ state: { ...FIXTURE_STATE, courses: [] }, fresh: true });
+    await toInvite();
+    expect(document.querySelector('.pv')).toBeNull();
+    expect(document.querySelectorAll('.obstores a')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: ON_SITE }));
+    await waitFor(() => expect(store.get('onboarded')).toBe('1'));
+  });
+
+  it('a replay from المزيد reaches the invite, and finishing pops back as in the apps', async () => {
+    seedPrefs(store, FIXTURE_STATE.courses);
+    store.set('onboarded', '1');
+    history.replaceState(null, '', '#/more');
+    render(<App />);
+    fireEvent.click(await screen.findByRole('link', { name: /كيف يعمل التطبيق/ }));
+    await heading('أيَّ الدروس تحضر؟');
+    const replace = vi.spyOn(location, 'replace');
+    for (const h of ['استمع مباشرةً', 'راجع الدرس', 'حضّر للدرس القادم', INVITE]) {
+      next();
+      await heading(h);
+    }
+    fireEvent.click(screen.getByRole('button', { name: ON_SITE }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('#/'));
+    replace.mockRestore();
+  });
+});
+
+describe('in the apps', () => {
+  it('there are four steps, no invite, and «ابدأ» on preparation', async () => {
+    await start();
+    expect(document.querySelectorAll('.dots i')).toHaveLength(4);
+    for (const h of ['استمع مباشرةً', 'راجع الدرس', 'حضّر للدرس القادم']) {
+      next();
+      await heading(h);
+    }
+    expect(screen.getByRole('button', { name: 'ابدأ' })).toBeTruthy();
   });
 });
 

@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { cardFor } from '../src/logic/onboarding';
-import { BEATS, PLAYS } from '../src/logic/preview';
+import { BEATS, PLAYS, type Variant } from '../src/logic/preview';
 import { ar, printedPage } from '../src/ui/format';
 import { Preview } from '../src/ui/Preview';
 
@@ -17,8 +17,8 @@ afterEach(() => {
   window.matchMedia = realMatchMedia;
 });
 
-function show(step: 'live' | 'rec' | 'prep') {
-  const { container } = render(<Preview card={cardFor(step, [tafsir], FIXTURE_STATE.live)!} state={FIXTURE_STATE} now={NOW} />);
+function show(step: 'live' | 'rec' | 'prep', variant: Variant = 'apps', state = FIXTURE_STATE) {
+  const { container } = render(<Preview card={cardFor(step, [tafsir], state.live)!} state={state} now={NOW} variant={variant} />);
   return container.querySelector<HTMLElement>('.pv')!;
 }
 const after = (ms: number) =>
@@ -112,7 +112,7 @@ describe('a preparation reminder for a course without a book', () => {
   it('opens the lesson page on the next-lesson card, says so to screen readers, and never ticks «قرأتُه»', async () => {
     const bookless = { ...tafsir, pdfUrls: [] };
     const state = { ...FIXTURE_STATE, courses: [bookless] };
-    const { container } = render(<Preview card={cardFor('prep', [bookless], state.live)!} state={state} now={NOW} />);
+    const { container } = render(<Preview card={cardFor('prep', [bookless], state.live)!} state={state} now={NOW} variant="apps" />);
     const pv = container.querySelector<HTMLElement>('.pv')!;
     expect(pv.previousElementSibling!.textContent).toContain('صفحة الدرس');
     expect(pv.previousElementSibling!.textContent).not.toContain('الكتاب');
@@ -130,10 +130,10 @@ describe('every preview', () => {
   it('starts again when the step changes, even to one that opens the same page', async () => {
     const bookless = { ...tafsir, pdfUrls: [] };
     const state = { ...FIXTURE_STATE, courses: [bookless] };
-    const { container, rerender } = render(<Preview card={cardFor('rec', [bookless], state.live)!} state={state} now={NOW} />);
+    const { container, rerender } = render(<Preview card={cardFor('rec', [bookless], state.live)!} state={state} now={NOW} variant="apps" />);
     await after(PLAYS * BEATS.review.at(-1)!.at + 10);
     expect(container.querySelector<HTMLElement>('.pv')!.dataset.still).toBe('');
-    rerender(<Preview card={cardFor('prep', [bookless], state.live)!} state={state} now={NOW} />);
+    rerender(<Preview card={cardFor('prep', [bookless], state.live)!} state={state} now={NOW} variant="apps" />);
     const pv = container.querySelector<HTMLElement>('.pv')!;
     expect(pv.dataset.to).toBe('lesson');
     expect(pv.dataset.still).toBeUndefined();
@@ -177,5 +177,76 @@ describe('every preview', () => {
     const event = new MouseEvent('click', { bubbles: true, cancelable: true });
     pv.querySelector('.pv-banner')!.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
+  });
+});
+
+describe('on the web', () => {
+  it('the live picture has no notification: the lesson page is on air, its disc is tapped, and Mixlr opens', async () => {
+    const pv = show('live', 'web');
+    expect(pv.querySelector('.pv-banner')).toBeNull();
+    expect(pv.querySelector('.pv-lp .pv-target .disc')).not.toBeNull();
+    expect(pv.querySelector('.pv-lp')!.textContent).not.toContain('الدرس القادم');
+    expect(pv.querySelector('.pv-cap')!.textContent).toBe('مثال: هكذا تستمع إلى البث');
+    await after(1500);
+    expect(pv.dataset.tap).toBe('live');
+    expect(pv.querySelector('.sheet')).toBeNull();
+    await after(400);
+    expect(pv.querySelector('.sheet .pv-mixlr')).not.toBeNull();
+  });
+
+  it('a direct stream plays in the app’s player bar instead of a Mixlr sheet', async () => {
+    const state = { ...FIXTURE_STATE, live: { ...FIXTURE_STATE.live, mode: 'direct' as const, streamUrl: 'https://stream.example/live.mp3' } };
+    const pv = show('live', 'web', state);
+    expect(pv.dataset.to).toBe('stream');
+    await after(1900);
+    expect(pv.querySelector('.sheet')).toBeNull();
+    const bar = pv.querySelector('.pv-app > .mp')!;
+    expect(bar.querySelector('.m')!.textContent).toBe('بث مباشر');
+    expect(pv.querySelector('audio')).toBeNull();
+  });
+
+  it('the preparation picture taps «اقرأ في الكتاب» on the next card and the book opens at the passage', async () => {
+    const pv = show('prep', 'web');
+    expect(pv.querySelector('.pv-banner')).toBeNull();
+    await after(1800);
+    expect(pv.dataset.tap).toBe('book');
+    expect(pv.querySelector('.pv-target a.chip.pri')!.textContent).toContain('اقرأ في الكتاب');
+    await after(400);
+    expect(pv.querySelector('.book')).not.toBeNull();
+    expect(pv.querySelector('.pv-cap')!.textContent).toBe('مثال: هكذا تحضّر للدرس');
+  });
+
+  it('the recording picture plays in the app’s player bar after «استمع», and rests on it', async () => {
+    const pv = show('rec', 'web');
+    await after(2200);
+    expect(pv.querySelector('.pv-app > .mp')).not.toBeNull();
+    await after(PLAYS * BEATS.review.at(-1)!.at);
+    expect(pv.dataset.still).toBe('');
+    expect(pv.querySelector<HTMLElement>('.pv-app > .mp .prog')!.style.width).toBe('100%');
+  });
+
+  it('describes the taps, never a notification, to screen readers', () => {
+    show('rec', 'web');
+    const sr = document.querySelector('.sr')!.textContent!;
+    expect(sr).toBe('صورة توضيحية: في صفحة الدرس تستمع إلى تسجيل آخر درس، ثم تعلّم عليه «راجعتُه».');
+    expect(document.querySelector('.pv-cap')!.textContent).toBe('مثال: هكذا تراجع الدرس');
+  });
+});
+
+describe('the app invite', () => {
+  it('plays the apps’ live notification, captioned as the app', async () => {
+    const pv = show('live', 'invite');
+    expect(pv.querySelector('.pv-cap')!.textContent).toBe('مثال: هكذا يصلك التنبيه في التطبيق');
+    expect(document.querySelector('.sr')!.textContent).toContain('يصلك تنبيه عند بدء البث');
+    await after(1400);
+    expect(pv.dataset.banner).toBe('big');
+    expect(pv.querySelector('.pv-lp .disc')).toBeNull();
+  });
+
+  it('with reduced motion rests on the grown notification', () => {
+    window.matchMedia = ((q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)', addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+    const pv = show('live', 'invite');
+    expect(pv.dataset.still).toBe('');
+    expect(pv.dataset.banner).toBe('big');
   });
 });

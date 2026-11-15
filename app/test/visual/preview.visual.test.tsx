@@ -7,6 +7,7 @@ import '../../src/styles/app.css';
 
 import { FIXTURE_STATE } from '../../src/dev/fixture-state';
 import { cardFor } from '../../src/logic/onboarding';
+import type { Variant } from '../../src/logic/preview';
 import { Preview } from '../../src/ui/Preview';
 import { Defs } from '../../src/ui/Star';
 
@@ -21,7 +22,7 @@ afterEach(async () => {
   await commands.emulateMedia({ reducedMotion: null });
 });
 
-async function show(step: 'live' | 'rec' | 'prep', width: number) {
+async function show(step: 'live' | 'rec' | 'prep', width: number, variant: Variant = 'apps') {
   await page.viewport(width, HEIGHT);
   document.documentElement.dir = 'rtl';
   const { container } = render(
@@ -29,7 +30,7 @@ async function show(step: 'live' | 'rec' | 'prep', width: number) {
       <Defs />
       <div class="scroll">
         <div class="choose ob">
-          <Preview card={cardFor(step, [tafsir], FIXTURE_STATE.live)!} state={FIXTURE_STATE} now={NOW} />
+          <Preview card={cardFor(step, [tafsir], FIXTURE_STATE.live)!} state={FIXTURE_STATE} now={NOW} variant={variant} />
         </div>
       </div>
     </div>,
@@ -149,4 +150,34 @@ it('the drawn Mixlr player is never loaded, and the app’s big red play button 
   expect(document.querySelector('.disc, .go-live')).toBeNull();
   const play = pv.querySelector<HTMLElement>('.mx-play')!.getBoundingClientRect();
   expect(play.width).toBeLessThan(40);
+});
+
+for (const width of [320, 390]) {
+  it(`web at ${width}px: the on-air page has no next lesson, the tapped controls are in view, nothing overflows sideways`, async () => {
+    for (const [step, ms, sel] of [
+      ['live', 1500, '.pv-target .disc .btn'],
+      ['live', 3700, '.mx-play'],
+      ['prep', 1800, '.pv-target a.chip.pri'],
+      ['rec', 1800, '.pv-target button.chip.pri'],
+    ] as const) {
+      cleanup();
+      start = Date.now();
+      const pv = await show(step, width, 'web');
+      await at(ms);
+      if (step === 'live' && ms === 1500) expect(pv.querySelector('.pv-lp')!.textContent).not.toContain('الدرس القادم');
+      const panel = pv.getBoundingClientRect();
+      const cap = pv.querySelector<HTMLElement>('.pv-cap')!.getBoundingClientRect();
+      const control = pv.querySelector<HTMLElement>(sel)!.getBoundingClientRect();
+      expect(control.top, `${step} ${sel}`).toBeGreaterThanOrEqual(panel.top);
+      expect(control.bottom, `${step} ${sel}`).toBeLessThanOrEqual(cap.top);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(innerWidth);
+    }
+  });
+}
+
+it('the invite with reduced motion rests on its notification, readable, over the dimmed page', async () => {
+  await commands.emulateMedia({ reducedMotion: 'reduce' });
+  const pv = await show('live', 390, 'invite');
+  expect(getComputedStyle(pv.querySelector('.pv-banner')!).opacity).toBe('1');
+  expect(getComputedStyle(pv.querySelector('.pv-app')!).opacity).toBe('0.45');
 });

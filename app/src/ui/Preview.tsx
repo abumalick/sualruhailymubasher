@@ -2,23 +2,44 @@ import type { StateDTO } from '@albadr/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { bookBack, liveContext } from '../logic/live';
 import type { Card } from '../logic/onboarding';
-import { PHONE_HEIGHT, phonePan, PREVIEW_DURATION, previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, STATUS_BAR, type Destination, type Frame, type Play } from '../logic/preview';
+import { PHONE_HEIGHT, phonePan, PREVIEW_DURATION, previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, STATUS_BAR, type Destination, type Frame, type Play, type Variant } from '../logic/preview';
 import { BookBar, BookFoot } from './Book';
 import { NextCard, RecordingCard } from './cards';
 import { ar, arText, clock12, dayWord, passageRange, printedPage, slotName } from './format';
 import { LessonHead, Sec } from './Lesson';
+import { LiveHero } from './LiveHero';
 import { LiveHead } from './LiveSheet';
 import { PlayerBar } from './MiniPlayer';
 import { Icon } from './Star';
 
 const noop = () => {};
 
-const SPOKEN: Record<Play, string> = {
+const SPOKEN: Record<Exclude<Play, 'stream'>, string> = {
   live: 'صورة توضيحية: يصلك تنبيه عند بدء البث، فيفتح مشغّل البث المباشر، وتضغط زر التشغيل فتستمع.',
   review: 'صورة توضيحية: يصلك تنبيه عند نشر التسجيل، فيفتح الدرس، فتستمع إلى التسجيل ثم تعلّم عليه «راجعتُه».',
   book: 'صورة توضيحية: يصلك تذكير قبل الدرس، فيفتح الكتاب على مقطع الدرس القادم، فتقرؤه ثم تعلّم عليه «قرأتُه».',
   page: 'صورة توضيحية: يصلك تذكير قبل الدرس، فيفتح صفحة الدرس على الدرس القادم.',
 };
+
+const WEB_SPOKEN: Record<Play, string> = {
+  live: 'صورة توضيحية: تضغط زر البث المباشر في صفحة الدرس، فيفتح مشغّل البث، وتضغط زر التشغيل فتستمع.',
+  stream: 'صورة توضيحية: تضغط زر البث المباشر في صفحة الدرس، فيبدأ البث في المشغّل أسفل الشاشة.',
+  review: 'صورة توضيحية: في صفحة الدرس تستمع إلى تسجيل آخر درس، ثم تعلّم عليه «راجعتُه».',
+  book: 'صورة توضيحية: في صفحة الدرس تفتح الكتاب على مقطع الدرس القادم، فتقرؤه ثم تعلّم عليه «قرأتُه».',
+  page: 'صورة توضيحية: في صفحة الدرس يظهر الدرس القادم.',
+};
+
+const WEB_CAPTION: Record<Play, string> = {
+  live: 'مثال: هكذا تستمع إلى البث',
+  stream: 'مثال: هكذا تستمع إلى البث',
+  review: 'مثال: هكذا تراجع الدرس',
+  book: 'مثال: هكذا تحضّر للدرس',
+  page: 'مثال: هكذا تحضّر للدرس',
+};
+
+const caption = (play: Play, variant: Variant) =>
+  variant === 'web' ? WEB_CAPTION[play] : variant === 'invite' ? 'مثال: هكذا يصلك التنبيه في التطبيق' : 'مثال: هكذا يصلك التنبيه';
+const spoken = (play: Play, variant: Variant) => (variant === 'web' || play === 'stream' ? WEB_SPOKEN[play] : SPOKEN[play]);
 
 export function useReducedMotion(): boolean {
   const query = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -33,7 +54,7 @@ export function useReducedMotion(): boolean {
 }
 
 // Re-renders at each beat until the preview rests; a new step starts it again.
-function useFrame(play: Play, step: string, reduced: boolean) {
+function useFrame(play: Play, step: string, reduced: boolean, variant: Variant) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const start = Date.now();
@@ -41,13 +62,13 @@ function useFrame(play: Play, step: string, reduced: boolean) {
     const tick = () => {
       const now = Date.now() - start;
       setElapsed(now);
-      const { wait } = previewAt(play, now, reduced);
+      const { wait } = previewAt(play, now, reduced, variant);
       if (wait !== null) timer = setTimeout(tick, wait);
     };
     tick();
     return () => clearTimeout(timer);
-  }, [play, step, reduced]);
-  return previewAt(play, elapsed, reduced).frame;
+  }, [play, step, reduced, variant]);
+  return previewAt(play, elapsed, reduced, variant).frame;
 }
 
 // The live player as it opens over the lesson. Mixlr's player is drawn as its embed looks on air, never loaded.
@@ -114,6 +135,13 @@ function BookPage({ card, to, read }: { card: Card; to: Extract<Destination, { k
 
 const INERT = { toggle: noop, skip: noop, seek: noop };
 
+// The app's player bar, playing a direct live stream, as the web's live button starts it.
+function StreamPlayer({ card, state, frame }: { card: Card; state: StateDTO; frame: Frame }) {
+  if (!frame.playing) return null;
+  const src = { url: state.live.streamUrl ?? '', title: card.course.title, subtitle: '', kind: 'live' as const, courseId: card.course.id };
+  return <PlayerBar s={{ src, playing: true, position: 0, duration: 0, error: null }} act={INERT} />;
+}
+
 // The app's player bar, playing the recording to its end.
 function RecordingPlayer({ card, frame }: { card: Card; frame: Frame }) {
   if (card.kind !== 'recording' || !(frame.playing || frame.ended)) return null;
@@ -123,12 +151,15 @@ function RecordingPlayer({ card, frame }: { card: Card; frame: Frame }) {
 }
 
 // A picture of what the notification does: it looks real, plays by itself, and nothing in it can be tapped or focused.
-export function Preview({ card, state, now }: { card: Card; state: StateDTO; now: Date }) {
+export function Preview({ card, state, now, variant }: { card: Card; state: StateDTO; now: Date; variant: Variant }) {
   const { course } = card;
-  const to = previewDestination(card, state);
+  const to = previewDestination(card, state, variant);
   const reduced = useReducedMotion();
   const play = previewPlay(card, to);
-  const frame = useFrame(play, `${card.kind}:${course.id}`, reduced);
+  const frame = useFrame(play, `${card.kind}:${course.id}`, reduced, variant);
+  const web = variant === 'web';
+  // On the web the live lesson page is drawn on air, the hero in place of the next lesson, as `Lesson` draws it.
+  const onAir = web && card.kind === 'live';
   const notice = previewNotice(card, state.live);
   const panel = useRef<HTMLElement>(null);
   const [geo, setGeo] = useState<{ scale: number; bannerScale: number; pan: number } | null>(null);
@@ -138,7 +169,11 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
     const measure = () => {
       const { scale, bannerScale } = previewGeometry(el.clientWidth);
       const target = el.querySelector<HTMLElement>('.pv-target');
-      const bottom = frame.focus === 'bottom' ? PHONE_HEIGHT : frame.focus === 'target' && target ? STATUS_BAR + target.offsetTop + target.offsetHeight + 12 : null;
+      // The hero is taller than the panel can show: the phone frames its disc, the one thing the finger taps.
+      const disc = target?.querySelector<HTMLElement>('.disc');
+      const screen = el.querySelector<HTMLElement>('.pv-screen');
+      const targetBottom = disc && screen ? (disc.getBoundingClientRect().bottom - screen.getBoundingClientRect().top) / scale : target ? STATUS_BAR + target.offsetTop + target.offsetHeight : 0;
+      const bottom = frame.focus === 'bottom' ? PHONE_HEIGHT : frame.focus === 'target' && target ? targetBottom + 12 : null;
       setGeo({ scale, bannerScale, pan: phonePan(el.clientHeight, scale, bottom) });
     };
     measure();
@@ -155,11 +190,12 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
   const slot = slotName(course.slot);
   const latest = course.latest[0];
   const recording = card.kind === 'recording' ? card.lesson : latest?.recordingUrl ? latest : null;
-  const onPage = (kind: Card['kind']) => (to.kind === 'lesson' && card.kind === kind ? (play === 'review' ? 'pv-target pv-tickable' : 'pv-target') : undefined);
+  const onPage = (kind: Card['kind']) =>
+    (to.kind === 'lesson' || (web && play === 'book')) && card.kind === kind ? (play === 'review' ? 'pv-target pv-tickable' : 'pv-target') : undefined;
   const style = geo ? `--s:${geo.scale};--bs:${geo.bannerScale};--pv-pan:${geo.pan}px` : undefined;
   return (
     <>
-      <p class="sr">{SPOKEN[play]}</p>
+      <p class="sr">{spoken(play, variant)}</p>
       <figure
         ref={panel}
         class="pv"
@@ -185,7 +221,12 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
             <div class="pv-app">
               <div class="lp pv-lp" data-slot={course.slot}>
                 <LessonHead course={course} now={now} />
-                {course.next && (
+                {onAir && (
+                  <div class="pv-target">
+                    <LiveHero course={course} live={{ ...state.live, isLive: true, courseId: course.id }} listening={frame.playing} onLive={noop} />
+                  </div>
+                )}
+                {course.next && !onAir && (
                   <>
                     <Sec title="الدرس القادم" hint="حضّره" />
                     <div class={onPage('next')}>
@@ -204,23 +245,26 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
               </div>
               {frame.opened && to.kind === 'live' && <LivePlayer card={card} state={state} playing={frame.playing} />}
               {frame.opened && to.kind === 'book' && <BookPage card={card} to={to} read={frame.done} />}
-              {frame.opened && <RecordingPlayer card={card} frame={frame} />}
+              {(frame.opened || web) && <RecordingPlayer card={card} frame={frame} />}
+              {to.kind === 'stream' && <StreamPlayer card={card} state={state} frame={frame} />}
             </div>
           </div>
         </div>
-        <div class="pv-banner">
-          <img src="/favicon.png" alt="" />
-          <div class="t">
-            <span class="h">
-              <span>البدر مباشر</span>
-              <span>الآن</span>
-            </span>
-            <b>{notice.title}</b>
-            <span class="bd">{notice.body}</span>
+        {!web && (
+          <div class="pv-banner">
+            <img src="/favicon.png" alt="" />
+            <div class="t">
+              <span class="h">
+                <span>البدر مباشر</span>
+                <span>الآن</span>
+              </span>
+              <b>{notice.title}</b>
+              <span class="bd">{notice.body}</span>
+            </div>
+            <i class="pv-ring" />
           </div>
-          <i class="pv-ring" />
-        </div>
-        <span class="pv-cap">مثال: هكذا يصلك التنبيه</span>
+        )}
+        <span class="pv-cap">{caption(play, variant)}</span>
       </figure>
     </>
   );

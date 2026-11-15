@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
-import { asksPermission, cardFor, finalPrefs, initialDraft, pick, pickedCourses, hasSwitch, setStep, stepHint, stepOn, stepTopics } from '../src/logic/onboarding';
+import { asksPermission, cardFor, finalPrefs, initialDraft, pick, pickedCourses, hasSwitch, setStep, stepHint, stepOn, stepsFor, stepTopics } from '../src/logic/onboarding';
 import { kindsOf, reconcilePrefs, type Prefs } from '../src/logic/prefs';
 import { topicsFor } from '../src/logic/topics';
 import { liveDTO } from './live-state';
@@ -214,5 +214,22 @@ describe('finalPrefs', () => {
     const next = reconcilePrefs(p, courses);
     expect(kindsOf(next, 'tafsir-saadi')).toEqual(['live', 'rec', 'prep']);
     expect(kindsOf(next, 'kitab-tawhid')).toEqual(['live', 'rec', 'prep']);
+  });
+});
+
+describe('stepsFor', () => {
+  it('the apps have four steps; the web adds the app invite last', () => {
+    expect(stepsFor(true)).toEqual(['app', 'live', 'rec', 'prep']);
+    expect(stepsFor(false)).toEqual(['app', 'live', 'rec', 'prep', 'invite']);
+  });
+
+  it('the invite shows the live picture, with no switch, hint or permission ask', () => {
+    const d = initialDraft(null, courses);
+    const picked = pickedCourses(d, courses);
+    expect(cardFor('invite', picked, quiet)).toEqual(cardFor('live', picked, quiet));
+    expect(hasSwitch('invite', picked)).toBe(false);
+    expect(stepOn('invite', d, picked)).toBe(false);
+    expect(stepHint('invite', picked, courses)).toBe('');
+    expect(asksPermission('invite', d, picked, false, 'prompt')).toBe(false);
   });
 });
