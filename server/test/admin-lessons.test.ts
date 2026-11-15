@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LessonInput, LessonUpsertResult } from '@sualruhaily/shared';
 import type { Fcm } from '../src/fcm';
 import type { Env } from '../src/index';
-import { latestLessons, upsertCourse } from '../src/repo';
+import { latestLessons, lessonsBefore, patchLesson, upsertCourse } from '../src/repo';
 import { adminRoutes } from '../src/routes/admin';
 
 const sendToTopic = vi.fn();
@@ -114,9 +114,50 @@ describe('POST /api/admin/lessons', () => {
     expect(l).toMatchObject({ startPoint: 'جديد', recordingUrl: 'https://m/5.mp3', hijriDate: '27-05-1448' });
   });
 
-  it('matches by source_ref when the identity differs', async () => {
-    await send(input('kitab-tawhid', 5, { sourceRef: 'same' }));
-    expect(await send(input('kitab-tawhid', 6, { sourceRef: 'same' }))).toMatchObject({ number: 1, created: false });
+  it('moves a lesson to the corrected identity when the source_ref matches and the identity is free', async () => {
+    const S = 'كتاب الصدقات';
+    await send(input('kitab-tawhid', 12, { section: S, sourceRef: 'tg:1' }));
+    expect(await send(input('kitab-tawhid', 11, { section: S, sourceRef: 'tg:1' }))).toMatchObject({ number: 1, created: false });
+    expect(await latestLessons(env.DB, 'kitab-tawhid', 5)).toMatchObject([{ number: 1, section: S, sectionNumber: 11 }]);
+    expect(await send(input('kitab-tawhid', 12, { section: S, sourceRef: 'tg:2' }))).toMatchObject({ number: 2, created: true });
+  });
+
+  it('moves a lesson to a corrected section, registering it', async () => {
+    await send(input('kitab-tawhid', 1, { section: 'كتاب الحدود', sourceRef: 'tg:1' }));
+    await send(input('kitab-tawhid', 1, { section: 'كتاب الشهادات', sourceRef: 'tg:1' }));
+    const [l] = await latestLessons(env.DB, 'kitab-tawhid', 1);
+    expect(l).toMatchObject({ number: 1, section: 'كتاب الشهادات', sectionNumber: 1 });
+    const { results } = await env.DB.prepare("SELECT section FROM sections WHERE course_id = 'kitab-tawhid' ORDER BY ord").all();
+    expect(results.map((r) => r.section)).toEqual(['كتاب الحدود', 'كتاب الشهادات']);
+  });
+
+  it('re-chains the moved lesson and both its neighbours', async () => {
+    const S = 'كتاب الصدقات';
+    for (const n of [10, 12, 13]) await send(input('kitab-tawhid', n, { section: S, sourceRef: `tg:${n}` }));
+    const [one, two, three] = [1, 2, 3];
+    await patchLesson(env.DB, 'kitab-tawhid', one, { pdfIndex: 0, endPage: 40, endPdfIndex: 0 });
+    await patchLesson(env.DB, 'kitab-tawhid', two, { endPage: 60, endPdfIndex: 0 });
+    await send(input('kitab-tawhid', 12, { section: S, sourceRef: 'tg:12' }));
+    const pages = async () => Object.fromEntries((await lessonsBefore(env.DB, 'kitab-tawhid', null, 9)).map((l) => [l.number, l.startPage]));
+    expect(await pages()).toEqual({ 1: null, 2: 40, 3: 60 });
+    await send(input('kitab-tawhid', 14, { section: S, sourceRef: 'tg:12' }));
+    expect(await pages()).toEqual({ 1: null, 2: null, 3: 40 });
+    expect(await lessonsBefore(env.DB, 'kitab-tawhid', null, 9)).toMatchObject([{ number: 2, sectionNumber: 14 }, { number: 3 }, { number: 1 }]);
+  });
+
+  it('answers 409 when the corrected identity belongs to another lesson', async () => {
+    await send(input('kitab-tawhid', 11, { sourceRef: 'a' }));
+    await send(input('kitab-tawhid', 12, { sourceRef: 'b' }));
+    expect((await post(input('kitab-tawhid', 11, { sourceRef: 'b' }))).status).toBe(409);
+    expect((await latestLessons(env.DB, 'kitab-tawhid', 2)).map((l) => l.sectionNumber)).toEqual([12, 11]);
+  });
+
+  it('answers 409, not 500, when the source_ref belongs to a lesson of another course', async () => {
+    await send(input('kitab-tawhid', 1, { sourceRef: 'tg:9' }));
+    await send(input('kabair', 5, { sourceRef: 'tg:5' }));
+    expect((await post(input('kabair', 5, { sourceRef: 'tg:9' }))).status).toBe(409);
+    expect((await post(input('kabair', 6, { sourceRef: 'tg:9' }))).status).toBe(409);
+    expect(await latestLessons(env.DB, 'kabair', 5)).toMatchObject([{ sectionNumber: 5 }]);
   });
 
   it('keeps the sequence for Kaba\'ir and flags dates that are not a course weekday', async () => {

@@ -201,6 +201,16 @@ export async function reorderSections(db: D1Database, courseId: string, order: s
   await db.batch(
     order.map((section, i) => db.prepare('UPDATE sections SET ord = ?1 WHERE course_id = ?2 AND section = ?3').bind(i + 1, courseId, section)),
   );
+  for (const section of order) {
+    const first = await db
+      .prepare(
+        `SELECT number FROM lessons WHERE course_id = ? AND section = ?
+         ORDER BY section_number IS NULL, coalesce(section_number, 0), number LIMIT 1`,
+      )
+      .bind(courseId, section)
+      .first<{ number: number }>();
+    if (first) await fillStartFromPrevious(db, courseId, first.number);
+  }
   return true;
 }
 
@@ -270,27 +280,41 @@ export async function upsertLesson(db: D1Database, input: LessonInput): Promise<
   const held = hijriToMedinaDate(hijriDate);
   const dateFlag = held === null || !course.weekdays.includes(weekday(held));
 
-  const find = (where: string, ...binds: unknown[]) =>
-    db
-      .prepare(`SELECT number, recording_url FROM lessons WHERE course_id = ? AND ${where}`)
-      .bind(input.courseId, ...binds)
-      .first<{ number: number; recording_url: string | null }>();
-  const byIdentity = await find('section = ? AND section_number = ?', input.section, input.sectionNumber);
-  const byRef = await find('source_ref = ?', input.sourceRef);
+  const byIdentity = await db
+    .prepare('SELECT number, recording_url FROM lessons WHERE course_id = ? AND section = ? AND section_number = ?')
+    .bind(input.courseId, input.section, input.sectionNumber)
+    .first<{ number: number; recording_url: string | null }>();
+  const byRef = await db
+    .prepare('SELECT course_id, number, recording_url FROM lessons WHERE source_ref = ?')
+    .bind(input.sourceRef)
+    .first<{ course_id: string; number: number; recording_url: string | null }>();
+  if (byRef && byRef.course_id !== input.courseId) {
+    throw new SourceRefConflict(`source_ref ${input.sourceRef} belongs to lesson ${byRef.number} of course ${byRef.course_id}`);
+  }
   if (byIdentity && byRef && byIdentity.number !== byRef.number) {
     throw new SourceRefConflict(`source_ref ${input.sourceRef} belongs to lesson ${byRef.number}, not ${byIdentity.number}`);
   }
   const existing = byIdentity ?? byRef;
+  // A caption corrected after publication keeps its source_ref but names another identity: the lesson moves there.
 
   if (existing) {
+    const moved = !byIdentity;
+    const oldNext = moved ? await nextInSequence(db, input.courseId, existing.number) : null;
+    if (moved) await ensureSection(db, input.courseId, input.section);
     const recordingAdded = input.recordingUrl !== null && input.recordingUrl !== existing.recording_url;
     await db
       .prepare(
         `UPDATE lessons SET start_point = ?3, hijri_date = ?4, recording_url = coalesce(?5, recording_url),
-           source_ref = ?6, date_flag = ?7 WHERE course_id = ?1 AND number = ?2`,
+           source_ref = ?6, date_flag = ?7, section = ?8, section_number = ?9 WHERE course_id = ?1 AND number = ?2`,
       )
-      .bind(input.courseId, existing.number, input.startPoint, hijriDate, input.recordingUrl, input.sourceRef, dateFlag ? 1 : 0)
+      .bind(input.courseId, existing.number, input.startPoint, hijriDate, input.recordingUrl, input.sourceRef, dateFlag ? 1 : 0, input.section, input.sectionNumber)
       .run();
+    if (moved) {
+      await fillStartFromPrevious(db, input.courseId, existing.number);
+      if (oldNext) await fillStartFromPrevious(db, input.courseId, oldNext.number);
+      const newNext = await nextInSequence(db, input.courseId, existing.number);
+      if (newNext) await fillStartFromPrevious(db, input.courseId, newNext.number);
+    }
     return { number: existing.number, created: false, recordingAdded, dateFlag, heldDate: held };
   }
 
@@ -338,7 +362,7 @@ export async function patchLesson(db: D1Database, courseId: string, number: numb
       .first();
     return row !== null;
   }
-  const set = [...entries.map((k) => `${PATCH_COLUMNS[k]} = ?`), ...(p.startPage !== undefined ? ['start_chained = 0'] : [])].join(', ');
+  const set = [...entries.map((k) => `${PATCH_COLUMNS[k]} = ?`), ...(p.startPage !== undefined || p.pdfIndex !== undefined ? ['start_chained = 0'] : [])].join(', ');
   const res = await db
     .prepare(`UPDATE lessons SET ${set} WHERE course_id = ? AND number = ?`)
     .bind(...entries.map((k) => p[k]), courseId, number)
@@ -431,15 +455,14 @@ export async function recordBroadcast(
 // Lesson days broadcast after the newest lesson was held (and before `on`) that have no published lesson yet:
 // lessons arrive after a delay. Days, not uids, so a reconnect that yields a second uid counts once. When the
 // held date cannot be derived from the hijri date, the lesson's created_at is the anchor instead.
-export async function heldSinceLatest(db: D1Database, courseId: string, on: string, _now: Date): Promise<number> {
+export async function heldSinceLatest(db: D1Database, courseId: string, on: string): Promise<number> {
   const [last] = await latestLessons(db, courseId, 1);
-  const created = last
-    ? await db
-        .prepare('SELECT created_at FROM lessons WHERE course_id = ? AND number = ?')
-        .bind(courseId, last.number)
-        .first<{ created_at: string }>()
-    : null;
-  const held = last ? hijriToMedinaDate(last.hijriDate) : null;
+  if (!last) return 0;
+  const created = await db
+    .prepare('SELECT created_at FROM lessons WHERE course_id = ? AND number = ?')
+    .bind(courseId, last.number)
+    .first<{ created_at: string }>();
+  const held = hijriToMedinaDate(last.hijriDate);
   const r = await db
     .prepare(
       `SELECT count(DISTINCT date(started_at, '+3 hours')) AS n FROM broadcasts
