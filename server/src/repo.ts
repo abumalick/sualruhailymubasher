@@ -261,7 +261,7 @@ export async function recordBroadcast(
     .run();
 }
 
-// Number of the lesson held on Medina date `on`: the media host publishes with a lag, so lesson days
+// Number of the lesson held on Medina date `on`: lessons arrive after a delay, so lesson days
 // broadcast after the latest scraped lesson was held (and before `on`) are counted too.
 // Days, not uids, so a reconnect that yields a second uid counts once. When the held date cannot be
 // derived from the hijri date, the lesson's created_at is the anchor instead.

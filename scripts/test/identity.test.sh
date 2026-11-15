@@ -13,6 +13,7 @@ patterns=(
   'albadr-lessons'
   'ALBADR_'
   'عبد الرزاق البدر'
+  '7979d855f5a8ed011c9e9d54467dd431b227a6bf34451dd39c66708a330cac83'
 )
 pattern="$(IFS='|'; echo "${patterns[*]}")"
 fixtures='scripts/test/fixtures/identity'

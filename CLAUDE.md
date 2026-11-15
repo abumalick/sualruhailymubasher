@@ -18,7 +18,7 @@ This repo expects thorough tests. Every change ships with tests that would fail 
 ## Production agent
 
 **The main checkout's `agent/` runs in production** every 15 minutes (`sualruhaily-agent.timer`). Never edit, check out
-or install anything in the main checkout, and never touch that timer.
+or install anything in the main checkout, and never touch that timer. The timer is not installed yet (it is installed in a later plan); the warning stands for when it is.
 
 <!-- worktree-harness:begin -->
 ## Worktree development (required)

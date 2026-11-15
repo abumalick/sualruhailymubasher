@@ -39,7 +39,7 @@ describe('time', () => {
 });
 
 describe('hijriToMedinaDate', () => {
-  it('converts an media.sualruhailymubasher.com Umm al-Qura date near now', () => {
+  it('converts an Umm al-Qura date near now', () => {
     expect(hijriToMedinaDate('09-05-1448', new Date('2026-10-30T12:00:00Z'))).toBe('2026-10-20');
     expect(hijriToMedinaDate('10-05-1448', new Date('2026-10-30T12:00:00Z'))).toBe('2026-10-21');
   });
@@ -162,6 +162,14 @@ describe('asr courses', () => {
 
   it('picks the fajr or the asr course of a Saturday by the time of day', () => {
     const courses = [kitab, kabair, dalil];
+    const fajr = medinaInstant('2026-11-21', lessonTime(kitab, '2026-11-21'));
+    const asr = medinaInstant('2026-11-21', lessonTime(dalil, '2026-11-21'));
+    expect(courseInWindow(courses, [], fajr)?.id).toBe('kitab-tawhid');
+    expect(courseInWindow(courses, [], asr)?.id).toBe('dalil-talib');
+  });
+
+  it('picks the same Saturday course whatever the order of the course list', () => {
+    const courses = [dalil, kabair, kitab];
     const fajr = medinaInstant('2026-11-21', lessonTime(kitab, '2026-11-21'));
     const asr = medinaInstant('2026-11-21', lessonTime(dalil, '2026-11-21'));
     expect(courseInWindow(courses, [], fajr)?.id).toBe('kitab-tawhid');

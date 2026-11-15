@@ -13,7 +13,7 @@ describe('wrangler.jsonc', () => {
     expect(config.d1_databases).toEqual([
       expect.objectContaining({ binding: 'DB', database_name: 'sualruhaily-lessons' }),
     ]);
-    expect(config.d1_databases[0].database_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(config.d1_databases[0].database_id).toBe('fe8afa6f-65ec-4f5b-a4c7-81121825fcb7');
   });
 
   it('runs the scheduled jobs every minute', () => {
