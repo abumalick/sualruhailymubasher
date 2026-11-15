@@ -38,3 +38,18 @@ export function hijriToMedinaDate(hijri: string, around: Date): string | null {
   }
   return null;
 }
+
+const EASTERN_DIGITS = /[٠-٩۰-۹]/g;
+const toLatinDigits = (s: string) =>
+  s.replace(EASTERN_DIGITS, (d) => String(d.charCodeAt(0) >= 0x06f0 ? d.charCodeAt(0) - 0x06f0 : d.charCodeAt(0) - 0x0660));
+
+// Caption dates come as "٢٧/ ٥/ ١٤٤٨" (day first) or "1448/5/20" (year first); stored form is DD-MM-YYYY.
+export function normalizeHijri(raw: string): string | null {
+  const parts = toLatinDigits(raw).split(/\s*[/-]\s*/).map((p) => p.trim());
+  if (parts.length !== 3 || !parts.every((p) => /^\d+$/.test(p))) return null;
+  const [a, b, c] = parts;
+  const [d, m, y] = a.length === 4 ? [c, b, a] : [a, b, c];
+  const [day, month] = [Number(d), Number(m)];
+  if (y.length !== 4 || day < 1 || day > 30 || month < 1 || month > 12) return null;
+  return `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${y}`;
+}

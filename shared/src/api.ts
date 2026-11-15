@@ -38,3 +38,10 @@ export interface PendingTranscription {
   prevNumber: number | null;                            // number of the previous lesson in sequence
   startPage: number | null; pdfIndex: number | null;    // the lesson's own chained start, when known
 }
+
+export interface LessonInput {
+  courseId: string; section: string; sectionNumber: number;
+  hijriDate: string;                                    // as written in the caption, e.g. "٢٧/ ٥/ ١٤٤٨" or "1448/5/20"
+  startPoint: string; recordingUrl: string | null; sourceRef: string;
+}
+export interface LessonUpsertResult { number: number; created: boolean; dateFlag: boolean; pushed: boolean; }

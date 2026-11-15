@@ -1,18 +1,22 @@
-import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonPatch } from '@sualruhaily/shared';
+import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonInput, type LessonPatch, type LessonUpsertResult } from '@sualruhaily/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import type { Fcm } from '../fcm';
 import { getFcm, type Env } from '../index';
+import { sendRecordingPush, shouldPushRecording } from '../jobs/recording-push';
 import {
   addException,
   deleteException,
   listCourses,
   listExceptions,
+  nextInSequence,
   patchLesson,
   pendingTranscriptions,
   setSetting,
   upsertCourse,
+  upsertLesson,
 } from '../repo';
-import { medinaDate } from '../time';
+import { medinaDate, normalizeHijri } from '../time';
 
 const encoder = new TextEncoder();
 
@@ -71,6 +75,21 @@ function parseLessonPatch(b: unknown): LessonPatch | null {
   return ok ? (b as LessonPatch) : null;
 }
 
+function parseLessonInput(b: unknown): LessonInput | null {
+  if (!isObject(b)) return null;
+  const ok =
+    isString(b.courseId) &&
+    isString(b.section) &&
+    isInt(b.sectionNumber, 1) &&
+    isString(b.hijriDate) &&
+    normalizeHijri(b.hijriDate) !== null &&
+    isString(b.startPoint) &&
+    (b.recordingUrl === null || isString(b.recordingUrl)) &&
+    isString(b.sourceRef) &&
+    b.sourceRef !== '';
+  return ok ? (b as unknown as LessonInput) : null;
+}
+
 function parseException(b: unknown): ExceptionInput | null {
   if (!isObject(b)) return null;
   const ok =
@@ -86,7 +105,7 @@ function parseException(b: unknown): ExceptionInput | null {
 
 const readJson = (c: { req: { json: () => Promise<unknown> } }) => c.req.json().catch(() => null);
 
-export const adminRoutes = new Hono<{ Bindings: Env }>();
+export const adminRoutes = new Hono<{ Bindings: Env; Variables: { fcm?: Fcm } }>();
 
 adminRoutes.use(
   '/api/admin/*',
@@ -112,6 +131,32 @@ adminRoutes.put('/api/admin/courses/:id', async (c) => {
   if (!input || !COURSE_ID.test(id)) return bad(c);
   await upsertCourse(c.env.DB, id, input);
   return c.body(null, 204);
+});
+
+adminRoutes.post('/api/admin/lessons', async (c) => {
+  const input = parseLessonInput(await readJson(c));
+  const course = input && (await listCourses(c.env.DB)).find((k) => k.id === input.courseId);
+  if (!input || !course) return bad(c);
+
+  const hadLessonsBefore = (await c.env.DB.prepare('SELECT 1 FROM lessons WHERE course_id = ? LIMIT 1').bind(course.id).first()) !== null;
+  const r = await upsertLesson(c.env.DB, input, new Date());
+  const isNewestInSequence = (await nextInSequence(c.env.DB, course.id, r.number)) === null;
+
+  let pushed = false;
+  if (shouldPushRecording({ hadLessonsBefore, isNewestInSequence, recordingAdded: r.recordingAdded })) {
+    try {
+      const fcm = c.get('fcm') ?? getFcm(c.env.FCM_SERVICE_ACCOUNT ?? '');
+      pushed = await sendRecordingPush({ db: c.env.DB, fcm }, course, {
+        number: r.number,
+        section: input.section,
+        sectionNumber: input.sectionNumber,
+      });
+    } catch (e) {
+      console.error('recording push failed', e);
+    }
+  }
+  const result: LessonUpsertResult = { number: r.number, created: r.created, dateFlag: r.dateFlag, pushed };
+  return c.json(result);
 });
 
 adminRoutes.patch('/api/admin/lessons/:courseId/:number', async (c) => {

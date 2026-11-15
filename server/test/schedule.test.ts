@@ -3,27 +3,27 @@ import { describe, expect, it } from 'vitest';
 import { asrTime } from '../src/prayer';
 import { courseInWindow, isLessonDay, lessonTime, nextLessonDate } from '../src/schedule';
 import type { CourseRow } from '../src/repo';
-import { addDays, hijriToMedinaDate, medinaDate, medinaInstant, weekday } from '../src/time';
+import { addDays, hijriToMedinaDate, medinaDate, medinaInstant, normalizeHijri, weekday } from '../src/time';
 
 const tafsir: CourseRow = {
   id: 'tafsir-saadi', title: 'شرح تفسير السعدي', slot: 'fajr', place: '', weekdays: [0, 1, 2, 3, 4, 5],
-  offsetMin: 25, seriesId: 456, pdfUrls: [], edition: null, pageOffsets: [], active: true, sort: 1,
+  offsetMin: 25, seriesId: 456, pdfUrls: [], edition: null, pageOffsets: [], lessonWord: 'الدرس', active: true, sort: 1,
 };
 const tawhid: CourseRow = {
   id: 'kitab-tawhid', title: 'كتاب التوحيد', slot: 'maghrib', place: '', weekdays: [0, 1, 2, 3, 4],
-  offsetMin: 30, seriesId: 481, pdfUrls: [], edition: null, pageOffsets: [], active: true, sort: 2,
+  offsetMin: 30, seriesId: 481, pdfUrls: [], edition: null, pageOffsets: [], lessonWord: 'الدرس', active: true, sort: 2,
 };
 const kitab: CourseRow = {
   id: 'kitab-tawhid', title: 'شرح كتاب التوحيد', slot: 'fajr', place: 'المسجد النبوي (الغربية)', weekdays: [6],
-  offsetMin: 33, seriesId: 287, pdfUrls: [], edition: null, pageOffsets: [], active: true, sort: 1,
+  offsetMin: 33, seriesId: 287, pdfUrls: [], edition: null, pageOffsets: [], lessonWord: 'الدرس', active: true, sort: 1,
 };
 const kabair: CourseRow = {
   id: 'kabair', title: 'شرح كتاب الكبائر للذهبي', slot: 'asr', place: 'مسجد قباء', weekdays: [2],
-  offsetMin: 26, seriesId: 251, pdfUrls: [], edition: null, pageOffsets: [], active: true, sort: 2,
+  offsetMin: 26, seriesId: 251, pdfUrls: [], edition: null, pageOffsets: [], lessonWord: 'الدرس', active: true, sort: 2,
 };
 const dalil: CourseRow = {
   id: 'dalil-talib', title: 'شرح دليل الطالب', slot: 'asr', place: 'المسجد النبوي (حلقة ٢)', weekdays: [4, 5, 6],
-  offsetMin: 29, seriesId: 69, pdfUrls: [], edition: null, pageOffsets: [], active: true, sort: 4,
+  offsetMin: 29, seriesId: 69, pdfUrls: [], edition: null, pageOffsets: [], lessonWord: 'الدرس', active: true, sort: 4,
 };
 const ex = (p: Partial<ExceptionDTO> & Pick<ExceptionDTO, 'kind' | 'dateFrom'>): ExceptionDTO => ({
   id: 1, courseId: null, dateTo: null, time: null, note: '', ...p,
@@ -175,4 +175,18 @@ describe('asr courses', () => {
     expect(courseInWindow(courses, [], fajr)?.id).toBe('kitab-tawhid');
     expect(courseInWindow(courses, [], asr)?.id).toBe('dalil-talib');
   });
+});
+
+describe('normalizeHijri', () => {
+  it.each([
+    ['٢٧/ ٥/ ١٤٤٨', '27-05-1448'],
+    ['1448/5/20', '20-05-1448'],
+    ['27-05-1448', '27-05-1448'],
+    ['٢٠ / ٠٥ / ١٤٤٨', '20-05-1448'],
+    ['۲۷/۵/۱۴۴۸', '27-05-1448'],
+  ])('%s -> %s', (raw, want) => expect(normalizeHijri(raw)).toBe(want));
+
+  it.each(['', 'tomorrow', '27/5', '32/5/1448', '27/13/1448', '0/5/1448', '27/5/148'])('rejects %j', (raw) =>
+    expect(normalizeHijri(raw)).toBeNull(),
+  );
 });

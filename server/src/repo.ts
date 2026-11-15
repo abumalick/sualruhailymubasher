@@ -1,5 +1,6 @@
 import type {
   CourseInput,
+  LessonInput,
   ExceptionDTO,
   ExceptionInput,
   LessonDTO,
@@ -7,7 +8,7 @@ import type {
   PendingTranscription,
   Slot,
 } from '@sualruhaily/shared';
-import { hijriToMedinaDate } from './time';
+import { hijriToMedinaDate, normalizeHijri, weekday } from './time';
 
 export interface CourseRow {
   id: string;
@@ -20,6 +21,7 @@ export interface CourseRow {
   pdfUrls: string[];
   edition: string | null;
   pageOffsets: number[];
+  lessonWord: string;
   active: boolean;
   sort: number;
 }
@@ -45,6 +47,7 @@ const toCourse = (r: Row): CourseRow => ({
   pdfUrls: JSON.parse(r.pdf_urls as string),
   edition: (r.edition as string | null) ?? null,
   pageOffsets: JSON.parse((r.page_offsets as string | undefined) ?? '[]'),
+  lessonWord: (r.lesson_word as string | undefined) ?? 'الدرس',
   active: r.active === 1,
   sort: r.sort as number,
 });
@@ -191,18 +194,20 @@ export async function insertLessonIfNew(
   l: Omit<LessonDTO, 'pdfIndex' | 'startPage' | 'endPoint' | 'endPage' | 'endPdfIndex'> & {
     section?: string;
     sectionNumber?: number | null;
+    sourceRef?: string | null;
+    dateFlag?: boolean;
   },
 ): Promise<boolean> {
   const section = l.section ?? '';
   if (section !== '') await ensureSection(db, courseId, section);
   const res = await db
     .prepare(
-      `INSERT OR IGNORE INTO lessons (course_id, number, hijri_date, start_point, recording_url, detail_path, created_at, section, section_number)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO lessons (course_id, number, hijri_date, start_point, recording_url, detail_path, created_at, section, section_number, source_ref, date_flag)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       courseId, l.number, l.hijriDate, l.startPoint, l.recordingUrl, l.detailPath, new Date().toISOString(),
-      section, l.sectionNumber === undefined ? l.number : l.sectionNumber,
+      section, l.sectionNumber === undefined ? l.number : l.sectionNumber, l.sourceRef ?? null, l.dateFlag ? 1 : 0,
     )
     .run();
   if (res.meta.changes === 0) return false;
@@ -226,6 +231,61 @@ async function fillStartFromPrevious(db: D1Database, courseId: string, number: n
     )
     .bind(courseId, number, prev.endPage, prev.endPage === null ? null : (prev.endPdfIndex ?? prev.pdfIndex))
     .run();
+}
+
+export interface UpsertResult {
+  number: number;
+  created: boolean;
+  recordingAdded: boolean;
+  dateFlag: boolean;
+}
+
+export async function upsertLesson(db: D1Database, input: LessonInput, now: Date): Promise<UpsertResult> {
+  const hijriDate = normalizeHijri(input.hijriDate);
+  if (hijriDate === null) throw new Error(`unparseable hijri date: ${input.hijriDate}`);
+  const course = (await listCourses(db)).find((c) => c.id === input.courseId);
+  if (!course) throw new Error(`unknown course: ${input.courseId}`);
+  const held = hijriToMedinaDate(hijriDate, now);
+  const dateFlag = held === null || !course.weekdays.includes(weekday(held));
+
+  const existing = await db
+    .prepare(
+      `SELECT number, recording_url FROM lessons WHERE course_id = ?1 AND (
+         (section = ?2 AND section_number = ?3) OR source_ref = ?4)
+       ORDER BY (section = ?2 AND section_number = ?3) DESC LIMIT 1`,
+    )
+    .bind(input.courseId, input.section, input.sectionNumber, input.sourceRef)
+    .first<{ number: number; recording_url: string | null }>();
+
+  if (existing) {
+    const recordingAdded = input.recordingUrl !== null && input.recordingUrl !== existing.recording_url;
+    await db
+      .prepare(
+        `UPDATE lessons SET start_point = ?3, hijri_date = ?4, recording_url = coalesce(?5, recording_url),
+           source_ref = ?6, date_flag = ?7 WHERE course_id = ?1 AND number = ?2`,
+      )
+      .bind(input.courseId, existing.number, input.startPoint, hijriDate, input.recordingUrl, input.sourceRef, dateFlag ? 1 : 0)
+      .run();
+    return { number: existing.number, created: false, recordingAdded, dateFlag };
+  }
+
+  const { n } = (await db
+    .prepare('SELECT coalesce(max(number), 0) + 1 AS n FROM lessons WHERE course_id = ?')
+    .bind(input.courseId)
+    .first<{ n: number }>())!;
+  const inserted = await insertLessonIfNew(db, input.courseId, {
+    number: n,
+    section: input.section,
+    sectionNumber: input.sectionNumber,
+    hijriDate,
+    startPoint: input.startPoint,
+    recordingUrl: input.recordingUrl,
+    detailPath: '',
+    sourceRef: input.sourceRef,
+    dateFlag,
+  });
+  if (!inserted) throw new Error(`lesson ${input.courseId}/${n} was created concurrently`);
+  return { number: n, created: true, recordingAdded: input.recordingUrl !== null, dateFlag };
 }
 
 export async function setRecordingUrl(db: D1Database, courseId: string, number: number, url: string): Promise<void> {
