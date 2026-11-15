@@ -217,7 +217,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
             <h3>{text.title}</h3>
             <p>{text.body}</p>
           </div>
-          {card ? <Preview key={step} card={card} state={state} now={now} /> : text.fallback && <p class="quiet">{text.fallback}</p>}
+          {card ? <Preview key={step} card={card} state={state} now={now} variant={native ? 'apps' : 'web'} /> : text.fallback && <p class="quiet">{text.fallback}</p>}
           {native && hasSwitch(step, picked) && (
             <section class="notifs">
               <div class="card">
