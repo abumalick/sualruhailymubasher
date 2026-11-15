@@ -252,7 +252,7 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
             for lesson in pending:
                 if not lesson.pdf_urls:
                     lesson.pdf_urls = local.get(lesson.course_id, [])
-                if previous and previous[:2] == (lesson.course_id, lesson.number - 1) and lesson.start_page is None:
+                if previous and previous[:2] == (lesson.course_id, lesson.prev_number) and lesson.start_page is None:
                     lesson.pdf_index, lesson.start_page = previous[2]
                 try:
                     end = process_lesson(api, lesson)
