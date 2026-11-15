@@ -32,7 +32,15 @@ export function schedule(weekdays: number[]): string {
   return [...weekdays].sort().map((d) => WEEKDAYS[d]).join('، ');
 }
 
-export const startText = (next: { startPoint: string | null; number: number }) => (next.startPoint ? arText(next.startPoint) : `يتابع من حيث توقف الدرس ${ar(next.number - 1)}`);
+// Without a start text, "continues from lesson N-1" only means something when there is such a lesson.
+export function startText(next: { startPoint: string | null; number: number }): string | null {
+  if (next.startPoint) return arText(next.startPoint);
+  return next.number > 1 ? `يتابع من حيث توقف الدرس ${ar(next.number - 1)}` : null;
+}
+
+// The next lesson's number is a prediction: it is only shown once the course has lessons to count from.
+export const nextLessonKicker = (course: Pick<CourseDTO, 'latest'>, next: Pick<NextPassageDTO, 'number'>, when: string): string =>
+  course.latest.length > 0 ? `الدرس ${ar(next.number)} · ${when}` : when;
 
 // Lesson pages are PDF page numbers; people read the number printed on the page.
 export function printedPage(course: Pick<CourseDTO, 'pageOffsets'>, pdfIndex: number | null, page: number | null): number | null {
@@ -45,10 +53,11 @@ export const pageSuffix = (printed: number | null) => (printed === null ? '' : `
 
 export const bookLabel = (action: string, printed: number | null) => (printed === null ? 'افتح الكتاب' : `${action} · ص ${ar(printed)}`);
 
-export function passageLine(course: Pick<CourseDTO, 'pageOffsets'>, next: NextPassageDTO): string {
+export function passageLine(course: Pick<CourseDTO, 'pageOffsets'>, next: NextPassageDTO): string | null {
   const start = startText(next);
   const end = printedPage(course, next.pdfIndex, next.estEndPage);
-  return end === null ? start : `${start} · إلى نحو ص ${ar(end)}`;
+  if (end === null) return start;
+  return start === null ? `إلى نحو ص ${ar(end)}` : `${start} · إلى نحو ص ${ar(end)}`;
 }
 
 // The next lesson's estimated pages, only when the book is open at its start: a book opened elsewhere (the lesson on
