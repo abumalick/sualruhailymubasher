@@ -95,13 +95,8 @@ export const FIXTURE_STATE: StateDTO = {
       slot: 'asr',
       place: 'مسجد قباء',
       weekdays: [2],
-      time: '18:20',
-      pdfUrls: [
-        'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_01.pdf',
-        'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_02.pdf',
-        'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_03.pdf',
-      ],
-      pageOffsets: [2, 2, 2],
+      time: '15:20',
+      pdfUrls: [],
       edition: null,
       latest: [
         {
@@ -139,7 +134,7 @@ export const FIXTURE_STATE: StateDTO = {
       ],
       next: {
         date: '2026-11-02',
-        time: '18:20',
+        time: '15:20',
         startPoint: null,
         pdfIndex: 0,
         startPage: 18,

@@ -28,10 +28,10 @@ describe('a course with no lessons yet', () => {
     expect(text).not.toContain('يتابع');
   });
 
-  it('the live context names no lesson and no continue line', () => {
+  it('the live context names the course and its place, no lesson and no continue line', () => {
     const ctx = liveContext(EMPTY, true, STARTED['kabair']);
     expect(ctx.title).toBe(EMPTY.title);
-    expect(ctx.header).toBe('البث المباشر');
+    expect(ctx.header).toBe('البث المباشر · مسجد قباء');
     expect(ctx.start).toBeNull();
     expect(ctx.status).toEqual({ live: true, text: 'بث مباشر' });
   });

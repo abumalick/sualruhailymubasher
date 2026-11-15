@@ -25,10 +25,10 @@ export interface LessonProps {
   onLive: () => void;
 }
 
-function merge(a: LessonDTO[], b: LessonDTO[]): LessonDTO[] {
-  const byNumber = new Map<number, LessonDTO>();
-  for (const l of [...b, ...a]) byNumber.set(l.number, l);
-  return [...byNumber.values()].sort((x, y) => y.number - x.number);
+// The server's order is the sheikh's own sequence: pages are appended, never re-sorted.
+function merge(latest: LessonDTO[], older: LessonDTO[]): LessonDTO[] {
+  const seen = new Set<number>();
+  return [...latest, ...older].filter((l) => !seen.has(l.number) && !!seen.add(l.number));
 }
 
 function useArchive(course: CourseDTO) {

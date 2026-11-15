@@ -81,7 +81,7 @@ it('hands the session back to recordings after the sheet closes', async () => {
 it('Tafsir: names the lesson and shows where it starts with the printed page and edition, without a book button', () => {
   render(sheet({ course: TAFSIR }));
   expect(screen.getByText('شرح كتاب التوحيد')).toBeTruthy();
-  expect(screen.getByText('البث المباشر')).toBeTruthy();
+  expect(screen.getByText('البث المباشر · المسجد النبوي (الغربية)')).toBeTruthy();
   expect(screen.getByText('تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ لَا يَرْقُبُوا فِيكُمْ إِلًّا وَلَا ذِمَّةً...﴾')).toBeTruthy();
   expect(screen.getByText('ص ٦٣٦ · طبعة دار ابن الجوزي')).toBeTruthy();
   expect(screen.queryByRole('link')).toBeNull();
@@ -90,7 +90,7 @@ it('Tafsir: names the lesson and shows where it starts with the printed page and
 it('evening course: shows where the lesson starts and opens the book there, collapsing the sheet', () => {
   const onCollapse = vi.fn();
   render(sheet({ course: TAWHID, onCollapse }));
-  expect(screen.getByText('البث المباشر')).toBeTruthy();
+  expect(screen.getByText('البث المباشر · مسجد قباء')).toBeTruthy();
   expect(screen.getByText('من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…')).toBeTruthy();
   const link = screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' });
   expect(link.getAttribute('href')).toBe('#/book/kabair/0/280?marker=1');
@@ -105,7 +105,7 @@ it('falls back when the start text, the page or the next lesson is unknown', () 
   expect(screen.getByRole('link', { name: 'تابع في الكتاب' }).getAttribute('href')).toBe('#/book/kabair/0/1');
 
   rerender(sheet({ course: { ...TAFSIR, next: null } }));
-  expect(screen.getByText('البث المباشر')).toBeTruthy();
+  expect(screen.getByText('البث المباشر · المسجد النبوي (الغربية)')).toBeTruthy();
   expect(screen.queryByText('يبدأ الدرس من')).toBeNull();
 
   rerender(sheet({ course: undefined }));

@@ -22,13 +22,13 @@ const quiet: LiveDTO = FIXTURE_STATE.live;
 const none: Ticks = { read: new Set(), reviewed: new Set() };
 
 const MON_0940 = new Date('2026-11-02T06:40:00Z');
-const MON_1900 = new Date('2026-11-02T16:00:00Z');
-const MON_2040 = new Date('2026-11-02T17:40:00Z');
+const MON_1600 = new Date('2026-11-02T13:00:00Z');
+const MON_1740 = new Date('2026-11-02T14:40:00Z');
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
 
 describe('nextStart and LESSON_MS', () => {
   it('give the next lesson instant and 150 minutes', () => {
-    expect(new Date(nextStart(tawhid)).toISOString()).toBe('2026-11-02T15:20:00.000Z');
+    expect(new Date(nextStart(tawhid)).toISOString()).toBe('2026-11-02T12:20:00.000Z');
     expect(nextStart({ ...tawhid, next: null })).toBe(Infinity);
     expect(LESSON_MS).toBe(150 * 60_000);
   });
@@ -42,8 +42,8 @@ describe('buildLesson', () => {
     expect(m.archiveSkip).toBe(443);
   });
 
-  it('tawhid at MON_1900 (18:20 start passed, no broadcast): today, last recording 2', () => {
-    const m = buildLesson(tawhid, quiet, none, MON_1900);
+  it('tawhid at MON_1600 (15:20 start passed, no broadcast): today, last recording 2', () => {
+    const m = buildLesson(tawhid, quiet, none, MON_1600);
     expect(m.top).toMatchObject({ kind: 'today', ended: false });
     expect(m.last).toMatchObject({ kind: 'recording', lesson: { number: 2 } });
     expect(m.archiveSkip).toBe(2);
@@ -56,8 +56,8 @@ describe('buildLesson', () => {
     expect(m.archiveSkip).toBeNull();
   });
 
-  it('tawhid at MON_2040 (under 150 min): still the previous recording', () => {
-    expect(buildLesson(tawhid, quiet, none, MON_2040).last).toMatchObject({ kind: 'recording', lesson: { number: 2 } });
+  it('tawhid at MON_1740 (under 150 min): still the previous recording', () => {
+    expect(buildLesson(tawhid, quiet, none, MON_1740).last).toMatchObject({ kind: 'recording', lesson: { number: 2 } });
   });
 
   it('tawhid on air: the live top, last recording 2', () => {

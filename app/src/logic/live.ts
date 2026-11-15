@@ -83,7 +83,7 @@ export function liveContext(course: CourseDTO | undefined, isLive: boolean, star
   const liveText = [label ? `مباشر · ${label}` : 'بث مباشر', edition].filter(Boolean).join(' · ');
   return {
     title: course?.title ?? 'البث المباشر',
-    header: label ? `البث المباشر · ${label}` : 'البث المباشر',
+    header: ['البث المباشر', label ?? course?.place].filter(Boolean).join(' · '),
     start: lesson && start ? startText(start, lesson?.label || !course ? null : previousLabel(course)) : null,
     edition,
     book: course && start ? bookHref(course, start.pdfIndex, start.startPage, true) : null,

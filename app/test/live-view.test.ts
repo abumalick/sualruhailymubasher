@@ -103,7 +103,7 @@ describe('liveContext', () => {
   it('Tafsir: start text as served, printed page with edition, no book link', () => {
     expect(liveContext(TAFSIR, true, STARTED['kitab-tawhid'])).toEqual({
       title: 'شرح كتاب التوحيد',
-      header: 'البث المباشر',
+      header: 'البث المباشر · المسجد النبوي (الغربية)',
       start: 'تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ لَا يَرْقُبُوا فِيكُمْ إِلًّا وَلَا ذِمَّةً...﴾',
       edition: 'ص ٦٣٦ · طبعة دار ابن الجوزي',
       book: null,
@@ -136,7 +136,7 @@ describe('liveContext', () => {
 
   it('no next lesson: no label, no start, no book', () => {
     const ctx = liveContext({ ...TAFSIR, next: null }, true, STARTED['kitab-tawhid']);
-    expect(ctx.header).toBe('البث المباشر');
+    expect(ctx.header).toBe('البث المباشر · المسجد النبوي (الغربية)');
     expect([ctx.start, ctx.edition, ctx.book]).toEqual([null, null, null]);
   });
 

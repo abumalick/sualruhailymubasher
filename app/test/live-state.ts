@@ -31,6 +31,7 @@ export const TAWHID_13 = tawhidLesson({ number: 13, startPoint: 'من قوله: 
 
 export const TAWHID: CourseDTO = {
   ...tawhid,
+  pdfUrls: [1, 2, 3].map((v) => `https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_0${v}.pdf`),
   pageOffsets: [2, 2, 2],
   latest: [TAWHID_14, TAWHID_13],
   next: { ...tawhid.next!, date: '2026-11-02', pdfIndex: 0, startPoint: TAWHID_14.endPoint, startPage: 280, estEndPage: 285, estimated: false },

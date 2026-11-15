@@ -13,7 +13,7 @@ import { liveDTO, TAFSIR, TAWHID } from './live-state';
 const [tafsir, tawhid] = FIXTURE_STATE.courses;
 const quiet: LiveDTO = FIXTURE_STATE.live;
 const MON_0940 = new Date('2026-11-02T06:40:00Z');
-const MON_1900 = new Date('2026-11-02T16:00:00Z');
+const MON_1600 = new Date('2026-11-02T13:00:00Z');
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
 const none = (): Ticks => ({ read: new Set(), reviewed: new Set() });
 const noop = () => {};
@@ -140,9 +140,9 @@ describe('Lesson page', () => {
   });
 
   it('درس اليوم after the start, then انتهى after 150 minutes', () => {
-    page(tawhid, { now: MON_1900 });
+    page(tawhid, { now: MON_1600 });
     expect(sections()[0]).toBe('درس اليوم');
-    expect(screen.getByText('بدأ ٦:٢٠ م')).toBeTruthy();
+    expect(screen.getByText('بدأ ٣:٢٠ م')).toBeTruthy();
     cleanup();
     page(tawhid, { now: MON_2110 });
     expect(screen.getByText('انتهى')).toBeTruthy();
@@ -174,8 +174,22 @@ describe('Lesson page', () => {
     await waitFor(() => expect(archive()).toEqual(['الدرس ٤٤٢', 'الدرس ٤٤١', 'الدرس ٤٤٠', 'الدرس ٤٣٩']));
   });
 
+  it("lists lessons in the sheikh's sequence, not by number, and appends older pages in the server's order", async () => {
+    // a lesson that reached the site late has a higher number than the ones before it in the sequence
+    const shahadat1: LessonDTO = { ...lesson(31), section: 'كتاب الشهادات', sectionNumber: 1, label: 'كتاب الشهادات – الدرس ١' };
+    const qada = (n: number): LessonDTO => ({ ...lesson(n === 4 ? 40 : 23 + n), section: 'كتاب القضاء', sectionNumber: n, label: `كتاب القضاء – الدرس ${toArabicDigits(n)}` });
+    vi.mocked(api.fetchLessons).mockResolvedValue([qada(5), qada(4)]);
+    const course = { ...tafsir, latest: [shahadat1, qada(7), qada(6)] };
+    page(course);
+    expect(document.querySelector('.last')!.textContent).toContain('كتاب الشهادات – الدرس ١');
+    expect(archive()).toEqual(['كتاب القضاء – الدرس ٧', 'كتاب القضاء – الدرس ٦']);
+    await act(async () => observer!.cb([{ isIntersecting: true }]));
+    expect(api.fetchLessons).toHaveBeenCalledWith('kitab-tawhid', 29);
+    await waitFor(() => expect(archive()).toEqual(['كتاب القضاء – الدرس ٧', 'كتاب القضاء – الدرس ٦', 'كتاب القضاء – الدرس ٥', 'كتاب القضاء – الدرس ٤']));
+  });
+
   it('unknown page: one button per volume at page 1 in the title block', () => {
-    const blank = { ...tawhid, latest: tawhid.latest.map((l) => ({ ...l, startPage: null, endPage: null })), next: { ...tawhid.next!, startPage: null } };
+    const blank = { ...TAWHID, latest: TAWHID.latest.map((l) => ({ ...l, startPage: null, endPage: null })), next: { ...TAWHID.next!, startPage: null } };
     page(blank, { now: MON_0940 });
     expect(['الجزء ١', 'الجزء ٢', 'الجزء ٣'].map((n) => screen.getByRole('link', { name: n }).getAttribute('href'))).toEqual([
       '#/book/kabair/0/1',
