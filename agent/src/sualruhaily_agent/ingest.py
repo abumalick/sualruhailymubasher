@@ -342,7 +342,9 @@ def run_ingest(
     log.info("ingest: %d message(s) from %d", len(messages), start)
     index = api.ingest_index()
     done = {row.source_ref for row in index.lessons if row.recording_url}
-    actions = plan([_resolve(parse_message(m), site, done, failed) for m in messages], index, failed, cancelled)
+    parsed = [_resolve(parse_message(m), site, done, failed) for m in messages]
+    cancelled |= {p.ref for p in parsed if isinstance(p, (Absence, Lecture)) and p.ref in index.exception_refs}
+    actions = plan(parsed, index, failed, cancelled)
     summary = Summary(actions=actions)
     work = state_path.parent / "media"
     for action in actions:

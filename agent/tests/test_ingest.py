@@ -488,3 +488,9 @@ def test_heartbeat_lists_at_most_three_failing_refs(tmp_path):
     run(api, FakeTelegram(messages(1088, 1089, 1090, 1111)), tmp_path)
 
     assert api.heartbeats == [(False, "0 lessons, 0 cancellations, 0 skipped, 4 failed (tg:1088, tg:1089, tg:1090, …)")]
+
+
+def test_cancellation_seen_in_the_index_is_remembered(tmp_path):
+    seed_state(tmp_path, {"last_id": 1000})
+    run(FakeApi(exception_refs=["tg:971"]), FakeTelegram(messages(971)), tmp_path)
+    assert state(tmp_path)["cancelled"] == ["tg:971"]
