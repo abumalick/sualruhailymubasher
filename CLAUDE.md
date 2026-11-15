@@ -44,7 +44,7 @@ Worktrees live inside the repo in `.worktrees/<branch-slug>` (gitignored).
   servers and `down <branch>` only stops them. Branch names need letters a-z or digits
   (folder and host names are built from them; an Arabic-only name is refused).
   A branch cut before the harness existed has no `scripts/dev-server.sh`: rebase it
-  onto `main` first. Branch names are capped at 48 characters (host-name limit).
+  onto `main` first. Branch names are capped at 43 characters (host-name limit).
 - **Servers** — each worktree runs its own `wrangler dev` with its own local D1
   (`server/.wrangler/state`, migrated and seeded from `server/seed/dev.sql` at every
   start) and its own Vite, which proxies `/api` to that Worker; Vite starts only once

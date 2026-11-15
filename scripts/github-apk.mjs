@@ -13,7 +13,8 @@ export const PACKAGE = 'com.sualruhailymubasher.app';
 export const ASSET_NAME = 'sualruhaily-mubasher.apk';
 // Certificate of the sideload key (Bitwarden: "Sualruhaily Mubasher Obtainium APK signing key"). Installed copies
 // only accept updates signed by it, so an APK signed by anything else must never be published.
-export const SIGNER_SHA256 = '7979d855f5a8ed011c9e9d54467dd431b227a6bf34451dd39c66708a330cac83';
+// TBD-plan-4 matches no digest: every APK is refused until this project's own key exists and its SHA-256 is set here.
+export const SIGNER_SHA256 = 'TBD-plan-4';
 
 // Obtainium compares the tag with the installed versionName
 export const releaseTag = (versionName) => `v${versionName}`;
@@ -34,14 +35,14 @@ export function parseBadging(badging) {
 export const parseSigners = (apksigner) =>
   [...apksigner.matchAll(/^Signer #\d+ certificate SHA-256 digest: ([0-9a-f]{64})$/gm)].map((m) => m[1]);
 
-export function apkProblems({ badging, signers, expected }) {
+export function apkProblems({ badging, signers, expected, signer = SIGNER_SHA256 }) {
   const problems = [];
   if (badging.packageName !== PACKAGE) problems.push(`package is ${badging.packageName}, expected ${PACKAGE}`);
   for (const key of ['versionCode', 'versionName']) {
     if (badging[key] !== expected[key]) problems.push(`${key} is ${badging[key]}, build.gradle says ${expected[key]}`);
   }
-  if (signers.length !== 1 || signers[0] !== SIGNER_SHA256) {
-    problems.push(`signed by [${signers.join(', ')}], expected only the sideload key ${SIGNER_SHA256}`);
+  if (signers.length !== 1 || signers[0] !== signer) {
+    problems.push(`signed by [${signers.join(', ')}], expected only the sideload key ${signer}`);
   }
   return problems;
 }
@@ -101,7 +102,7 @@ export const realIo = {
 export function verify(apk, io = realIo) {
   const expected = gradleVersion(io.gradle());
   const badging = parseBadging(io.badging(apk));
-  const problems = apkProblems({ badging, signers: parseSigners(io.signers(apk)), expected });
+  const problems = apkProblems({ badging, signers: parseSigners(io.signers(apk)), expected, signer: io.signer });
   if (problems.length) throw new Error(`${apk} cannot be published:\n- ${problems.join('\n- ')}`);
   io.log(`${apk}: ${badging.packageName} ${badging.versionName} (${badging.versionCode}), sideload key`);
   return badging;
