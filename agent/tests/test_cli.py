@@ -62,13 +62,17 @@ def test_index_book_command(tmp_path, monkeypatch, caplog):
 
 class FakeTelegram:
     busy = False
+    closed = 0
 
     def __init__(self, *args, **kwargs):
         pass
 
+    def close(self):
+        FakeTelegram.closed += 1
+
     def export(self, from_id):
         if self.busy:
-            raise TelegramBusy("tdl lock held")
+            raise TelegramBusy("Telegram asked to wait 30s")
         rows = json.loads(FIXTURE.read_text(encoding="utf-8"))["messages"]
         return [Message(m["id"], m["date"], m["file"], m["text"]) for m in rows if m["id"] in (971, 1111, 1112)]
 
@@ -112,6 +116,22 @@ def test_no_notify_flag_reaches_every_lesson_post(monkeypatch, tmp_path):
     assert len(posts) == 2 and all(p["notify"] is False for p in posts)
     assert (tmp_path / "cache" / "ingest" / "state.json").exists()
     assert ("PUT", "/api/admin/heartbeat/ingest") in [(m, p) for m, p, _ in seen]
+
+
+def test_ingest_closes_the_telegram_connection(monkeypatch, tmp_path):
+    ingest_env(monkeypatch, tmp_path)
+    before = FakeTelegram.closed
+    assert cli.main(["ingest", "--dry-run"], transport=ingest_server([])) == 0
+    assert FakeTelegram.closed == before + 1
+
+
+def test_ingest_without_telegram_settings_exits_nonzero(monkeypatch, tmp_path, caplog):
+    env(monkeypatch, tmp_path)
+    monkeypatch.setenv("SUALRUHAILY_AGENT_CACHE", str(tmp_path / "cache"))
+    monkeypatch.delenv("TELEGRAM_API_ID", raising=False)
+    monkeypatch.delenv("TELEGRAM_API_HASH", raising=False)
+    assert cli.main(["ingest"], transport=ingest_server([])) == 1
+    assert "TELEGRAM_API_ID" in caplog.text
 
 
 def test_dry_run_prints_the_plan_and_writes_nothing(monkeypatch, tmp_path, capsys):

@@ -12,7 +12,7 @@ journalctl --user -t sualruhaily-agent -n 50   # heavy moves the job into a tran
 
 ## Ingest
 
-`sualruhaily-agent ingest` reads the official channel @Sulalruhaily with the owner's `tdl` session, uploads each
+`sualruhaily-agent ingest` reads the official channel @Sulalruhaily through its own Telethon user session (the owner's account), uploads each
 lesson recording to R2 (`lessons/<course>/<message id>.<mp3|m4a>`) through the admin API and creates the lesson.
 Kaba'ir posts link to the official site: the lesson number, start point and mp3 come from the play page. Absence
 and lecture posts become slot cancellations. Posts are keyed by `tg:<message id>`, so a second pass changes
@@ -31,11 +31,14 @@ uv run sualruhaily-agent ingest [--from-id N] [--no-notify] [--dry-run] [--retry
 The first run (no `ingest/state.json` yet) is a backfill: it never pushes, whatever the flags say. A post that fails
 the same way on every try (the server refuses it with 400/409/413/415, a file over 95 MB, an unusable play page)
 is recorded in the state and skipped, still counted as failed in the heartbeat, until `--retry-failed`. Server
-errors, network errors and tdl failures are retried on the next run.
+errors, network errors and Telegram failures are retried on the next run.
 
 It needs `API_BASE` and `ADMIN_TOKEN`; `SUALRUHAILY_AGENT_CACHE` moves its lock (`ingest.lock`), state
-(`ingest/state.json`) and downloads. Every `tdl` call runs under `flock ~/.tdl/cli.lock`, shared with the other
-Telegram tools; when it stays held for 120 s the tick is skipped. Each run ends with a heartbeat
+(`ingest/state.json`) and downloads. Telegram needs `TELEGRAM_API_ID` and `TELEGRAM_API_HASH`; the session file is
+`TELEGRAM_SESSION` (default `~/.config/sualruhailymubasher/telegram.session`), used by no other tool. A run from a worktree must set its own `TELEGRAM_SESSION` (logged in separately) or
+run between timer ticks: two processes using one session at once can get it revoked. Log it in once
+with `sualruhaily-agent telegram-login` (it asks for the phone number and the code Telegram sends). A run that
+finds the session busy, or that Telegram asks to wait (flood wait), is skipped. Each run ends with a heartbeat
 (`3 lessons, 1 cancellation, 2 skipped, 0 failed`), not ok when a post failed or a caption was not understood.
 "skipped" counts every post that is not a lesson or a cancellation (live-stream notices, khutbas, reposts…).
 
@@ -43,9 +46,6 @@ A post that fails retryably 5 times in a row becomes permanent too (`failed:retr
 resets its count. A cancellation that matched courses is remembered, so one the owner deletes in /admin does not
 come back. An early 4xx from the media route (the Worker answers before reading the whole body) can reach the
 agent as a transport error instead of the status: it is then retried, within that cap of 5.
-
-`tdl dl` runs with `--restart`: an unfinished download is started over, and tdl's resume state for it is
-discarded (a timer has no terminal to answer tdl's "resume?" question).
 
 The timer runs it every 20 minutes. Install it only after the backfill. The manual run and the timer share the
 default cache (`~/.cache/sualruhaily-agent/`, where `ingest/state.json` lives), so do not set

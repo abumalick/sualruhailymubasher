@@ -1,14 +1,16 @@
-import json
-import subprocess
-from collections.abc import Callable
+import logging
+import os
+import sqlite3
+from collections.abc import Callable, Mapping
+from typing import Any
 from pathlib import Path
 
+from telethon.errors import FloodWaitError
+
 from .captions import Message
-from .paths import cache_root
 
 CHAT = "Sulalruhaily"
-LOCK_WAIT = "120"
-BUSY = 75
+log = logging.getLogger(__name__)
 
 
 class TelegramError(Exception):
@@ -19,48 +21,90 @@ class TelegramBusy(TelegramError):
     pass
 
 
+def settings(environ: Mapping[str, str] = os.environ, home: Path | None = None) -> tuple[int, str, Path]:
+    """The job's own Telegram login: API credentials and a session file no other tool uses."""
+    try:
+        api_id, api_hash = int(environ["TELEGRAM_API_ID"]), environ["TELEGRAM_API_HASH"]
+    except (KeyError, ValueError) as e:
+        raise TelegramError("TELEGRAM_API_ID and TELEGRAM_API_HASH must be set") from e
+    default = (home or Path.home()) / ".config" / "sualruhailymubasher" / "telegram.session"
+    session = Path(environ.get("TELEGRAM_SESSION") or default)
+    return api_id, api_hash, session if session.suffix == ".session" else session.with_name(session.name + ".session")
+
+
+def client_factory(environ: Mapping[str, str] = os.environ) -> Callable[[], Any]:
+    api_id, api_hash, session = settings(environ)
+
+    def make():
+        from telethon.sync import TelegramClient
+
+        return TelegramClient(str(session), api_id, api_hash, timeout=30, request_retries=3)
+
+    return make
+
+
+def to_message(m) -> Message:
+    name = (m.file.name if m.file else None) or ""
+    return Message(m.id, int(m.date.timestamp()), name, m.message or "")
+
+
 class Telegram:
-    """tdl, always under the machine-wide tdl lock that other Telegram tools share; one call at a time."""
+    """Reads @Sulalruhaily through a Telethon user session; one connection per run, closed with close()."""
 
-    def __init__(
-        self,
-        runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
-        lock: Path = Path.home() / ".tdl" / "cli.lock",
-        tmp_dir: Path | None = None,
-    ):
-        self._runner = runner
-        self._lock = lock
-        self._tmp = tmp_dir or cache_root() / "ingest" / "tmp"
+    def __init__(self, factory: Callable[[], Any]):
+        self._factory = factory
+        self._client = None
 
-    def _tdl(self, *args: str) -> None:
-        cmd = ["flock", "-w", LOCK_WAIT, "-E", str(BUSY), str(self._lock), "tdl", *args]
+    def _connected(self):
+        if self._client is None:
+            client = self._call(self._factory)
+            try:
+                self._call(client.connect)
+                if not self._call(client.is_user_authorized):
+                    raise TelegramError("the Telegram session is not logged in: run `sualruhaily-agent telegram-login`")
+            except BaseException:
+                self._disconnect(client)
+                raise
+            self._client = client
+        return self._client
+
+    @staticmethod
+    def _call(fn, *args, **kwargs):
         try:
-            result = self._runner(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True)
-        except OSError as e:
-            raise TelegramError(f"could not run tdl: {e}") from e
-        if result.returncode == BUSY:
-            raise TelegramBusy(f"the tdl lock {self._lock} stayed held for {LOCK_WAIT}s")
-        if result.returncode != 0:
-            tail = (result.stderr or result.stdout or "").strip()[-500:]
-            raise TelegramError(f"tdl {args[0]} exited {result.returncode}: {tail}")
+            return fn(*args, **kwargs)
+        except FloodWaitError as e:
+            raise TelegramBusy(f"Telegram asked to wait {e.seconds}s") from e
+        except sqlite3.OperationalError as e:
+            raise TelegramBusy(f"the Telegram session file is in use: {e}") from e
+        except TelegramError:
+            raise
+        except Exception as e:
+            raise TelegramError(f"Telegram call failed: {type(e).__name__}: {e}") from e
 
     def export(self, from_id: int) -> list[Message]:
-        self._tmp.mkdir(parents=True, exist_ok=True)
-        out = self._tmp / f"export-{from_id}.json"
-        out.unlink(missing_ok=True)
-        try:
-            self._tdl("chat", "export", "-c", CHAT, "-T", "id", "-i", str(from_id), "--all", "--with-content", "-o", str(out))
-            rows = json.loads(out.read_text(encoding="utf-8"))["messages"]
-            return [Message(int(m["id"]), int(m["date"]), m.get("file") or "", m.get("text") or "") for m in rows]
-        except (OSError, ValueError, KeyError, TypeError) as e:
-            raise TelegramError(f"unreadable tdl export: {e}") from e
-        finally:
-            out.unlink(missing_ok=True)
+        client = self._connected()
+        return [to_message(m) for m in self._call(lambda: list(client.iter_messages(CHAT, min_id=from_id - 1, reverse=True)))]
 
     def download(self, msg_id: int, dest: Path) -> Path:
+        client = self._connected()
+        message = self._call(client.get_messages, CHAT, ids=msg_id)
+        if message is None or not message.media or not message.file:
+            raise TelegramError(f"message {msg_id} has no file to download")
         dest.mkdir(parents=True, exist_ok=True)
-        self._tdl("dl", "-u", f"https://t.me/{CHAT}/{msg_id}", "-d", str(dest), "--restart")
-        files = [p for p in dest.iterdir() if p.is_file()]
-        if len(files) != 1:
-            raise TelegramError(f"tdl dl of message {msg_id} left {len(files)} file(s) in {dest}")
-        return files[0]
+        target = dest / f"{msg_id}{message.file.ext or ''}"
+        written = self._call(client.download_media, message, file=str(target))
+        if not written or not Path(written).is_file():
+            raise TelegramError(f"download of message {msg_id} wrote no file")
+        return Path(written)
+
+    @staticmethod
+    def _disconnect(client) -> None:
+        try:
+            client.disconnect()
+        except Exception:
+            log.warning("could not disconnect from Telegram", exc_info=True)
+
+    def close(self) -> None:
+        if self._client is not None:
+            client, self._client = self._client, None
+            self._disconnect(client)
