@@ -9,14 +9,20 @@ import { routeForPush } from './topics';
 // and opens what a tap on the real one opens. Everything it shows at a given moment is decided here.
 
 // What a tap opens: the live player over the lesson, the book at the next passage, or the lesson page.
-export type Destination = { kind: 'live' } | { kind: 'lesson' } | { kind: 'book'; pdfIndex: number; page: number; marker: boolean };
+export type Destination = { kind: 'live' } | { kind: 'stream' } | { kind: 'lesson' } | { kind: 'book'; pdfIndex: number; page: number; marker: boolean };
+
+// Which story the preview tells: the apps' (a notification is tapped), the web's (the page's own buttons are tapped, no
+// notification), or the web's invite to the app (the apps' live story, resting on the notification).
+export type Variant = 'apps' | 'web' | 'invite';
 
 const PUSH_KIND: Record<Card['kind'], PushKind> = { live: 'live', recording: 'rec', next: 'prep' };
 
 // Asks the app's own routing, so the preview follows wherever a tapped notification is sent.
-export function previewDestination(card: Card, state: StateDTO): Destination {
+// On the web, the live hero's button does what `startLive` does: a direct stream plays in the player bar, Mixlr opens its sheet.
+export function previewDestination(card: Card, state: StateDTO, variant: Variant = 'apps'): Destination {
   const courseId = card.course.id;
   const kind = PUSH_KIND[card.kind];
+  if (variant === 'web' && kind === 'live') return state.live.mode === 'direct' && state.live.streamUrl ? { kind: 'stream' } : { kind: 'live' };
   const route = parseRoute(routeForPush({ kind, courseId, number: '' }, state) ?? '#/');
   if (route.name === 'book') return { kind: 'book', pdfIndex: route.pdfIndex, page: route.page, marker: route.marker };
   const onAir = { ...state, live: { ...state.live, isLive: true, courseId } };
@@ -30,7 +36,7 @@ export interface Frame {
   // How the phone is framed: as it is, slid up to show the highlighted card, or slid up to show the bottom of its screen.
   focus: 'top' | 'target' | 'bottom';
   spot: boolean;
-  tap: 'banner' | 'listen' | 'play' | 'tick' | null;
+  tap: 'banner' | 'listen' | 'play' | 'tick' | 'live' | 'book' | null;
   // Live: Mixlr plays. Review: the app's player plays the recording, until it has ended.
   playing: boolean;
   ended: boolean;
@@ -39,7 +45,7 @@ export interface Frame {
   still: boolean;
 }
 
-type BeatName = 'idle' | 'small' | 'big' | 'tap' | 'gone' | 'open' | 'spot' | 'bottom' | 'tapListen' | 'tapPlay' | 'playing' | 'ended' | 'tapTick' | 'done' | 'out' | 'end';
+type BeatName = 'idle' | 'small' | 'big' | 'tap' | 'gone' | 'open' | 'aim' | 'spot' | 'bottom' | 'tapLive' | 'tapBook' | 'tapListen' | 'tapPlay' | 'playing' | 'ended' | 'tapTick' | 'done' | 'out' | 'end';
 export interface Beat {
   name: BeatName;
   at: number;
@@ -50,17 +56,29 @@ const OPENING: [BeatName, number][] = [['idle', 0], ['small', 600], ['big', 1300
 
 // How the picture plays once the phone is open: the live player is started, the book's passage is ticked read, the
 // recording is listened to then ticked reviewed; a bookless course's lesson page only has its next lesson highlighted.
-export type Play = 'live' | 'book' | 'page' | 'review';
+export type Play = 'live' | 'stream' | 'book' | 'page' | 'review';
 
 export const previewPlay = (card: Card, to: Destination): Play => (to.kind !== 'lesson' ? to.kind : card.kind === 'recording' ? 'review' : 'page');
 
 // Each play's last beat is its length; the one before, the fade out.
-export const BEATS: Record<Play, Beat[]> = {
+export const BEATS: Record<Exclude<Play, 'stream'>, Beat[]> = {
   live: beats(...OPENING, ['bottom', 4400], ['tapPlay', 5400], ['playing', 5800], ['out', 9000], ['end', 9600]),
   book: beats(...OPENING, ['bottom', 4400], ['tapTick', 5600], ['done', 6000], ['out', 8200], ['end', 8800]),
   page: beats(...OPENING, ['spot', 4300], ['out', 7600], ['end', 8200]),
   review: beats(...OPENING, ['spot', 4300], ['tapListen', 5400], ['playing', 5800], ['ended', 8000], ['tapTick', 8600], ['done', 9000], ['out', 11000], ['end', 11600]),
 };
+
+// The web's stories start on the lesson page: the phone frames what the finger taps, and nothing arrives first.
+export const WEB_BEATS: Record<Play, Beat[]> = {
+  live: beats(['idle', 0], ['aim', 600], ['tapLive', 1400], ['open', 1800], ['bottom', 2600], ['tapPlay', 3600], ['playing', 4000], ['out', 7200], ['end', 7800]),
+  stream: beats(['idle', 0], ['aim', 600], ['tapLive', 1400], ['playing', 1800], ['out', 5000], ['end', 5600]),
+  book: beats(['idle', 0], ['spot', 600], ['tapBook', 1700], ['open', 2100], ['bottom', 2900], ['tapTick', 4100], ['done', 4500], ['out', 6700], ['end', 7300]),
+  page: beats(['idle', 0], ['spot', 600], ['out', 3900], ['end', 4500]),
+  review: beats(['idle', 0], ['spot', 600], ['tapListen', 1700], ['playing', 2100], ['ended', 4300], ['tapTick', 4900], ['done', 5300], ['out', 7300], ['end', 7900]),
+};
+
+export const beatsFor = (play: Play, variant: Variant): Beat[] => (variant === 'web' || play === 'stream' ? WEB_BEATS[play] : BEATS[play]);
+
 export const PLAYS = 2;
 
 // The drawn recording's length, in seconds: about an hour, as a lesson is.
@@ -72,7 +90,8 @@ const SETS: Partial<Record<BeatName, Partial<Frame>>> = {
   small: { banner: 'small' },
   big: { banner: 'big' },
   gone: { banner: 'gone' },
-  open: { opened: true },
+  open: { opened: true, spot: false, focus: 'top' },
+  aim: { focus: 'target' },
   spot: { spot: true, focus: 'target' },
   bottom: { focus: 'bottom' },
   playing: { playing: true, focus: 'bottom' },
@@ -80,21 +99,22 @@ const SETS: Partial<Record<BeatName, Partial<Frame>>> = {
   done: { done: true },
   out: { fade: true },
 };
-const TAPS: Partial<Record<BeatName, Frame['tap']>> = { tap: 'banner', tapListen: 'listen', tapPlay: 'play', tapTick: 'tick' };
+const TAPS: Partial<Record<BeatName, Frame['tap']>> = { tap: 'banner', tapLive: 'live', tapBook: 'book', tapListen: 'listen', tapPlay: 'play', tapTick: 'tick' };
 
 const frameAt = (list: Beat[], i: number): Frame => ({ ...list.slice(0, i + 1).reduce((f, b) => ({ ...f, ...SETS[b.name] }), QUIET), tap: TAPS[list[i].name] ?? null });
 
-// The frame the preview rests on: where the story ends, in the app, just before it fades out.
-export function still(play: Play): Frame {
-  const list = BEATS[play];
-  return { ...frameAt(list, list.findIndex((b) => b.name === 'out') - 1), tap: null, still: true };
+// The frame the preview rests on: where the story ends, just before it fades out. The invite rests on its notification instead.
+export function still(play: Play, variant: Variant = 'apps'): Frame {
+  const list = beatsFor(play, variant);
+  const at = variant === 'invite' ? list.findIndex((b) => b.name === 'big') : list.findIndex((b) => b.name === 'out') - 1;
+  return { ...frameAt(list, at), tap: null, still: true };
 }
 
 // What the preview shows `elapsed` ms after it started, and how long until that changes (null: it rests from now on).
-export function previewAt(play: Play, elapsed: number, reduced: boolean): { frame: Frame; wait: number | null } {
-  const list = BEATS[play];
+export function previewAt(play: Play, elapsed: number, reduced: boolean, variant: Variant = 'apps'): { frame: Frame; wait: number | null } {
+  const list = beatsFor(play, variant);
   const length = list.at(-1)!.at;
-  if (reduced || elapsed >= PLAYS * length) return { frame: still(play), wait: null };
+  if (reduced || elapsed >= PLAYS * length) return { frame: still(play, variant), wait: null };
   const t = elapsed % length;
   let i = 0;
   while (list[i + 1].at <= t) i++;

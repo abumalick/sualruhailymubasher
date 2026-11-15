@@ -13,7 +13,7 @@ import { Icon } from './Star';
 
 const noop = () => {};
 
-const SPOKEN: Record<Play, string> = {
+const SPOKEN: Record<Exclude<Play, 'stream'>, string> = {
   live: 'صورة توضيحية: يصلك تنبيه عند بدء البث، فيفتح مشغّل البث المباشر، وتضغط زر التشغيل فتستمع.',
   review: 'صورة توضيحية: يصلك تنبيه عند نشر التسجيل، فيفتح الدرس، فتستمع إلى التسجيل ثم تعلّم عليه «راجعتُه».',
   book: 'صورة توضيحية: يصلك تذكير قبل الدرس، فيفتح الكتاب على مقطع الدرس القادم، فتقرؤه ثم تعلّم عليه «قرأتُه».',
@@ -159,7 +159,7 @@ export function Preview({ card, state, now }: { card: Card; state: StateDTO; now
   const style = geo ? `--s:${geo.scale};--bs:${geo.bannerScale};--pv-pan:${geo.pan}px` : undefined;
   return (
     <>
-      <p class="sr">{SPOKEN[play]}</p>
+      <p class="sr">{SPOKEN[play === 'stream' ? 'live' : play]}</p>
       <figure
         ref={panel}
         class="pv"

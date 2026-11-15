@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { liveIntentAction } from '../src/logic/liveIntent';
 import { cardFor } from '../src/logic/onboarding';
-import { BEATS, CAPTION_ROOM, PHONE_HEIGHT, phonePan, PLAYS, previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, still } from '../src/logic/preview';
+import { BEATS, beatsFor, CAPTION_ROOM, PHONE_HEIGHT, phonePan, PLAYS, previewAt, previewDestination, previewGeometry, previewNotice, previewPlay, still, type Play } from '../src/logic/preview';
 import { routeForPush } from '../src/logic/topics';
 import { bookHref } from '../src/ui/format';
 
@@ -209,5 +209,73 @@ describe('previewNotice', () => {
     const prep = previewNotice(cardFor('prep', [tafsir], quiet)!, quiet);
     expect(prep.title).toBe(NOTICE_TITLE.prep);
     expect(prep.body.startsWith(`${tafsir.title} · `)).toBe(true);
+  });
+});
+
+describe('the web variant', () => {
+  const live = cardFor('live', [tafsir], quiet)!;
+  const rec = cardFor('rec', [tafsir], quiet)!;
+  const prep = cardFor('prep', [tafsir], quiet)!;
+  const direct = { ...FIXTURE_STATE, live: { ...quiet, mode: 'direct' as const, streamUrl: 'https://stream.example/live.mp3' } };
+  const webAt = (to: Play, ms: number) => previewAt(to, ms, false, 'web').frame;
+
+  it('live opens the Mixlr player when the broadcast is embedded, the player bar when it is a direct stream', () => {
+    expect(previewDestination(live, FIXTURE_STATE, 'web')).toEqual({ kind: 'live' });
+    expect(previewDestination(live, direct, 'web')).toEqual({ kind: 'stream' });
+    expect(previewDestination(live, direct, 'apps')).toEqual({ kind: 'live' });
+    expect(previewPlay(live, { kind: 'stream' })).toBe('stream');
+  });
+
+  it('recording and preparation go where the page’s own buttons lead, the same places as the apps', () => {
+    expect(previewDestination(rec, FIXTURE_STATE, 'web')).toEqual(previewDestination(rec, FIXTURE_STATE, 'apps'));
+    expect(previewDestination(prep, FIXTURE_STATE, 'web')).toEqual(previewDestination(prep, FIXTURE_STATE, 'apps'));
+  });
+
+  it('no frame of any play shows a notification', () => {
+    for (const play of ['live', 'stream', 'book', 'page', 'review'] as const)
+      for (let ms = 0; ms < 2 * beatsFor(play, 'web').at(-1)!.at; ms += 100) expect(webAt(play, ms).banner).toBe('hidden');
+  });
+
+  it('live: the phone slides to the disc, it is tapped, the player opens at its top, Mixlr’s play is tapped and it plays', () => {
+    expect(webAt('live', 0)).toMatchObject({ opened: false, tap: null, focus: 'top' });
+    expect(webAt('live', 700)).toMatchObject({ focus: 'target', spot: false });
+    expect(webAt('live', 1500)).toMatchObject({ tap: 'live', opened: false, focus: 'target' });
+    expect(webAt('live', 1900)).toMatchObject({ opened: true, tap: null, focus: 'top' });
+    expect(webAt('live', 3700)).toMatchObject({ focus: 'bottom', tap: 'play' });
+    expect(webAt('live', 4100)).toMatchObject({ playing: true });
+  });
+
+  it('stream: the disc is tapped and the player bar plays the broadcast', () => {
+    expect(webAt('stream', 1500).tap).toBe('live');
+    expect(webAt('stream', 1900)).toMatchObject({ playing: true, focus: 'bottom' });
+  });
+
+  it('book: the next card is highlighted, its book chip tapped, the book opens and «قرأتُه» is ticked', () => {
+    expect(webAt('book', 700)).toMatchObject({ spot: true, focus: 'target', opened: false });
+    expect(webAt('book', 1800).tap).toBe('book');
+    expect(webAt('book', 2200)).toMatchObject({ opened: true, spot: false, focus: 'top' });
+    expect(webAt('book', 4600).done).toBe(true);
+  });
+
+  it('review and page: the apps’ story from the highlighted card on, without the notification', () => {
+    expect(webAt('review', 700)).toMatchObject({ spot: true, opened: false });
+    expect(webAt('review', 1800).tap).toBe('listen');
+    expect(webAt('review', 5400).done).toBe(true);
+    expect(webAt('page', 700).spot).toBe(true);
+  });
+
+  it('the still frames are the end of each story', () => {
+    expect(still('live', 'web')).toMatchObject({ opened: true, playing: true, banner: 'hidden', still: true });
+    expect(still('book', 'web')).toMatchObject({ opened: true, done: true, still: true });
+    expect(previewAt('live', 0, true, 'web').frame).toEqual(still('live', 'web'));
+  });
+});
+
+describe('the invite variant', () => {
+  it('plays the apps’ live story but rests on the grown notification over the dimmed page', () => {
+    expect(beatsFor('live', 'invite')).toBe(BEATS.live);
+    expect(still('live', 'invite')).toMatchObject({ banner: 'big', opened: false, tap: null, still: true });
+    expect(previewAt('live', 0, true, 'invite').frame).toEqual(still('live', 'invite'));
+    expect(previewAt('live', PLAYS * loop('live'), false, 'invite').frame).toEqual(still('live', 'invite'));
   });
 });
