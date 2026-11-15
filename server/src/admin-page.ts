@@ -292,10 +292,42 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
         msg.textContent = 'تم الحفظ'; msg.className = 'msg ok';
       }, function (e) { msg.textContent = errText(e); msg.className = 'msg err'; });
     };
-    var parts = [el('h3', { text: 'الدرس ' + l.number + ' · ' + l.hijriDate })];
+    var parts = [el('h3', { text: l.label + ' · ' + l.hijriDate })];
+    if (l.dateFlag) parts.push(el('p', { className: 'msg err', text: '⚠ تاريخ غير مطابق لأيام الدرس' }));
     fields.forEach(function (f, i) { parts.push(field(f[1], inputs[i])); });
     parts.push(save, msg);
     return el('div', { className: 'card' }, parts);
+  }
+
+  function sectionOrder(courseId) {
+    var box = el('div');
+    var msg = el('div', { className: 'msg' });
+    function render(order) {
+      box.textContent = '';
+      if (order.length < 2) return;
+      box.appendChild(el('p', { className: 'muted', text: 'ترتيب الأبواب (الأخير في القائمة هو الأحدث)' }));
+      order.forEach(function (name, i) {
+        function move(d) {
+          var next = order.slice();
+          next.splice(i, 1);
+          next.splice(i + d, 0, name);
+          api('/api/admin/sections/' + encodeURIComponent(courseId), 'PUT', { order: next }).then(function () {
+            render(next);
+            loadLessons().catch(loadFailed);
+          }, function (e) { msg.textContent = errText(e); msg.className = 'msg err'; });
+        }
+        var up = el('button', { text: '↑', className: 'ghost' });
+        var down = el('button', { text: '↓', className: 'ghost' });
+        up.disabled = i === 0;
+        down.disabled = i === order.length - 1;
+        up.onclick = function () { move(-1); };
+        down.onclick = function () { move(1); };
+        box.appendChild(el('div', { className: 'row' }, [el('span', { text: (i + 1) + '. ' + name }), up, down]));
+      });
+      box.appendChild(msg);
+    }
+    api('/api/admin/sections/' + encodeURIComponent(courseId)).then(render, function (e) { msg.textContent = errText(e); box.appendChild(msg); });
+    return box;
   }
 
   var lessonsLoad = 0;
@@ -307,7 +339,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
         if (!r.ok) throw new Error('خطأ ' + r.status);
         return r.json();
       }).then(function (list) {
-        var section = el('div', {}, [el('h3', { text: c.title })]);
+        var section = el('div', {}, [el('h3', { text: c.title }), sectionOrder(c.id)]);
         if (!list.length) section.appendChild(el('p', { className: 'muted', text: 'لا توجد دروس بعد' }));
         list.forEach(function (l) { section.appendChild(lessonCard(c.id, l)); });
         return section;

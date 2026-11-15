@@ -24,7 +24,7 @@ import { androidUpdateUrl, updatePlatform } from './update';
 import { updateStatus, updateUrl } from './logic/update';
 import { More } from './ui/More';
 import { nativeUI } from './platform';
-import { ar, arText } from './ui/format';
+import { arText } from './ui/format';
 import { NavBar } from './ui/NavBar';
 import { Defs } from './ui/Star';
 
@@ -142,7 +142,7 @@ export function App() {
     send({ type: 'play-recording' });
     void player.play({
       url: lesson.recordingUrl,
-      title: `${course.title} · الدرس ${ar(lesson.number)}`,
+      title: `${course.title} · ${lesson.label}`,
       subtitle: arText(lesson.startPoint),
       kind: 'recording',
       courseId: course.id,

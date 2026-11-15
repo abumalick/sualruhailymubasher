@@ -60,6 +60,14 @@ describe('the live preview', () => {
 });
 
 describe('the recording preview', () => {
+  it('titles the player with the lesson label the sheikh uses', async () => {
+    const sectioned = { ...tafsir, latest: [{ ...tafsir.latest[0], section: 'كتاب القضاء', sectionNumber: 7, label: 'كتاب القضاء – الدرس ٧' }, ...tafsir.latest.slice(1)] };
+    const state = { ...FIXTURE_STATE, courses: [sectioned] };
+    const { container } = render(<Preview card={cardFor('rec', [sectioned], state.live)!} state={state} now={NOW} variant="apps" />);
+    await after(4400 + 1100 + 400);
+    expect(container.querySelector('.pv-app > .mp .b')!.textContent).toBe(`${tafsir.title} · كتاب القضاء – الدرس ٧`);
+  });
+
   it('highlights the recording card, taps «استمع», plays it in the app’s player to the end, then ticks «راجعتُه»', async () => {
     const pv = show('rec');
     await after(4400);
@@ -117,7 +125,7 @@ describe('a preparation reminder for a course without a book', () => {
     expect(pv.previousElementSibling!.textContent).toContain('صفحة الدرس');
     expect(pv.previousElementSibling!.textContent).not.toContain('الكتاب');
     await after(4400);
-    expect(pv.querySelector('.pv-target')!.textContent).toContain('الدرس ٤٤٤');
+    expect(pv.querySelector('.pv-target')!.textContent).toContain('غدًا بعد الفجر');
     for (let ms = 0; ms < BEATS.page.at(-1)!.at; ms += 200) {
       await after(200);
       expect(pv.dataset.tap).not.toBe('tick');

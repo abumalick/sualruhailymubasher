@@ -9,15 +9,15 @@ import { liveDTO, STARTED, TAWHID } from './live-state';
 
 afterEach(cleanup);
 
-// What /api/state serves for a course that has no lesson yet: next.number is the prediction 1, with no start text.
-const EMPTY: CourseDTO = { ...TAWHID, latest: [], next: { ...TAWHID.next!, number: 1, startPoint: null, startPage: null, pdfIndex: null, estEndPage: null, estimated: true } };
+// What /api/state serves for a course that has no lesson yet: no start text.
+const EMPTY: CourseDTO = { ...TAWHID, latest: [], unpublished: 0, next: { ...TAWHID.next!, startPoint: null, startPage: null, pdfIndex: null, estEndPage: null, estimated: true } };
 const noop = () => {};
 
 describe('a course with no lessons yet', () => {
   it('startText gives no continue-from line without a previous lesson', () => {
-    expect(startText({ startPoint: null, number: 1 })).toBeNull();
-    expect(startText({ startPoint: 'من قوله: باب', number: 1 })).toBe('من قوله: باب');
-    expect(startText({ startPoint: null, number: 15 })).toBe('يتابع من حيث توقف الدرس ١٤');
+    expect(startText({ startPoint: null })).toBeNull();
+    expect(startText({ startPoint: 'من قوله: باب' })).toBe('من قوله: باب');
+    expect(startText({ startPoint: null }, 'المجلس ١٤')).toBe('يتابع من حيث توقف المجلس ١٤');
   });
 
   it('the next card shows the title time but no lesson number and no continue line', () => {
@@ -28,10 +28,10 @@ describe('a course with no lessons yet', () => {
     expect(text).not.toContain('يتابع');
   });
 
-  it('the live context names no lesson and no continue line', () => {
+  it('the live context names the course and its place, no lesson and no continue line', () => {
     const ctx = liveContext(EMPTY, true, STARTED['kabair']);
     expect(ctx.title).toBe(EMPTY.title);
-    expect(ctx.header).toBe('البث المباشر');
+    expect(ctx.header).toBe('البث المباشر · مسجد قباء');
     expect(ctx.start).toBeNull();
     expect(ctx.status).toEqual({ live: true, text: 'بث مباشر' });
   });

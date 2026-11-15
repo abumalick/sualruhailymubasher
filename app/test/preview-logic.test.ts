@@ -198,9 +198,9 @@ describe('phonePan', () => {
 });
 
 describe('previewNotice', () => {
-  it('uses the title the server sends and names the course and lesson', () => {
+  it('uses the title the server sends: the live push names the course and place, the recording push the lesson label', () => {
     const live = previewNotice(cardFor('live', [tafsir], quiet)!, quiet);
-    expect(live).toEqual({ title: NOTICE_TITLE.live, body: `${tafsir.title} · الدرس ٤٤٤` });
+    expect(live).toEqual({ title: NOTICE_TITLE.live, body: `${tafsir.title} · ${tafsir.place}` });
     const rec = previewNotice(cardFor('rec', [tafsir], quiet)!, quiet);
     expect(rec).toEqual({ title: NOTICE_TITLE.rec, body: `${tafsir.title} · الدرس ٤٤٣` });
   });

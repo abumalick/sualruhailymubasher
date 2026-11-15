@@ -22,47 +22,47 @@ const quiet: LiveDTO = FIXTURE_STATE.live;
 const none: Ticks = { read: new Set(), reviewed: new Set() };
 
 const MON_0940 = new Date('2026-11-02T06:40:00Z');
-const MON_1900 = new Date('2026-11-02T16:00:00Z');
-const MON_2040 = new Date('2026-11-02T17:40:00Z');
+const MON_1600 = new Date('2026-11-02T13:00:00Z');
+const MON_1740 = new Date('2026-11-02T14:40:00Z');
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
 
 describe('nextStart and LESSON_MS', () => {
   it('give the next lesson instant and 150 minutes', () => {
-    expect(new Date(nextStart(tawhid)).toISOString()).toBe('2026-11-02T15:20:00.000Z');
+    expect(new Date(nextStart(tawhid)).toISOString()).toBe('2026-11-02T12:20:00.000Z');
     expect(nextStart({ ...tawhid, next: null })).toBe(Infinity);
     expect(LESSON_MS).toBe(150 * 60_000);
   });
 });
 
 describe('buildLesson', () => {
-  it('tafsir at MON_2110: next 444, last recording 443, archive skips 443', () => {
+  it('tafsir at MON_2110: next lesson, last recording 443, archive skips 443', () => {
     const m = buildLesson(tafsir, quiet, none, MON_2110);
-    expect(m.top).toMatchObject({ kind: 'next', read: false, next: { number: 444 } });
+    expect(m.top).toMatchObject({ kind: 'next', read: false });
     expect(m.last).toMatchObject({ kind: 'recording', reviewed: false, lesson: { number: 443 } });
     expect(m.archiveSkip).toBe(443);
   });
 
-  it('tawhid at MON_1900 (18:20 start passed, no broadcast): today 3, last recording 2', () => {
-    const m = buildLesson(tawhid, quiet, none, MON_1900);
-    expect(m.top).toMatchObject({ kind: 'today', ended: false, next: { number: 3 } });
+  it('tawhid at MON_1600 (15:20 start passed, no broadcast): today, last recording 2', () => {
+    const m = buildLesson(tawhid, quiet, none, MON_1600);
+    expect(m.top).toMatchObject({ kind: 'today', ended: false });
     expect(m.last).toMatchObject({ kind: 'recording', lesson: { number: 2 } });
     expect(m.archiveSkip).toBe(2);
   });
 
-  it('tawhid at MON_2110 (150 min passed, nothing recorded): ended, awaiting 3, the archive keeps 2', () => {
+  it('tawhid at MON_2110 (150 min passed, nothing recorded): ended, awaiting a lesson with no label, the archive keeps 2', () => {
     const m = buildLesson(tawhid, quiet, none, MON_2110);
-    expect(m.top).toMatchObject({ kind: 'today', ended: true, next: { number: 3 } });
-    expect(m.last).toEqual({ kind: 'awaiting', lessonNumber: 3 });
+    expect(m.top).toMatchObject({ kind: 'today', ended: true });
+    expect(m.last).toEqual({ kind: 'awaiting', label: null });
     expect(m.archiveSkip).toBeNull();
   });
 
-  it('tawhid at MON_2040 (under 150 min): still the previous recording', () => {
-    expect(buildLesson(tawhid, quiet, none, MON_2040).last).toMatchObject({ kind: 'recording', lesson: { number: 2 } });
+  it('tawhid at MON_1740 (under 150 min): still the previous recording', () => {
+    expect(buildLesson(tawhid, quiet, none, MON_1740).last).toMatchObject({ kind: 'recording', lesson: { number: 2 } });
   });
 
-  it('tawhid on air: the live top with its lesson number, last recording 2', () => {
+  it('tawhid on air: the live top, last recording 2', () => {
     const m = buildLesson(tawhid, liveDTO('kabair'), none, MON_2110);
-    expect(m.top).toEqual({ kind: 'live', lessonNumber: 3 });
+    expect(m.top).toEqual({ kind: 'live' });
     expect(m.last).toMatchObject({ kind: 'recording', lesson: { number: 2 } });
   });
 
@@ -70,18 +70,18 @@ describe('buildLesson', () => {
     expect(buildLesson(tafsir, liveDTO('kabair'), none, MON_2110).top.kind).toBe('next');
   });
 
-  it('broadcast counted before it was published (next 4, latest 2): awaiting 3, next 4', () => {
-    const counted = { ...tawhid, next: { ...tawhid.next!, date: '2026-11-03', number: 4 } };
+  it('broadcast counted before it was published (one unpublished): awaiting, with no label', () => {
+    const counted = { ...tawhid, unpublished: 1, next: { ...tawhid.next!, date: '2026-11-03' } };
     const m = buildLesson(counted, quiet, none, MON_2110);
-    expect(m.top).toMatchObject({ kind: 'next', next: { number: 4 } });
-    expect(m.last).toEqual({ kind: 'awaiting', lessonNumber: 3 });
+    expect(m.top).toMatchObject({ kind: 'next' });
+    expect(m.last).toEqual({ kind: 'awaiting', label: null });
     expect(m.archiveSkip).toBeNull();
   });
 
   it('recorded today without a recording url: awaiting that lesson, skipped from the archive', () => {
     const latest = [{ ...tafsir.latest[0], recordingUrl: null }, ...tafsir.latest.slice(1)];
     const m = buildLesson({ ...tafsir, latest }, quiet, none, MON_0940);
-    expect(m.last).toEqual({ kind: 'awaiting', lessonNumber: 443 });
+    expect(m.last).toEqual({ kind: 'awaiting', label: 'الدرس ٤٤٣' });
     expect(m.archiveSkip).toBe(443);
   });
 
@@ -111,32 +111,38 @@ describe('buildLesson', () => {
 });
 
 describe('a held day without a detected broadcast (Friday)', () => {
-  const friday = (nextNumber: number) => ({
+  const friday = (unpublished: number) => ({
     ...tafsir,
     time: '05:34',
+    unpublished,
     latest: [{ ...tafsir.latest[0], number: 452, hijriDate: '18-05-1448' }],
-    next: { ...tafsir.next!, date: '2026-11-01', time: '05:34', number: nextNumber },
+    next: { ...tafsir.next!, date: '2026-11-01', time: '05:34' },
   });
   const FRI = ['2026-10-30T07:00:00Z', '2026-10-30T13:00:00Z', '2026-10-30T18:00:00Z'].map((t) => new Date(t));
 
-  it('next = latest + 1: the recording and the next lesson stay all day', () => {
+  it('nothing unpublished: the recording and the next lesson stay all day', () => {
     for (const now of FRI) {
-      const m = buildLesson(friday(453), quiet, none, now);
+      const m = buildLesson(friday(0), quiet, none, now);
       expect(m.last).toMatchObject({ kind: 'recording', lesson: { number: 452 } });
-      expect(m.top).toMatchObject({ kind: 'next', next: { number: 453 } });
+      expect(m.top).toMatchObject({ kind: 'next' });
     }
   });
 
-  it('next = latest + 2 (broadcast counted): awaiting latest + 1', () => {
-    for (const now of FRI) expect(buildLesson(friday(454), quiet, none, now).last).toEqual({ kind: 'awaiting', lessonNumber: 453 });
+  it('one broadcast counted but unpublished: awaiting it', () => {
+    for (const now of FRI) expect(buildLesson(friday(1), quiet, none, now).last).toEqual({ kind: 'awaiting', label: null });
+  });
+
+  it('unpublished lessons with no next lesson known: awaiting, never nothing', () => {
+    const noNext = { ...friday(1), next: null };
+    for (const now of FRI) expect(buildLesson(noNext, quiet, none, now).last).toEqual({ kind: 'awaiting', label: null });
   });
 
   it('a lesson underway keeps the previous recording until 150 minutes after its start', () => {
-    expect(buildLesson(friday(453), quiet, none, new Date('2026-11-01T03:40:00Z'))).toMatchObject({
-      top: { kind: 'today', ended: false, next: { number: 453 } },
+    expect(buildLesson(friday(0), quiet, none, new Date('2026-11-01T03:40:00Z'))).toMatchObject({
+      top: { kind: 'today', ended: false },
       last: { kind: 'recording', lesson: { number: 452 } },
     });
-    expect(buildLesson(friday(453), quiet, none, new Date('2026-11-01T05:05:00Z')).last).toEqual({ kind: 'awaiting', lessonNumber: 453 });
+    expect(buildLesson(friday(0), quiet, none, new Date('2026-11-01T05:05:00Z')).last).toEqual({ kind: 'awaiting', label: null });
   });
 });
 

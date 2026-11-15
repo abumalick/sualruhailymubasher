@@ -1,6 +1,5 @@
 import { lessonNoticeBody, NOTICE_TITLE, prepNoticeBody, type LiveDTO, type PushKind, type StateDTO } from '@sualruhaily/shared';
 import { parseRoute } from '../router';
-import { liveLesson } from './live';
 import { liveIntentAction } from './liveIntent';
 import type { Card } from './onboarding';
 import { routeForPush } from './topics';
@@ -146,7 +145,7 @@ export function phonePan(panelHeight: number, scale: number, bottom: number | nu
 
 export function previewNotice(card: Card, live: LiveDTO): { title: string; body: string } {
   const { course } = card;
-  if (card.kind === 'live') return { title: NOTICE_TITLE.live, body: lessonNoticeBody(course.title, liveLesson(course, live.courseId === course.id ? live.startedAt : null).number) };
-  if (card.kind === 'recording') return { title: NOTICE_TITLE.rec, body: lessonNoticeBody(course.title, card.lesson.number) };
-  return { title: NOTICE_TITLE.prep, body: prepNoticeBody(course.title, card.next.startPoint, card.next.number) };
+  if (card.kind === 'live') return { title: NOTICE_TITLE.live, body: lessonNoticeBody(course.title, course.place) };
+  if (card.kind === 'recording') return { title: NOTICE_TITLE.rec, body: `${course.title} · ${card.lesson.label}` };
+  return { title: NOTICE_TITLE.prep, body: prepNoticeBody(course.title, course.place, card.next.startPoint) };
 }

@@ -1,4 +1,5 @@
 import type { CourseDTO, LessonDTO, LiveDTO, StateDTO } from '@sualruhaily/shared';
+import { toArabicDigits } from '@sualruhaily/shared';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 
 const [tafsir, tawhid] = FIXTURE_STATE.courses;
@@ -11,13 +12,12 @@ export const TAFSIR: CourseDTO = {
   next: {
     ...tafsir.next!,
     date: '2026-11-03',
-    number: 460,
     startPoint: 'تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ لَا يَرْقُبُوا فِيكُمْ إِلًّا وَلَا ذِمَّةً...﴾',
     startPage: 636,
   },
 };
 
-const tawhidLesson = (l: Partial<LessonDTO> & Pick<LessonDTO, 'number'>): LessonDTO => ({ ...tawhid.latest[0], ...l });
+const tawhidLesson = (l: Partial<LessonDTO> & Pick<LessonDTO, 'number'>): LessonDTO => ({ ...tawhid.latest[0], sectionNumber: l.number, label: `المجلس ${toArabicDigits(l.number)}`, ...l });
 export const TAWHID_14 = tawhidLesson({
   number: 14,
   startPoint: 'من قوله: وقال الخليل عليه السلام: ﴿وَاجْنُبْنِي وَبَنِيَّ أَنْ نَعْبُدَ الْأَصْنَامَ﴾',
@@ -31,9 +31,10 @@ export const TAWHID_13 = tawhidLesson({ number: 13, startPoint: 'من قوله: 
 
 export const TAWHID: CourseDTO = {
   ...tawhid,
+  pdfUrls: [1, 2, 3].map((v) => `https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_0${v}.pdf`),
   pageOffsets: [2, 2, 2],
   latest: [TAWHID_14, TAWHID_13],
-  next: { ...tawhid.next!, date: '2026-11-02', number: 15, pdfIndex: 0, startPoint: TAWHID_14.endPoint, startPage: 280, estEndPage: 285, estimated: false },
+  next: { ...tawhid.next!, date: '2026-11-02', pdfIndex: 0, startPoint: TAWHID_14.endPoint, startPage: 280, estEndPage: 285, estimated: false },
 };
 
 // The broadcast's start, Medina dates 2026-11-02 (Maghrib) and 2026-11-03 (Fajr).

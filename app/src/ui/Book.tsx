@@ -7,6 +7,7 @@ import { nativeUI } from '../platform';
 import { ar, arText, passageRange, printedPage } from './format';
 import { Back } from './Back';
 import { Icon, Tick } from './Star';
+import { nextTickNumber } from '../logic/lesson';
 import type { TickKind, Ticks } from '../logic/ticks';
 
 interface Props {
@@ -157,7 +158,7 @@ export function Book({ course, pdfIndex, page: requested, marker, ticks, onTick,
           </div>
         )}
       </div>
-      <BookFoot tick={showTick ? { done: ticks.read.has(`${course.id}:${next.number}`), onTick: () => onTick('read', course.id, next.number) } : null}>
+      <BookFoot tick={showTick ? { done: ticks.read.has(`${course.id}:${nextTickNumber(course)}`), onTick: () => onTick('read', course.id, nextTickNumber(course)) } : null}>
         {pdf && (
           <div class="pager">
             <button class="chip" aria-label="الصفحة السابقة" disabled={current <= 1} onClick={() => go(-1)}>

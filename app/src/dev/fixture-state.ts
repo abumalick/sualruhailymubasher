@@ -18,6 +18,8 @@ export const FIXTURE_STATE: StateDTO = {
     {
       id: 'kitab-tawhid',
       title: 'شرح كتاب التوحيد',
+      lessonWord: 'الدرس',
+      unpublished: 0,
       slot: 'fajr',
       place: 'المسجد النبوي (الغربية)',
       weekdays: [6],
@@ -27,6 +29,10 @@ export const FIXTURE_STATE: StateDTO = {
       latest: [
         {
           number: 443,
+          section: '',
+          sectionNumber: 443,
+          label: 'الدرس ٤٤٣',
+          dateFlag: false,
           hijriDate: '22-05-1448',
           startPoint: 'سورة الأنفال من الآية ٢٧',
           pdfIndex: 0,
@@ -39,6 +45,10 @@ export const FIXTURE_STATE: StateDTO = {
         },
         {
           number: 442,
+          section: '',
+          sectionNumber: 442,
+          label: 'الدرس ٤٤٢',
+          dateFlag: false,
           hijriDate: '21-05-1448',
           startPoint: 'سورة الأنفال من الآية ٢٠',
           pdfIndex: 0,
@@ -51,6 +61,10 @@ export const FIXTURE_STATE: StateDTO = {
         },
         {
           number: 441,
+          section: '',
+          sectionNumber: 441,
+          label: 'الدرس ٤٤١',
+          dateFlag: false,
           hijriDate: '20-05-1448',
           startPoint: 'سورة الأنفال من الآية ١٥',
           pdfIndex: 0,
@@ -65,7 +79,6 @@ export const FIXTURE_STATE: StateDTO = {
       next: {
         date: '2026-11-03',
         time: '05:25',
-        number: 444,
         startPoint: null,
         pdfIndex: 0,
         startPage: 312,
@@ -77,20 +90,21 @@ export const FIXTURE_STATE: StateDTO = {
     {
       id: 'kabair',
       title: 'شرح كتاب الكبائر للذهبي',
+      lessonWord: 'المجلس',
+      unpublished: 0,
       slot: 'asr',
       place: 'مسجد قباء',
       weekdays: [2],
-      time: '18:20',
-      pdfUrls: [
-        'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_01.pdf',
-        'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_02.pdf',
-        'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_03.pdf',
-      ],
-      pageOffsets: [2, 2, 2],
+      time: '15:20',
+      pdfUrls: [],
       edition: null,
       latest: [
         {
           number: 2,
+          section: '',
+          sectionNumber: 2,
+          label: 'المجلس ٢',
+          dateFlag: false,
           hijriDate: '10-05-1448',
           startPoint: 'من قوله: باب فضل التوحيد وما يكفر من الذنوب',
           pdfIndex: 0,
@@ -103,6 +117,10 @@ export const FIXTURE_STATE: StateDTO = {
         },
         {
           number: 1,
+          section: '',
+          sectionNumber: 1,
+          label: 'المجلس ١',
+          dateFlag: false,
           hijriDate: '09-05-1448',
           startPoint: 'من أول الكتاب',
           pdfIndex: 0,
@@ -116,8 +134,7 @@ export const FIXTURE_STATE: StateDTO = {
       ],
       next: {
         date: '2026-11-02',
-        time: '18:20',
-        number: 3,
+        time: '15:20',
         startPoint: null,
         pdfIndex: 0,
         startPage: 18,

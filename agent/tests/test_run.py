@@ -345,11 +345,33 @@ def test_a_patched_end_becomes_the_next_lessons_start_in_the_same_run(recorded):
     fake.answer = None
     handler.pending = [
         older(nextStartPoint="من قوله: باب الخوف من الشرك", startPage=2, pdfIndex=0),
-        lesson("c", 5, pdfs=list(BOOK), startPoint="من قوله: شرح الحديث الاول"),
+        lesson("c", 5, pdfs=list(BOOK), startPoint="من قوله: شرح الحديث الاول", prevNumber=4),
     ]
     assert run(handler) == 0
     assert len(patches) == 1
     assert "=== ملف 1 صفحة 1 ===" in prompts[0] and "ملف 0 صفحة 2 ===" not in prompts[0]
+
+
+def test_a_late_lesson_chains_from_its_sequence_predecessor_not_number_minus_one(recorded):
+    handler, patches, prompts, fake = recorded
+    fake.answer = None
+    handler.pending = [
+        older(nextStartPoint="من قوله: باب الخوف من الشرك", startPage=2, pdfIndex=0),
+        lesson("c", 9, pdfs=list(BOOK), startPoint="من قوله: شرح الحديث الاول", prevNumber=4),
+    ]
+    assert run(handler) == 0
+    assert "=== ملف 1 صفحة 1 ===" in prompts[0] and "ملف 0 صفحة 2 ===" not in prompts[0]
+
+
+def test_number_minus_one_is_not_a_predecessor_unless_the_server_says_so(recorded):
+    handler, patches, prompts, fake = recorded
+    fake.answer = None
+    handler.pending = [
+        older(nextStartPoint="من قوله: باب الخوف من الشرك", startPage=2, pdfIndex=0),
+        lesson("c", 5, pdfs=list(BOOK), startPoint="من قوله: شرح الحديث الاول", prevNumber=2),
+    ]
+    assert run(handler) == 0
+    assert "=== ملف 0 صفحة 2 ===" in prompts[0]
 
 
 def test_course_without_pdfs_uses_its_local_book(setup, monkeypatch):

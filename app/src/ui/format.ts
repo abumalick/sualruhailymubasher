@@ -32,15 +32,15 @@ export function schedule(weekdays: number[]): string {
   return [...weekdays].sort().map((d) => WEEKDAYS[d]).join('، ');
 }
 
-// Without a start text, "continues from lesson N-1" only means something when there is such a lesson.
-export function startText(next: { startPoint: string | null; number: number }): string | null {
+// Without a start text, the lesson continues from the one before it, when that one is known.
+export function startText(next: { startPoint: string | null }, previousLabel: string | null = null): string | null {
   if (next.startPoint) return arText(next.startPoint);
-  return next.number > 1 ? `يتابع من حيث توقف الدرس ${ar(next.number - 1)}` : null;
+  return previousLabel ? `يتابع من حيث توقف ${previousLabel}` : null;
 }
 
-// The next lesson's number is a prediction: it is only shown once the course has lessons to count from.
-export const nextLessonKicker = (course: Pick<CourseDTO, 'latest'>, next: Pick<NextPassageDTO, 'number'>, when: string): string =>
-  course.latest.length > 0 ? `الدرس ${ar(next.number)} · ${when}` : when;
+// The newest lesson, when nothing is held between it and the next one.
+export const previousLabel = (course: Pick<CourseDTO, 'latest' | 'unpublished'>): string | null =>
+  course.unpublished === 0 ? course.latest[0]?.label ?? null : null;
 
 // Lesson pages are PDF page numbers; people read the number printed on the page.
 export function printedPage(course: Pick<CourseDTO, 'pageOffsets'>, pdfIndex: number | null, page: number | null): number | null {
@@ -53,8 +53,8 @@ export const pageSuffix = (printed: number | null) => (printed === null ? '' : `
 
 export const bookLabel = (action: string, printed: number | null) => (printed === null ? 'افتح الكتاب' : `${action} · ص ${ar(printed)}`);
 
-export function passageLine(course: Pick<CourseDTO, 'pageOffsets'>, next: NextPassageDTO): string | null {
-  const start = startText(next);
+export function passageLine(course: Pick<CourseDTO, 'pageOffsets' | 'latest' | 'unpublished'>, next: NextPassageDTO): string | null {
+  const start = startText(next, previousLabel(course));
   const end = printedPage(course, next.pdfIndex, next.estEndPage);
   if (end === null) return start;
   return start === null ? `إلى نحو ص ${ar(end)}` : `${start} · إلى نحو ص ${ar(end)}`;

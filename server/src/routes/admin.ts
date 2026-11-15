@@ -1,18 +1,25 @@
-import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonPatch } from '@sualruhaily/shared';
+import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonInput, type LessonPatch, type LessonUpsertResult } from '@sualruhaily/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import type { Fcm } from '../fcm';
 import { getFcm, type Env } from '../index';
+import { sendRecordingPush, shouldPushRecording } from '../jobs/recording-push';
 import {
   addException,
   deleteException,
   listCourses,
   listExceptions,
+  listSections,
+  nextInSequence,
   patchLesson,
+  reorderSections,
   pendingTranscriptions,
   setSetting,
   upsertCourse,
+  SourceRefConflict,
+  upsertLesson,
 } from '../repo';
-import { medinaDate } from '../time';
+import { isRecentDate, medinaDate, normalizeHijri } from '../time';
 
 const encoder = new TextEncoder();
 
@@ -71,6 +78,21 @@ function parseLessonPatch(b: unknown): LessonPatch | null {
   return ok ? (b as LessonPatch) : null;
 }
 
+function parseLessonInput(b: unknown): LessonInput | null {
+  if (!isObject(b)) return null;
+  const ok =
+    isString(b.courseId) &&
+    isString(b.section) &&
+    isInt(b.sectionNumber, 1) &&
+    isString(b.hijriDate) &&
+    normalizeHijri(b.hijriDate) !== null &&
+    isString(b.startPoint) &&
+    (b.recordingUrl === null || isString(b.recordingUrl)) &&
+    isString(b.sourceRef) &&
+    b.sourceRef !== '';
+  return ok ? (b as unknown as LessonInput) : null;
+}
+
 function parseException(b: unknown): ExceptionInput | null {
   if (!isObject(b)) return null;
   const ok =
@@ -86,7 +108,7 @@ function parseException(b: unknown): ExceptionInput | null {
 
 const readJson = (c: { req: { json: () => Promise<unknown> } }) => c.req.json().catch(() => null);
 
-export const adminRoutes = new Hono<{ Bindings: Env }>();
+export const adminRoutes = new Hono<{ Bindings: Env; Variables: { fcm?: Fcm; now?: Date } }>();
 
 adminRoutes.use(
   '/api/admin/*',
@@ -114,12 +136,53 @@ adminRoutes.put('/api/admin/courses/:id', async (c) => {
   return c.body(null, 204);
 });
 
+adminRoutes.post('/api/admin/lessons', async (c) => {
+  const input = parseLessonInput(await readJson(c));
+  const course = input && (await listCourses(c.env.DB)).find((k) => k.id === input.courseId);
+  if (!input || !course) return bad(c);
+
+  const hadLessonsBefore = (await c.env.DB.prepare('SELECT 1 FROM lessons WHERE course_id = ? LIMIT 1').bind(course.id).first()) !== null;
+  let r;
+  try {
+    r = await upsertLesson(c.env.DB, input);
+  } catch (e) {
+    if (e instanceof SourceRefConflict) return c.json({ error: e.message }, 409);
+    throw e;
+  }
+  const isNewestInSequence = (await nextInSequence(c.env.DB, course.id, r.number)) === null;
+
+  let pushed = false;
+  const isRecent = isRecentDate(r.heldDate, c.get('now') ?? new Date());
+  if (shouldPushRecording({ hadLessonsBefore, isNewestInSequence, recordingAdded: r.recordingAdded, isRecent })) {
+    try {
+      const fcm = c.get('fcm') ?? getFcm(c.env.FCM_SERVICE_ACCOUNT ?? '');
+      pushed = await sendRecordingPush({ db: c.env.DB, fcm }, course, {
+        number: r.number,
+        section: input.section,
+        sectionNumber: input.sectionNumber,
+      });
+    } catch (e) {
+      console.error('recording push failed', e);
+    }
+  }
+  const result: LessonUpsertResult = { number: r.number, created: r.created, dateFlag: r.dateFlag, pushed };
+  return c.json(result);
+});
+
 adminRoutes.patch('/api/admin/lessons/:courseId/:number', async (c) => {
   const number = Number(c.req.param('number'));
   const patch = parseLessonPatch(await readJson(c));
   if (!patch || !isInt(number, 0)) return bad(c);
   const found = await patchLesson(c.env.DB, c.req.param('courseId'), number, patch);
   return found ? c.body(null, 204) : c.json({ error: 'not found' }, 404);
+});
+
+adminRoutes.get('/api/admin/sections/:courseId', async (c) => c.json(await listSections(c.env.DB, c.req.param('courseId'))));
+
+adminRoutes.put('/api/admin/sections/:courseId', async (c) => {
+  const b = await readJson(c);
+  if (!isObject(b) || !Array.isArray(b.order) || !b.order.every(isString)) return bad(c);
+  return (await reorderSections(c.env.DB, c.req.param('courseId'), b.order)) ? c.body(null, 204) : bad(c);
 });
 
 adminRoutes.get('/api/admin/exceptions', async (c) => c.json(await listExceptions(c.env.DB, medinaDate(new Date()))));

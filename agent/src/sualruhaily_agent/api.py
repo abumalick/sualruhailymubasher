@@ -20,12 +20,15 @@ class Pending(BaseModel):
     next_start_point: str | None = None
     start_page: int | None = None
     pdf_index: int | None = None
+    prev_number: int | None = None
 
 
 class Published(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     number: int
+    section: str = ""
+    label: str = ""
     start_point: str
     end_point: str | None = None
     end_page: int | None = None

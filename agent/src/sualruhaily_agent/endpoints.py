@@ -15,13 +15,12 @@ def recorded_end_point(start_point: str, next_start_point: str | None, found: Lo
 
 
 def corrections(latest: list[Published]) -> list[tuple[int, str]]:
-    """Tafsir lessons whose end point differs from the next lesson's start point once that one is published."""
-    by_number = {lesson.number: lesson for lesson in latest}
+    """Tafsir lessons whose end point differs from the next lesson's start point once that one is published.
+    `latest` is newest first in the sheikh's sequence, so a lesson's successor is the entry before it."""
     return [
         (lesson.number, following.start_point)
-        for lesson in latest
-        if (following := by_number.get(lesson.number + 1)) is not None
-        and lesson.end_page is not None
+        for following, lesson in zip(latest, latest[1:])
+        if lesson.end_page is not None
         and parse_label(lesson.start_point) is not None
         and following.start_point
         and lesson.end_point != following.start_point

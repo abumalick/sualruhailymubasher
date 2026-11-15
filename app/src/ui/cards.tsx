@@ -1,5 +1,5 @@
 import type { CourseDTO, LessonDTO, NextPassageDTO } from '@sualruhaily/shared';
-import { ar, arText, bookHref, bookLabel, editionPage, nextLessonKicker, passageLine, printedPage } from './format';
+import { arText, bookHref, bookLabel, editionPage, passageLine, printedPage } from './format';
 import { Icon, Tick } from './Star';
 
 export function BookChip({ course, pdfIndex, page, label, marker }: { course: CourseDTO; pdfIndex: number | null; page: number | null; label: string; marker?: boolean }) {
@@ -21,7 +21,7 @@ export function NextCard(p: { course: CourseDTO; next: NextPassageDTO; when: str
   const line = passageLine(course, next);
   return (
     <div class="card reach">
-      <span class="k">{nextLessonKicker(course, next, p.when)}</span>
+      <span class="k">{p.when}</span>
       {line && <span class="b">{line}</span>}
       <div class="acts start">
         <BookChip course={course} pdfIndex={next.pdfIndex} page={next.startPage} label="اقرأ في الكتاب" marker />
@@ -35,7 +35,7 @@ export function RecordingCard(p: { course: CourseDTO; lesson: LessonDTO; reviewe
   const { course, lesson } = p;
   return (
     <div class="card reach last">
-      <span class="k">الدرس {ar(lesson.number)} · التسجيل متاح</span>
+      <span class="k">{lesson.label} · التسجيل متاح</span>
       <span class="b">{arText(lesson.startPoint)}</span>
       <div class="acts start">
         <button class="chip pri" onClick={p.onPlay}>

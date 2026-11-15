@@ -36,8 +36,8 @@ describe('runReminders', () => {
     expect(sendToTopic).toHaveBeenCalledTimes(1);
     expect(sendToTopic).toHaveBeenCalledWith('c-kitab-tawhid-prep', {
       title: 'حضّر للدرس القادم',
-      body: expect.stringContaining('يتابع من حيث توقف الدرس ٤'),
-      data: { kind: 'prep', courseId: 'kitab-tawhid', number: '5' },
+      body: 'شرح كتاب التوحيد · المسجد النبوي (الغربية)',
+      data: { kind: 'prep', courseId: 'kitab-tawhid', number: '' },
       tag: 'notice',
       ttlSec: expect.any(Number),
     });
@@ -52,10 +52,8 @@ describe('runReminders', () => {
     await env.DB.exec("UPDATE lessons SET created_at = '2026-10-01T00:00:00.000Z'");
     await recordBroadcast(env.DB, 'b', 'kitab-tawhid', '2026-11-14T02:40:00.000Z');
     await run('2026-11-20T18:00:00Z');
-    expect(sendToTopic.mock.calls[0][1]).toMatchObject({
-      body: expect.stringContaining('يتابع من حيث توقف الدرس ٥'),
-      data: { number: '6' },
-    });
+    expect(sendToTopic.mock.calls[0][1]).toMatchObject({ data: { number: '' } });
+    expect(sendToTopic.mock.calls[0][1].body).not.toMatch(/[0-9٠-٩]/);
   });
 
   it('uses the transcribed start point', async () => {
@@ -63,13 +61,13 @@ describe('runReminders', () => {
     await lesson('kitab-tawhid', 4);
     await patchLesson(env.DB, 'kitab-tawhid', 4, { endPoint: 'قوله تعالى', endPage: 9 });
     await run('2026-11-20T18:00:00Z');
-    expect(sendToTopic.mock.calls[0][1].body).toMatch(/ · قوله تعالى$/);
+    expect(sendToTopic.mock.calls[0][1].body).toMatch(/ — يبدأ من: قوله تعالى$/);
   });
 
   it('uses the bare title with no lessons yet', async () => {
     const { sendToTopic, run } = setup();
     await run('2026-11-20T18:00:00Z');
-    expect(sendToTopic.mock.calls[0][1]).toMatchObject({ body: 'شرح كتاب التوحيد', data: { number: '1' } });
+    expect(sendToTopic.mock.calls[0][1]).toMatchObject({ body: expect.not.stringMatching(/يبدأ من/), data: { number: '' } });
   });
 
   it('does nothing outside the window', async () => {

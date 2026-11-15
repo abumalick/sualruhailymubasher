@@ -1,3 +1,4 @@
+import { INDEPENDENT_NOTICE } from '@sualruhaily/shared';
 import { APP_NAME, CONTACT_EMAIL, MIXLR_URL, PRIVACY_URL, SHEIKH_SITE, STORES } from '../site';
 import { Back } from './Back';
 import { Icon } from './Star';
@@ -31,10 +32,10 @@ export function About({ native }: { native: boolean }) {
           يجمع هذا التطبيق البث المباشر لدروس الشيخ سليمان الرحيلي في المسجد النبوي وتسجيلاتها، ويعرض موضع كل درس في الكتاب للتحضير
           والمراجعة.
         </p>
-        <p>هذا تطبيق غير رسمي من إعداد طلاب العلم، ولا يتبع الشيخ ولا موقعه. الدروس من موقع الشيخ sualruhaily.com وبثه المباشر.</p>
+        <p>{INDEPENDENT_NOTICE}</p>
       </div>
 
-      {!native && (
+      {!native && STORES.length > 0 && (
         <>
           <p class="sec">تطبيق الجوال</p>
           <div class="card about">

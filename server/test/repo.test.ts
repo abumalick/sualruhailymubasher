@@ -13,7 +13,7 @@ import {
   markSent,
   patchLesson,
   pendingTranscriptions,
-  expectedNextNumber,
+  heldSinceLatest,
   recordBroadcast,
   setLive,
   setRecordingUrl,
@@ -68,6 +68,10 @@ describe('lessons', () => {
     expect(latest.map((l) => l.number)).toEqual([5, 4, 3]);
     expect(latest[0]).toEqual({
       ...lesson(5),
+      section: '',
+      sectionNumber: 5,
+      label: 'الدرس ٥',
+      dateFlag: false,
       pdfIndex: null,
       startPage: null,
       endPoint: null,
@@ -76,6 +80,13 @@ describe('lessons', () => {
     });
     expect((await lessonsBefore(db, 'l-list', 4, 2)).map((l) => l.number)).toEqual([3, 2]);
     expect((await lessonsBefore(db, 'l-list', null, 2)).map((l) => l.number)).toEqual([5, 4]);
+  });
+
+  it('labels a lesson with no section number without the running number', async () => {
+    await insertLessonIfNew(db, 'l-nosn', { ...lesson(9), sectionNumber: null });
+    await insertLessonIfNew(db, 'l-nosn', { ...lesson(10), section: 'كتاب الحدود', sectionNumber: null });
+    const labels = (await latestLessons(db, 'l-nosn', 2)).map((l) => l.label).sort();
+    expect(labels).toEqual(['الدرس', 'كتاب الحدود']);
   });
 
   it('setRecordingUrl and patchLesson', async () => {
@@ -87,6 +98,15 @@ describe('lessons', () => {
     expect(l).toMatchObject({ recordingUrl: 'https://x/a.mp3', endPoint: 'e', endPage: 7, pdfIndex: 2, startPoint: 'point 1' });
     expect(await patchLesson(db, 'l-patch', 99, { endPage: 1 })).toBe(false);
     expect(await patchLesson(db, 'l-patch', 99, {})).toBe(false);
+  });
+
+  it('an explicit pdfIndex patch stops a chained start from being overwritten', async () => {
+    await insertLessonIfNew(db, 'l-pdf', lesson(1));
+    await patchLesson(db, 'l-pdf', 1, { pdfIndex: 0, endPage: 40, endPdfIndex: 1 });
+    await insertLessonIfNew(db, 'l-pdf', lesson(2));
+    await patchLesson(db, 'l-pdf', 2, { pdfIndex: 0 });
+    await patchLesson(db, 'l-pdf', 1, { endPage: 50, endPdfIndex: 2 });
+    expect((await latestLessons(db, 'l-pdf', 1))[0]).toMatchObject({ number: 2, startPage: 40, pdfIndex: 0 });
   });
 
   it('insertLessonIfNew starts a lesson where the previous one ended', async () => {
@@ -109,7 +129,7 @@ describe('lessons', () => {
     const pending = (await pendingTranscriptions(db)).filter((p) => p.courseId === 'l-pend');
     expect(pending).toEqual([{
       courseId: 'l-pend', number: 3, recordingUrl: 'r3', startPoint: 'point 3', pdfUrls: ['u1'],
-      nextStartPoint: 'point 4', startPage: 5, pdfIndex: null,
+      nextStartPoint: 'point 4', prevNumber: 2, startPage: 5, pdfIndex: null,
     }]);
   });
 
@@ -144,37 +164,36 @@ describe('lessons', () => {
   });
 });
 
-describe('expectedNextNumber', () => {
+describe('heldSinceLatest', () => {
   const backdate = (courseId: string) =>
     db.prepare("UPDATE lessons SET created_at = '2026-10-01T00:00:00.000Z' WHERE course_id = ?").bind(courseId).run();
 
-  // hijri dates of lesson() are months away from this instant, so created_at is the anchor
-  const FALLBACK_NOW = new Date('2026-11-01T00:00:00Z');
+  // 30-01-1448 does not exist (Muharram 1448 has 29 days), so the held date cannot be derived and created_at is the anchor
+  const undated = (number: number) => ({ ...lesson(number), hijriDate: '30-01-1448' });
 
   it('counts lesson days broadcast after the latest scraped lesson (created_at fallback)', async () => {
-    expect(await expectedNextNumber(db, 'n-none', '2026-11-01', FALLBACK_NOW)).toBe(1);
+    expect(await heldSinceLatest(db, 'n-none', '2026-11-01')).toBe(0);
     await recordBroadcast(db, 'n0', 'n-none', '2026-10-20T02:30:00.000Z');
-    expect(await expectedNextNumber(db, 'n-none', '2026-11-01', FALLBACK_NOW)).toBe(2);
+    expect(await heldSinceLatest(db, 'n-none', '2026-11-01')).toBe(0);
 
-    await insertLessonIfNew(db, 'n-c', lesson(7));
+    await insertLessonIfNew(db, 'n-c', undated(7));
     await backdate('n-c');
-    expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(8);
+    expect(await heldSinceLatest(db, 'n-c', '2026-11-01')).toBe(0);
     await recordBroadcast(db, 'b1', 'n-c', '2026-09-30T02:30:00.000Z');
     await recordBroadcast(db, 'b2', 'n-c', '2026-10-20T02:30:00.000Z');
     await recordBroadcast(db, 'b2', 'n-c', '2026-10-20T02:30:00.000Z');
     await recordBroadcast(db, 'b3', 'n-c', '2026-10-20T03:10:00.000Z');
     await recordBroadcast(db, 'b4', 'other', '2026-10-21T02:30:00.000Z');
     await recordBroadcast(db, 'b5', null, '2026-10-21T02:30:00.000Z');
-    expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(9);
-    expect(await expectedNextNumber(db, 'n-c', '2026-10-20', FALLBACK_NOW)).toBe(8);
+    expect(await heldSinceLatest(db, 'n-c', '2026-11-01')).toBe(1);
+    expect(await heldSinceLatest(db, 'n-c', '2026-10-20')).toBe(0);
 
-    await insertLessonIfNew(db, 'n-c', lesson(8));
-    expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(9);
+    await insertLessonIfNew(db, 'n-c', undated(8));
+    expect(await heldSinceLatest(db, 'n-c', '2026-11-01')).toBe(0);
   });
 });
 
-describe('expectedNextNumber anchored on the held date', () => {
-  const now = new Date('2026-10-21T12:00:00Z');
+describe('heldSinceLatest anchored on the held date', () => {
   const held = (number: number, hijriDate: string) =>
     insertLessonIfNew(db, 'h-c', { ...lesson(number), hijriDate });
 
@@ -182,9 +201,18 @@ describe('expectedNextNumber anchored on the held date', () => {
     await recordBroadcast(db, 'h7', 'h-c', '2026-10-20T02:30:00.000Z');
     await recordBroadcast(db, 'h8', 'h-c', '2026-10-21T02:30:00.000Z');
     await held(7, '09-05-1448');
-    expect(await expectedNextNumber(db, 'h-c', '2026-10-22', now)).toBe(9);
+    expect(await heldSinceLatest(db, 'h-c', '2026-10-22')).toBe(1);
     await held(8, '10-05-1448');
-    expect(await expectedNextNumber(db, 'h-c', '2026-10-22', now)).toBe(9);
+    expect(await heldSinceLatest(db, 'h-c', '2026-10-22')).toBe(0);
+  });
+});
+
+describe('heldSinceLatest counting', () => {
+  it('counts 2 after two broadcast days following the newest lesson', async () => {
+    await insertLessonIfNew(db, 'h2-c', { ...lesson(7), hijriDate: '09-05-1448' });
+    await recordBroadcast(db, 'k1', 'h2-c', '2026-10-21T02:30:00.000Z');
+    await recordBroadcast(db, 'k2', 'h2-c', '2026-10-22T02:30:00.000Z');
+    expect(await heldSinceLatest(db, 'h2-c', '2026-10-23')).toBe(2);
   });
 });
 
@@ -220,5 +248,12 @@ describe('live and settings', () => {
   it('markSent is true only once', async () => {
     expect(await markSent(db, 'live:abc')).toBe(true);
     expect(await markSent(db, 'live:abc')).toBe(false);
+  });
+});
+
+describe('heldSinceLatest with no lessons', () => {
+  it('is 0 whatever was broadcast', async () => {
+    await recordBroadcast(db, 'e1', 'h-empty', '2026-10-20T02:30:00.000Z');
+    expect(await heldSinceLatest(db, 'h-empty', '2026-11-01')).toBe(0);
   });
 });

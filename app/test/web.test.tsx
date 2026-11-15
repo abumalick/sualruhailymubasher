@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { INDEPENDENT_NOTICE } from '@sualruhaily/shared';
 
 const store = new Map<string, string>();
 vi.mock('@capacitor/preferences', () => ({
@@ -52,9 +53,9 @@ afterEach(() => {
 });
 
 describe('About', () => {
-  it('says the app is unofficial and names its sources, with links', () => {
+  it('says the app is independent and names its sources, with links', () => {
     render(<About native={true} />);
-    expect(screen.getByText(/هذا تطبيق غير رسمي من إعداد طلاب العلم، ولا يتبع الشيخ ولا موقعه/)).toBeTruthy();
+    expect(screen.getByText(/تطبيق مستقل غير رسمي/)).toBeTruthy();
     const href = (name: RegExp) => screen.getByRole('link', { name }).getAttribute('href');
     expect(href(/موقع الشيخ/)).toBe('https://sualruhaily.com');
     expect(href(/Mixlr/)).toBe('https://sualruhaily.mixlr.com');
@@ -63,9 +64,9 @@ describe('About', () => {
     expect(screen.getByText('سليمان الرحيلي مباشر')).toBeTruthy();
   });
 
-  it('never calls itself official', () => {
+  it('apart from the notice, never calls itself official', () => {
     const { container } = render(<About native={false} />);
-    expect(container.textContent!.replace(/غير رسمي/g, '')).not.toMatch(/رسمي/);
+    expect(container.textContent!.replace(INDEPENDENT_NOTICE, '').replace(/غير رسمي/g, '')).not.toMatch(/رسمي/);
   });
 
   it('in the mobile app it shows no store links and no web note', () => {
@@ -100,7 +101,7 @@ describe('App on the web', () => {
 
   it('#/about opens the About page with a way back to المزيد', async () => {
     await app('#/about');
-    await screen.findByText(/هذا تطبيق غير رسمي/);
+    await screen.findByText(/تطبيق مستقل غير رسمي/);
     expect(document.documentElement.classList.contains('web')).toBe(true);
     expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/more');
   });
@@ -193,7 +194,7 @@ describe('App in the mobile app', () => {
 
   it('reaches About from المزيد, with a way back', async () => {
     await app('#/about');
-    await screen.findByText(/هذا تطبيق غير رسمي/);
+    await screen.findByText(/تطبيق مستقل غير رسمي/);
     expect(document.querySelector('.nav a.on')!.textContent).toBe('المزيد');
     expect(document.documentElement.classList.contains('web')).toBe(false);
     expect(screen.getByRole('link', { name: 'رجوع' }).getAttribute('href')).toBe('#/more');

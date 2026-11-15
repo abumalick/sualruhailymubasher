@@ -161,14 +161,17 @@ describe('lessons', () => {
     expect(row).toEqual({ end_point: null, end_page: null, end_pdf_index: null });
   });
 
-  it('PATCH endPage fills the next lesson start when unknown', async () => {
+  it('PATCH endPage fills the next lesson start and keeps it following the predecessor', async () => {
     await insertLessonIfNew(env.DB, 'dalil-talib', lesson(5));
     await insertLessonIfNew(env.DB, 'dalil-talib', lesson(6));
     await call('PATCH', '/api/admin/lessons/dalil-talib/5', { pdfIndex: 1, endPage: 12 });
     const start = () => env.DB.prepare('SELECT start_page, pdf_index FROM lessons WHERE number = 6').first();
     expect(await start()).toEqual({ start_page: 12, pdf_index: 1 });
     await call('PATCH', '/api/admin/lessons/dalil-talib/5', { endPage: 14, endPdfIndex: 2 });
-    expect(await start()).toEqual({ start_page: 12, pdf_index: 1 });
+    expect(await start()).toEqual({ start_page: 14, pdf_index: 2 });
+    await call('PATCH', '/api/admin/lessons/dalil-talib/6', { startPage: 20 });
+    await call('PATCH', '/api/admin/lessons/dalil-talib/5', { endPage: 16 });
+    expect(await start()).toMatchObject({ start_page: 20 });
   });
 
   it('PATCH endPdfIndex is used for the next lesson volume', async () => {

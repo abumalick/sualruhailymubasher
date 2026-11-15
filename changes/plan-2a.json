@@ -1,0 +1,5 @@
+{
+  "platforms": ["android", "ios", "web"],
+  "ar": "تظهر الدروس بتسمية الشيخ نفسه وبترتيبه (مثل «كتاب الصدقات – الدرس ١١») دون أرقام مخترعة، ويظهر مكان الدرس في الإشعارات، وأُضيف تنبيه في «عن التطبيق» وصفحة الخصوصية بأن التطبيق مستقل وغير رسمي.",
+  "en": "Lessons now carry the sheikh's own labels in his order (such as \"Book of Charity – Lesson 11\") with no invented numbers, notifications show the lesson's place, and About and the privacy page now say the app is independent."
+}

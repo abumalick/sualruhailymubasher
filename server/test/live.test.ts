@@ -73,7 +73,7 @@ describe('runLivePoll', () => {
     await runLivePoll(deps);
     expect(sendToTopic).toHaveBeenCalledWith('c-maghrib-test-live', {
       title: '🔴 بدأ البث المباشر',
-      body: 'درس المغرب',
+      body: 'درس المغرب · المسجد',
       data: { kind: 'live', courseId: 'maghrib-test', number: '' },
       tag: 'live',
       ttlSec: 7200,
@@ -86,8 +86,7 @@ describe('runLivePoll', () => {
     expect(sendToTopic).toHaveBeenCalledTimes(1);
     const [topic, message] = sendToTopic.mock.calls[0];
     expect(topic).toBe('c-kabair-live');
-    expect(message.body).toContain('شرح كتاب الكبائر للذهبي');
-    expect(message.body).not.toMatch(/[0-9٠-٩]/);
+    expect(message.body).toBe('شرح كتاب الكبائر للذهبي · مسجد قباء');
     expect(message.data).toEqual({ kind: 'live', courseId: 'kabair', number: '' });
   });
 

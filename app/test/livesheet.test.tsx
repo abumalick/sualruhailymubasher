@@ -81,7 +81,7 @@ it('hands the session back to recordings after the sheet closes', async () => {
 it('Tafsir: names the lesson and shows where it starts with the printed page and edition, without a book button', () => {
   render(sheet({ course: TAFSIR }));
   expect(screen.getByText('شرح كتاب التوحيد')).toBeTruthy();
-  expect(screen.getByText('البث المباشر · الدرس ٤٦٠')).toBeTruthy();
+  expect(screen.getByText('البث المباشر · المسجد النبوي (الغربية)')).toBeTruthy();
   expect(screen.getByText('تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ لَا يَرْقُبُوا فِيكُمْ إِلًّا وَلَا ذِمَّةً...﴾')).toBeTruthy();
   expect(screen.getByText('ص ٦٣٦ · طبعة دار ابن الجوزي')).toBeTruthy();
   expect(screen.queryByRole('link')).toBeNull();
@@ -90,7 +90,7 @@ it('Tafsir: names the lesson and shows where it starts with the printed page and
 it('evening course: shows where the lesson starts and opens the book there, collapsing the sheet', () => {
   const onCollapse = vi.fn();
   render(sheet({ course: TAWHID, onCollapse }));
-  expect(screen.getByText('البث المباشر · الدرس ١٥')).toBeTruthy();
+  expect(screen.getByText('البث المباشر · مسجد قباء')).toBeTruthy();
   expect(screen.getByText('من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…')).toBeTruthy();
   const link = screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' });
   expect(link.getAttribute('href')).toBe('#/book/kabair/0/280?marker=1');
@@ -101,11 +101,11 @@ it('evening course: shows where the lesson starts and opens the book there, coll
 it('falls back when the start text, the page or the next lesson is unknown', () => {
   const noStart: CourseDTO = { ...TAWHID, next: { ...TAWHID.next!, startPoint: null, startPage: null } };
   const { rerender } = render(sheet({ course: noStart }));
-  expect(screen.getByText('يتابع من حيث توقف الدرس ١٤')).toBeTruthy();
+  expect(screen.getByText('يتابع من حيث توقف المجلس ١٤')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'تابع في الكتاب' }).getAttribute('href')).toBe('#/book/kabair/0/1');
 
   rerender(sheet({ course: { ...TAFSIR, next: null } }));
-  expect(screen.getByText('البث المباشر · الدرس ٤٤٤')).toBeTruthy();
+  expect(screen.getByText('البث المباشر · المسجد النبوي (الغربية)')).toBeTruthy();
   expect(screen.queryByText('يبدأ الدرس من')).toBeNull();
 
   rerender(sheet({ course: undefined }));
@@ -121,9 +121,9 @@ it('collapses into a bar with the course, lesson and book link while keeping the
   rerender(sheet({ course: TAWHID, onExpand, onClose, expanded: false }));
   expect(container.querySelector('iframe')).toBe(frame);
   expect(container.querySelector('.sheet.min')).toBeTruthy();
-  expect(screen.getByText('مباشر · الدرس ١٥')).toBeTruthy();
+  expect(screen.getByText('بث مباشر')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' }).textContent).toBe('تابع في الكتاب');
-  fireEvent.click(screen.getByRole('button', { name: /مباشر · الدرس ١٥/ }));
+  fireEvent.click(screen.getByRole('button', { name: /بث مباشر/ }));
   expect(onExpand).toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'إيقاف البث' }));
   expect(onClose).toHaveBeenCalled();
@@ -131,7 +131,7 @@ it('collapses into a bar with the course, lesson and book link while keeping the
 
 it('the Tafsir bar shows the printed page instead of a book link', () => {
   render(sheet({ course: TAFSIR, expanded: false }));
-  expect(screen.getByText(/مباشر · الدرس ٤٦٠ · ص ٦٣٦ · طبعة دار ابن الجوزي/)).toBeTruthy();
+  expect(screen.getByText(/بث مباشر · ص ٦٣٦ · طبعة دار ابن الجوزي/)).toBeTruthy();
   expect(screen.queryByRole('link')).toBeNull();
 });
 
@@ -140,7 +140,7 @@ it('the bar stops claiming live once the broadcast has ended, without cutting th
   const frame = container.querySelector('iframe')!;
   rerender(sheet({ course: TAWHID, expanded: false, live: { ...live, isLive: false } }));
   expect(screen.getByText('انتهى البث')).toBeTruthy();
-  expect(screen.queryByText(/مباشر · الدرس/)).toBeNull();
+  expect(screen.queryByText(/بث مباشر/)).toBeNull();
   expect(container.querySelector('.lbar .dot')).toBeNull();
   expect(container.querySelector('iframe')).toBe(frame);
 });
@@ -166,7 +166,7 @@ it('the expanded sheet can stop the broadcast too', () => {
 
 it('the bar button is named by the course and lesson, and the status is announced politely', () => {
   const { container } = render(sheet({ course: TAWHID, expanded: false }));
-  const button = screen.getByRole('button', { name: /شرح كتاب الكبائر للذهبي.*مباشر · الدرس ١٥/ });
+  const button = screen.getByRole('button', { name: /شرح كتاب الكبائر للذهبي.*بث مباشر/ });
   expect(button.getAttribute('aria-label')).toBeNull();
   expect(container.querySelector('.lbar .m')!.getAttribute('aria-live')).toBe('polite');
 });

@@ -6,19 +6,19 @@ import { liveDTO } from './live-state';
 
 const [tafsir, tawhid] = FIXTURE_STATE.courses;
 const MON_0940 = new Date('2026-11-02T06:40:00Z');
-const MON_1900 = new Date('2026-11-02T16:00:00Z');
+const MON_1600 = new Date('2026-11-02T13:00:00Z');
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
 const withCourses = (courses: StateDTO['courses'], live = FIXTURE_STATE.live): StateDTO => ({ ...FIXTURE_STATE, courses, live });
 
 describe('defaultTab', () => {
   it('opens the soonest current or next lesson', () => {
     expect(defaultTab(FIXTURE_STATE, MON_0940)).toBe('kabair');
-    expect(defaultTab(FIXTURE_STATE, MON_1900)).toBe('kabair');
+    expect(defaultTab(FIXTURE_STATE, MON_1600)).toBe('kabair');
     expect(defaultTab(FIXTURE_STATE, MON_2110)).toBe('kitab-tawhid');
   });
 
   it('opens the lesson on air', () => {
-    expect(defaultTab(withCourses(FIXTURE_STATE.courses, liveDTO('kitab-tawhid')), MON_1900)).toBe('kitab-tawhid');
+    expect(defaultTab(withCourses(FIXTURE_STATE.courses, liveDTO('kitab-tawhid')), MON_1600)).toBe('kitab-tawhid');
   });
 
   it('opens the soonest of the lessons the listener attends', () => {

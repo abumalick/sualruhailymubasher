@@ -1,5 +1,6 @@
 import type {
   CourseInput,
+  LessonInput,
   ExceptionDTO,
   ExceptionInput,
   LessonDTO,
@@ -7,7 +8,8 @@ import type {
   PendingTranscription,
   Slot,
 } from '@sualruhaily/shared';
-import { hijriToMedinaDate } from './time';
+import { lessonLabel } from '@sualruhaily/shared';
+import { hijriToMedinaDate, normalizeHijri, weekday } from './time';
 
 export interface CourseRow {
   id: string;
@@ -20,6 +22,7 @@ export interface CourseRow {
   pdfUrls: string[];
   edition: string | null;
   pageOffsets: number[];
+  lessonWord: string;
   active: boolean;
   sort: number;
 }
@@ -45,6 +48,7 @@ const toCourse = (r: Row): CourseRow => ({
   pdfUrls: JSON.parse(r.pdf_urls as string),
   edition: (r.edition as string | null) ?? null,
   pageOffsets: JSON.parse((r.page_offsets as string | undefined) ?? '[]'),
+  lessonWord: (r.lesson_word as string | undefined) ?? 'الدرس',
   active: r.active === 1,
   sort: r.sort as number,
 });
@@ -53,6 +57,10 @@ const toLesson = (r: Row): LessonDTO => ({
   number: r.number as number,
   hijriDate: r.hijri_date as string,
   startPoint: r.start_point as string,
+  section: r.section as string,
+  sectionNumber: (r.section_number as number | null) ?? null,
+  label: lessonLabel((r.lesson_word as string | undefined) ?? 'الدرس', r.section as string, (r.section_number as number | null) ?? null),
+  dateFlag: r.date_flag === 1,
   pdfIndex: r.pdf_index as number | null,
   startPage: r.start_page as number | null,
   endPoint: r.end_point as string | null,
@@ -61,6 +69,25 @@ const toLesson = (r: Row): LessonDTO => ({
   recordingUrl: r.recording_url as string | null,
   detailPath: r.detail_path as string,
 });
+
+export interface LessonRow extends LessonDTO {
+  courseId: string;
+}
+
+const toLessonRow = (r: Row): LessonRow => ({
+  ...toLesson(r),
+  courseId: r.course_id as string,
+});
+
+// Sequence order is the sheikh's own: section ord, then section_number. Sections never registered
+// (legacy rows, section '') sort first; a NULL section_number sorts after the numbered ones, by number.
+const SEQ_ROWS = `SELECT l.*, (SELECT lesson_word FROM courses WHERE id = l.course_id) AS lesson_word, coalesce(s.ord, 0) AS ord, l.section_number IS NULL AS no_sn, coalesce(l.section_number, 0) AS sn
+  FROM lessons l LEFT JOIN sections s ON s.course_id = l.course_id AND s.section = l.section`;
+const SEQ = `seq AS (${SEQ_ROWS} WHERE l.course_id = ?1)`;
+const SEQ_COLS = 'ord, no_sn, sn, number';
+const SEQ_KEY = `(${SEQ_COLS})`;
+const SEQ_ASC = 'ord, no_sn, sn, number';
+const SEQ_DESC = 'ord DESC, no_sn DESC, sn DESC, number DESC';
 
 const toException = (r: Row): ExceptionDTO => ({
   id: r.id as number,
@@ -109,10 +136,82 @@ export async function lessonsBefore(
   limit: number,
 ): Promise<LessonDTO[]> {
   const { results } = await db
-    .prepare('SELECT * FROM lessons WHERE course_id = ?1 AND (?2 IS NULL OR number < ?2) ORDER BY number DESC LIMIT ?3')
+    .prepare(
+      `WITH ${SEQ}
+       SELECT * FROM seq
+       WHERE ?2 IS NULL OR ${SEQ_KEY} < (SELECT ${SEQ_COLS} FROM seq WHERE number = ?2)
+       ORDER BY ${SEQ_DESC} LIMIT ?3`,
+    )
     .bind(courseId, before, limit)
     .all<Row>();
   return results.map(toLesson);
+}
+
+export async function previousInSequence(db: D1Database, courseId: string, number: number): Promise<LessonRow | null> {
+  const r = await db
+    .prepare(
+      `WITH ${SEQ}
+       SELECT * FROM seq WHERE ${SEQ_KEY} < (SELECT ${SEQ_COLS} FROM seq WHERE number = ?2)
+       ORDER BY ${SEQ_DESC} LIMIT 1`,
+    )
+    .bind(courseId, number)
+    .first<Row>();
+  return r ? toLessonRow(r) : null;
+}
+
+export async function nextInSequence(db: D1Database, courseId: string, number: number): Promise<LessonRow | null> {
+  const r = await db
+    .prepare(
+      `WITH ${SEQ}
+       SELECT * FROM seq WHERE ${SEQ_KEY} > (SELECT ${SEQ_COLS} FROM seq WHERE number = ?2)
+       ORDER BY ${SEQ_ASC} LIMIT 1`,
+    )
+    .bind(courseId, number)
+    .first<Row>();
+  return r ? toLessonRow(r) : null;
+}
+
+export async function ensureSection(db: D1Database, courseId: string, section: string): Promise<number> {
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO sections (course_id, section, ord)
+       VALUES (?1, ?2, (SELECT coalesce(max(ord), 0) + 1 FROM sections WHERE course_id = ?1))`,
+    )
+    .bind(courseId, section)
+    .run();
+  const r = await db
+    .prepare('SELECT ord FROM sections WHERE course_id = ? AND section = ?')
+    .bind(courseId, section)
+    .first<{ ord: number }>();
+  return r!.ord;
+}
+
+export async function listSections(db: D1Database, courseId: string): Promise<string[]> {
+  const { results } = await db
+    .prepare('SELECT section FROM sections WHERE course_id = ? ORDER BY ord, section')
+    .bind(courseId)
+    .all<{ section: string }>();
+  return results.map((r) => r.section);
+}
+
+// `order` must name every registered section exactly once; returns false (and changes nothing) otherwise.
+export async function reorderSections(db: D1Database, courseId: string, order: string[]): Promise<boolean> {
+  const current = await listSections(db, courseId);
+  if (order.length !== current.length || new Set(order).size !== order.length || !current.every((s) => order.includes(s))) return false;
+  await db.batch(
+    order.map((section, i) => db.prepare('UPDATE sections SET ord = ?1 WHERE course_id = ?2 AND section = ?3').bind(i + 1, courseId, section)),
+  );
+  for (const section of order) {
+    const first = await db
+      .prepare(
+        `SELECT number FROM lessons WHERE course_id = ? AND section = ?
+         ORDER BY section_number IS NULL, coalesce(section_number, 0), number LIMIT 1`,
+      )
+      .bind(courseId, section)
+      .first<{ number: number }>();
+    if (first) await fillStartFromPrevious(db, courseId, first.number);
+  }
+  return true;
 }
 
 export const latestLessons = (db: D1Database, courseId: string, limit: number) =>
@@ -121,32 +220,120 @@ export const latestLessons = (db: D1Database, courseId: string, limit: number) =
 export async function insertLessonIfNew(
   db: D1Database,
   courseId: string,
-  l: Omit<LessonDTO, 'pdfIndex' | 'startPage' | 'endPoint' | 'endPage' | 'endPdfIndex'>,
+  l: Omit<LessonDTO, 'pdfIndex' | 'startPage' | 'endPoint' | 'endPage' | 'endPdfIndex' | 'section' | 'sectionNumber' | 'label' | 'dateFlag'> & {
+    section?: string;
+    sectionNumber?: number | null;
+    sourceRef?: string | null;
+    dateFlag?: boolean;
+  },
 ): Promise<boolean> {
+  const section = l.section ?? '';
+  if (section !== '') await ensureSection(db, courseId, section);
   const res = await db
     .prepare(
-      `INSERT OR IGNORE INTO lessons (course_id, number, hijri_date, start_point, recording_url, detail_path, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO lessons (course_id, number, hijri_date, start_point, recording_url, detail_path, created_at, section, section_number, source_ref, date_flag)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(courseId, l.number, l.hijriDate, l.startPoint, l.recordingUrl, l.detailPath, new Date().toISOString())
+    .bind(
+      courseId, l.number, l.hijriDate, l.startPoint, l.recordingUrl, l.detailPath, new Date().toISOString(),
+      section, l.sectionNumber === undefined ? l.number : l.sectionNumber, l.sourceRef ?? null, l.dateFlag ? 1 : 0,
+    )
     .run();
   if (res.meta.changes === 0) return false;
   await fillStartFromPrevious(db, courseId, l.number);
+  const next = await nextInSequence(db, courseId, l.number);
+  if (next) await fillStartFromPrevious(db, courseId, next.number);
   return true;
 }
 
+// A start filled from the predecessor is marked start_chained and follows it; a start set by hand or by the agent is never overwritten.
 async function fillStartFromPrevious(db: D1Database, courseId: string, number: number): Promise<void> {
+  const prev = await previousInSequence(db, courseId, number);
   await db
     .prepare(
-      `WITH p AS (SELECT end_page, coalesce(end_pdf_index, pdf_index) AS idx FROM lessons
-                 WHERE course_id = ?1 AND number = ?2 - 1 AND end_page IS NOT NULL)
-       UPDATE lessons SET
-         start_page = coalesce(start_page, (SELECT end_page FROM p)),
-         pdf_index = coalesce(pdf_index, (SELECT idx FROM p))
-       WHERE course_id = ?1 AND number = ?2 AND EXISTS (SELECT 1 FROM p)`,
+      `UPDATE lessons SET
+         start_page = ?3,
+         pdf_index = CASE WHEN start_chained = 1 THEN ?4 ELSE coalesce(pdf_index, ?4) END,
+         start_chained = ?3 IS NOT NULL
+       WHERE course_id = ?1 AND number = ?2 AND (start_chained = 1 OR start_page IS NULL)`,
     )
-    .bind(courseId, number)
+    .bind(courseId, number, prev?.endPage ?? null, prev?.endPage == null ? null : (prev.endPdfIndex ?? prev.pdfIndex))
     .run();
+}
+
+export interface UpsertResult {
+  number: number;
+  created: boolean;
+  recordingAdded: boolean;
+  dateFlag: boolean;
+  heldDate: string | null;
+}
+
+export class SourceRefConflict extends Error {}
+
+export async function upsertLesson(db: D1Database, input: LessonInput): Promise<UpsertResult> {
+  const hijriDate = normalizeHijri(input.hijriDate);
+  if (hijriDate === null) throw new Error(`unparseable hijri date: ${input.hijriDate}`);
+  const course = (await listCourses(db)).find((c) => c.id === input.courseId);
+  if (!course) throw new Error(`unknown course: ${input.courseId}`);
+  const held = hijriToMedinaDate(hijriDate);
+  const dateFlag = held === null || !course.weekdays.includes(weekday(held));
+
+  const byIdentity = await db
+    .prepare('SELECT number, recording_url FROM lessons WHERE course_id = ? AND section = ? AND section_number = ?')
+    .bind(input.courseId, input.section, input.sectionNumber)
+    .first<{ number: number; recording_url: string | null }>();
+  const byRef = await db
+    .prepare('SELECT course_id, number, recording_url FROM lessons WHERE source_ref = ?')
+    .bind(input.sourceRef)
+    .first<{ course_id: string; number: number; recording_url: string | null }>();
+  if (byRef && byRef.course_id !== input.courseId) {
+    throw new SourceRefConflict(`source_ref ${input.sourceRef} belongs to lesson ${byRef.number} of course ${byRef.course_id}`);
+  }
+  if (byIdentity && byRef && byIdentity.number !== byRef.number) {
+    throw new SourceRefConflict(`source_ref ${input.sourceRef} belongs to lesson ${byRef.number}, not ${byIdentity.number}`);
+  }
+  const existing = byIdentity ?? byRef;
+  // A caption corrected after publication keeps its source_ref but names another identity: the lesson moves there.
+
+  if (existing) {
+    const moved = !byIdentity;
+    const oldNext = moved ? await nextInSequence(db, input.courseId, existing.number) : null;
+    if (moved) await ensureSection(db, input.courseId, input.section);
+    const recordingAdded = input.recordingUrl !== null && input.recordingUrl !== existing.recording_url;
+    await db
+      .prepare(
+        `UPDATE lessons SET start_point = ?3, hijri_date = ?4, recording_url = coalesce(?5, recording_url),
+           source_ref = ?6, date_flag = ?7, section = ?8, section_number = ?9 WHERE course_id = ?1 AND number = ?2`,
+      )
+      .bind(input.courseId, existing.number, input.startPoint, hijriDate, input.recordingUrl, input.sourceRef, dateFlag ? 1 : 0, input.section, input.sectionNumber)
+      .run();
+    if (moved) {
+      await fillStartFromPrevious(db, input.courseId, existing.number);
+      if (oldNext) await fillStartFromPrevious(db, input.courseId, oldNext.number);
+      const newNext = await nextInSequence(db, input.courseId, existing.number);
+      if (newNext) await fillStartFromPrevious(db, input.courseId, newNext.number);
+    }
+    return { number: existing.number, created: false, recordingAdded, dateFlag, heldDate: held };
+  }
+
+  const { n } = (await db
+    .prepare('SELECT coalesce(max(number), 0) + 1 AS n FROM lessons WHERE course_id = ?')
+    .bind(input.courseId)
+    .first<{ n: number }>())!;
+  const inserted = await insertLessonIfNew(db, input.courseId, {
+    number: n,
+    section: input.section,
+    sectionNumber: input.sectionNumber,
+    hijriDate,
+    startPoint: input.startPoint,
+    recordingUrl: input.recordingUrl,
+    detailPath: '',
+    sourceRef: input.sourceRef,
+    dateFlag,
+  });
+  if (!inserted) throw new Error(`lesson ${input.courseId}/${n} was created concurrently`);
+  return { number: n, created: true, recordingAdded: input.recordingUrl !== null, dateFlag, heldDate: held };
 }
 
 export async function setRecordingUrl(db: D1Database, courseId: string, number: number, url: string): Promise<void> {
@@ -174,13 +361,16 @@ export async function patchLesson(db: D1Database, courseId: string, number: numb
       .first();
     return row !== null;
   }
-  const set = entries.map((k) => `${PATCH_COLUMNS[k]} = ?`).join(', ');
+  const set = [...entries.map((k) => `${PATCH_COLUMNS[k]} = ?`), ...(p.startPage !== undefined || p.pdfIndex !== undefined ? ['start_chained = 0'] : [])].join(', ');
   const res = await db
     .prepare(`UPDATE lessons SET ${set} WHERE course_id = ? AND number = ?`)
     .bind(...entries.map((k) => p[k]), courseId, number)
     .run();
   if (res.meta.changes === 0) return false;
-  if (p.endPage !== undefined || p.endPdfIndex !== undefined) await fillStartFromPrevious(db, courseId, number + 1);
+  if (p.endPage !== undefined || p.endPdfIndex !== undefined) {
+    const next = await nextInSequence(db, courseId, number);
+    if (next) await fillStartFromPrevious(db, courseId, next.number);
+  }
   return true;
 }
 
@@ -261,19 +451,17 @@ export async function recordBroadcast(
     .run();
 }
 
-// Number of the lesson held on Medina date `on`: lessons arrive after a delay, so lesson days
-// broadcast after the latest scraped lesson was held (and before `on`) are counted too.
-// Days, not uids, so a reconnect that yields a second uid counts once. When the held date cannot be
-// derived from the hijri date, the lesson's created_at is the anchor instead.
-export async function expectedNextNumber(db: D1Database, courseId: string, on: string, now: Date): Promise<number> {
+// Lesson days broadcast after the newest lesson was held (and before `on`) that have no published lesson yet:
+// lessons arrive after a delay. Days, not uids, so a reconnect that yields a second uid counts once. When the
+// held date cannot be derived from the hijri date, the lesson's created_at is the anchor instead.
+export async function heldSinceLatest(db: D1Database, courseId: string, on: string): Promise<number> {
   const [last] = await latestLessons(db, courseId, 1);
-  const created = last
-    ? await db
-        .prepare('SELECT created_at FROM lessons WHERE course_id = ? AND number = ?')
-        .bind(courseId, last.number)
-        .first<{ created_at: string }>()
-    : null;
-  const held = last ? hijriToMedinaDate(last.hijriDate, now) : null;
+  if (!last) return 0;
+  const created = await db
+    .prepare('SELECT created_at FROM lessons WHERE course_id = ? AND number = ?')
+    .bind(courseId, last.number)
+    .first<{ created_at: string }>();
+  const held = hijriToMedinaDate(last.hijriDate);
   const r = await db
     .prepare(
       `SELECT count(DISTINCT date(started_at, '+3 hours')) AS n FROM broadcasts
@@ -283,19 +471,27 @@ export async function expectedNextNumber(db: D1Database, courseId: string, on: s
     )
     .bind(courseId, on, held, created?.created_at ?? '')
     .first<{ n: number }>();
-  return (last?.number ?? 0) + 1 + r!.n;
+  return r!.n;
 }
 
 export async function pendingTranscriptions(db: D1Database): Promise<PendingTranscription[]> {
   const { results } = await db
     .prepare(
-      `SELECT l.course_id, l.number, l.recording_url, l.start_point, l.start_page, l.pdf_index, c.pdf_urls,
-              n.start_point AS next_start_point
-       FROM (SELECT *, row_number() OVER (PARTITION BY course_id ORDER BY number DESC) AS rank FROM lessons) l
+      `WITH seq AS (
+         SELECT l.*, coalesce(s.ord, 0) AS ord, l.section_number IS NULL AS no_sn, coalesce(l.section_number, 0) AS sn
+         FROM lessons l LEFT JOIN sections s ON s.course_id = l.course_id AND s.section = l.section),
+       pos AS (
+         SELECT *, row_number() OVER (PARTITION BY course_id ORDER BY ${SEQ_ASC}) AS idx,
+                row_number() OVER (PARTITION BY course_id ORDER BY ${SEQ_DESC}) AS rank
+         FROM seq)
+       SELECT l.course_id, l.number, l.recording_url, l.start_point, l.start_page, l.pdf_index, c.pdf_urls,
+              n.start_point AS next_start_point, p.number AS prev_number
+       FROM pos l
        JOIN courses c ON c.id = l.course_id
-       LEFT JOIN lessons n ON n.course_id = l.course_id AND n.number = l.number + 1
+       LEFT JOIN pos n ON n.course_id = l.course_id AND n.idx = l.idx + 1
+       LEFT JOIN pos p ON p.course_id = l.course_id AND p.idx = l.idx - 1
        WHERE l.rank <= 3 AND l.recording_url IS NOT NULL AND l.end_page IS NULL
-       ORDER BY l.course_id, l.number`,
+       ORDER BY l.course_id, l.idx`,
     )
     .all<Row>();
   return results.map((r) => ({
@@ -305,6 +501,7 @@ export async function pendingTranscriptions(db: D1Database): Promise<PendingTran
     startPoint: r.start_point as string,
     pdfUrls: JSON.parse(r.pdf_urls as string),
     nextStartPoint: (r.next_start_point as string | null) ?? null,
+    prevNumber: (r.prev_number as number | null) ?? null,
     startPage: (r.start_page as number | null) ?? null,
     pdfIndex: (r.pdf_index as number | null) ?? null,
   }));

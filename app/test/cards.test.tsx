@@ -16,7 +16,7 @@ function lessonCards() {
     <Lesson course={tafsir} live={FIXTURE_STATE.live} otherLive={null} ticks={none()} now={MON_2110} listening={false} onTick={noop} onPlay={noop} onLive={noop} />,
   );
   const next = container.querySelector('.card.reach:not(.last)')!;
-  const html = { next: next.outerHTML, when: next.querySelector('.k')!.textContent!.split(' · ').slice(1).join(' · '), recording: container.querySelector('.card.reach.last')!.outerHTML };
+  const html = { next: next.outerHTML, when: next.querySelector('.k')!.textContent!, recording: container.querySelector('.card.reach.last')!.outerHTML };
   cleanup();
   return html;
 }
