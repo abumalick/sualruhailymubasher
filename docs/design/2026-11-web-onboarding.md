@@ -48,6 +48,7 @@ The still frame (the end of the story), the repeats, the reduced-motion behaviou
 - «متابعة على الموقع» finishes the onboarding, as «ابدأ» does today. Step 4 shows «متابعة» on the web.
 - On the web, 5 dots instead of 4. Swipe and back work as on the other steps.
 - A replay from المزيد shows it too.
+- Right after this step, the home screen's install banner stays hidden for the rest of that visit, so the same invite isn't shown twice in a row. It is not stored as a dismissal: the banner comes back on the next visit.
 
 The web build made with `VITE_NATIVE_UI=1` (store screenshots) follows the apps: `nativeUI()` decides, so no web step and no web previews there.
 
