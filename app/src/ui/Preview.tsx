@@ -245,7 +245,7 @@ export function Preview({ card, state, now, variant }: { card: Card; state: Stat
               </div>
               {frame.opened && to.kind === 'live' && <LivePlayer card={card} state={state} playing={frame.playing} />}
               {frame.opened && to.kind === 'book' && <BookPage card={card} to={to} read={frame.done} />}
-              {frame.opened && <RecordingPlayer card={card} frame={frame} />}
+              {(frame.opened || web) && <RecordingPlayer card={card} frame={frame} />}
               {to.kind === 'stream' && <StreamPlayer card={card} state={state} frame={frame} />}
             </div>
           </div>

@@ -216,6 +216,15 @@ describe('on the web', () => {
     expect(pv.querySelector('.pv-cap')!.textContent).toBe('مثال: هكذا تحضّر للدرس');
   });
 
+  it('the recording picture plays in the app’s player bar after «استمع», and rests on it', async () => {
+    const pv = show('rec', 'web');
+    await after(2200);
+    expect(pv.querySelector('.pv-app > .mp')).not.toBeNull();
+    await after(PLAYS * BEATS.review.at(-1)!.at);
+    expect(pv.dataset.still).toBe('');
+    expect(pv.querySelector<HTMLElement>('.pv-app > .mp .prog')!.style.width).toBe('100%');
+  });
+
   it('describes the taps, never a notification, to screen readers', () => {
     show('rec', 'web');
     const sr = document.querySelector('.sr')!.textContent!;
