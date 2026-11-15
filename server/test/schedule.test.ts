@@ -1,7 +1,7 @@
 import type { ExceptionDTO } from '@sualruhaily/shared';
 import { describe, expect, it } from 'vitest';
 import { asrTime } from '../src/prayer';
-import { courseInWindow, isLessonDay, lessonTime, nextLessonDate } from '../src/schedule';
+import { courseInWindow, coursesInSlotOn, isLessonDay, lessonTime, nextLessonDate } from '../src/schedule';
 import type { CourseRow } from '../src/repo';
 import { addDays, hijriToMedinaDate, isRecentDate, medinaDate, medinaInstant, normalizeHijri, weekday } from '../src/time';
 
@@ -205,4 +205,21 @@ describe('normalizeHijri', () => {
   it.each(['', 'tomorrow', '27/5', '32/5/1448', '27/13/1448', '0/5/1448', '27/5/148'])('rejects %j', (raw) =>
     expect(normalizeHijri(raw)).toBeNull(),
   );
+});
+
+describe('coursesInSlotOn', () => {
+  const targhib: CourseRow = { ...kabair, id: 'targhib', weekdays: [3] };
+  const all = [kitab, kabair, targhib, dalil];
+  const ids = (slot: CourseRow['slot'], date: string, courses = all) => coursesInSlotOn(courses, slot, date).map((c) => c.id);
+
+  it('picks the active courses of the slot that meet on that weekday', () => {
+    expect(ids('asr', '2026-10-10')).toEqual(['dalil-talib']);
+    expect(ids('asr', '2026-11-11')).toEqual(['targhib']);
+    expect(ids('fajr', '2026-11-14')).toEqual(['kitab-tawhid']);
+    expect(ids('maghrib', '2026-11-14')).toEqual([]);
+  });
+
+  it('skips inactive courses', () => {
+    expect(ids('asr', '2026-10-10', [{ ...dalil, active: false }])).toEqual([]);
+  });
 });

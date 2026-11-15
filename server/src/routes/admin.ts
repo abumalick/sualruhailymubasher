@@ -1,11 +1,13 @@
-import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonInput, type LessonPatch, type LessonUpsertResult } from '@sualruhaily/shared';
+import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type IngestIndex, type LessonInput, type LessonPatch, type LessonUpsertResult, type SlotCancellationInput, type SlotCancellationResult } from '@sualruhaily/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Fcm } from '../fcm';
 import { getFcm, type Env } from '../index';
 import { sendRecordingPush, shouldPushRecording } from '../jobs/recording-push';
 import {
+  addCancellations,
   addException,
+  ingestIndex,
   deleteException,
   listCourses,
   listExceptions,
@@ -19,7 +21,8 @@ import {
   SourceRefConflict,
   upsertLesson,
 } from '../repo';
-import { isRecentDate, medinaDate, normalizeHijri } from '../time';
+import { coursesInSlotOn } from '../schedule';
+import { hijriToMedinaDate, isRecentDate, medinaDate, normalizeHijri } from '../time';
 
 const encoder = new TextEncoder();
 
@@ -89,7 +92,8 @@ function parseLessonInput(b: unknown): LessonInput | null {
     isString(b.startPoint) &&
     (b.recordingUrl === null || isString(b.recordingUrl)) &&
     isString(b.sourceRef) &&
-    b.sourceRef !== '';
+    b.sourceRef !== '' &&
+    (b.notify === undefined || typeof b.notify === 'boolean');
   return ok ? (b as unknown as LessonInput) : null;
 }
 
@@ -104,6 +108,20 @@ function parseException(b: unknown): ExceptionInput | null {
     (b.time === undefined || b.time === null || isTime(b.time)) &&
     (b.note === undefined || isString(b.note));
   return ok ? (b as unknown as ExceptionInput) : null;
+}
+
+function parseSlotCancellation(b: unknown): (SlotCancellationInput & { date: string }) | null {
+  if (!isObject(b)) return null;
+  const slotOk = b.slot === 'fajr' || b.slot === 'asr' || b.slot === 'maghrib';
+  const bothGiven = b.date !== undefined && b.hijriDate !== undefined;
+  if (!slotOk || !isString(b.sourceRef) || b.sourceRef === '' || !isString(b.note) || bothGiven) return null;
+  let date: string | null = null;
+  if (isDate(b.date)) date = b.date as string;
+  else if (isString(b.hijriDate)) {
+    const hijri = normalizeHijri(b.hijriDate);
+    date = hijri && hijriToMedinaDate(hijri);
+  }
+  return date ? { sourceRef: b.sourceRef, slot: b.slot as SlotCancellationInput['slot'], note: b.note, date } : null;
 }
 
 const readJson = (c: { req: { json: () => Promise<unknown> } }) => c.req.json().catch(() => null);
@@ -153,7 +171,7 @@ adminRoutes.post('/api/admin/lessons', async (c) => {
 
   let pushed = false;
   const isRecent = isRecentDate(r.heldDate, c.get('now') ?? new Date());
-  if (shouldPushRecording({ hadLessonsBefore, isNewestInSequence, recordingAdded: r.recordingAdded, isRecent })) {
+  if (input.notify !== false && shouldPushRecording({ hadLessonsBefore, isNewestInSequence, recordingAdded: r.recordingAdded, isRecent })) {
     try {
       const fcm = c.get('fcm') ?? getFcm(c.env.FCM_SERVICE_ACCOUNT ?? '');
       pushed = await sendRecordingPush({ db: c.env.DB, fcm }, course, {
@@ -194,6 +212,20 @@ adminRoutes.post('/api/admin/exceptions', async (c) => {
     return bad(c);
   }
   return c.json({ id: await addException(c.env.DB, input) });
+});
+
+adminRoutes.post('/api/admin/slot-cancellations', async (c) => {
+  const input = parseSlotCancellation(await readJson(c));
+  if (!input) return bad(c);
+  const courseIds = coursesInSlotOn(await listCourses(c.env.DB), input.slot, input.date).map((k) => k.id);
+  const created = await addCancellations(c.env.DB, courseIds, input.date, input.note, input.sourceRef);
+  const result: SlotCancellationResult = { date: input.date, courseIds, created };
+  return c.json(result);
+});
+
+adminRoutes.get('/api/admin/ingest-index', async (c) => {
+  const index: IngestIndex = await ingestIndex(c.env.DB);
+  return c.json(index);
 });
 
 adminRoutes.delete('/api/admin/exceptions/:id', async (c) => {

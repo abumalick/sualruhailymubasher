@@ -3,6 +3,7 @@ import type {
   LessonInput,
   ExceptionDTO,
   ExceptionInput,
+  IngestIndex,
   LessonDTO,
   LessonPatch,
   PendingTranscription,
@@ -388,6 +389,45 @@ export async function addException(db: D1Database, e: ExceptionInput): Promise<n
     .bind(e.courseId, e.kind, e.dateFrom, e.dateTo ?? null, e.time ?? null, e.note ?? '')
     .run();
   return res.meta.last_row_id;
+}
+
+export async function addCancellations(
+  db: D1Database,
+  courseIds: string[],
+  date: string,
+  note: string,
+  sourceRef: string,
+): Promise<number> {
+  if (courseIds.length === 0) return 0;
+  const results = await db.batch(
+    courseIds.map((id) =>
+      db
+        .prepare("INSERT OR IGNORE INTO exceptions (course_id, kind, date_from, note, source_ref) VALUES (?, 'cancel', ?, ?, ?)")
+        .bind(id, date, note, sourceRef),
+    ),
+  );
+  return results.reduce((n, r) => n + r.meta.changes, 0);
+}
+
+export async function ingestIndex(db: D1Database): Promise<IngestIndex> {
+  const lessons = await db
+    .prepare(
+      'SELECT source_ref, course_id, section, section_number, recording_url FROM lessons WHERE source_ref IS NOT NULL ORDER BY course_id, number',
+    )
+    .all<Row>();
+  const refs = await db
+    .prepare('SELECT DISTINCT source_ref FROM exceptions WHERE source_ref IS NOT NULL ORDER BY source_ref')
+    .all<Row>();
+  return {
+    lessons: lessons.results.map((r) => ({
+      sourceRef: r.source_ref as string,
+      courseId: r.course_id as string,
+      section: r.section as string,
+      sectionNumber: r.section_number as number,
+      recordingUrl: (r.recording_url as string | null) ?? null,
+    })),
+    exceptionRefs: refs.results.map((r) => r.source_ref as string),
+  };
 }
 
 export async function deleteException(db: D1Database, id: number): Promise<boolean> {

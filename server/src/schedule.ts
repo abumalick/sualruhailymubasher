@@ -1,4 +1,4 @@
-import type { ExceptionDTO } from '@sualruhaily/shared';
+import type { ExceptionDTO, Slot } from '@sualruhaily/shared';
 import { asrMinutes, fajrMinutes, formatMinutes, sunsetMinutes } from './prayer';
 import type { CourseRow } from './repo';
 import { addDays, medinaDate, medinaInstant, weekday } from './time';
@@ -9,6 +9,9 @@ const SEARCH_DAYS = 60;
 
 const applies = (e: ExceptionDTO, courseId: string) => e.courseId === null || e.courseId === courseId;
 const covers = (e: ExceptionDTO, date: string) => e.dateFrom <= date && date <= (e.dateTo ?? e.dateFrom);
+
+export const coursesInSlotOn = (courses: CourseRow[], slot: Slot, date: string): CourseRow[] =>
+  courses.filter((c) => c.active && c.slot === slot && c.weekdays.includes(weekday(date)));
 
 export function lessonTime(course: CourseRow, date: string): string {
   const prayer = { fajr: fajrMinutes, asr: asrMinutes, maghrib: sunsetMinutes }[course.slot](date);
