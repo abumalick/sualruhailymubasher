@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import shutil
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -17,7 +18,13 @@ FIRST_ID = 859
 RESCAN = 150
 CONTENT_TYPES = {"mp3": "audio/mpeg", "m4a": "audio/mp4"}
 SLOT_NAMES = {slot: arabic for arabic, slot in SLOTS.items()}
-FAILURE_PREFIXES = ("identity-conflict:", "site-error")
+FAILURE_PREFIXES = ("identity-conflict:", "site-error", "failed:")
+MEDIA_MAX_BYTES = 95_000_000
+PERMANENT_STATUSES = {400, 409, 413, 415}
+
+
+class PermanentFailure(Exception):
+    """A post that fails the same way on every try: recorded so later ticks skip it until --retry-failed."""
 
 
 @dataclass(frozen=True)
@@ -64,14 +71,24 @@ def _row_identity(row: IndexedLesson) -> Identity:
     return row.course_id, row.section, row.section_number
 
 
+def _hijri_key(date: str | None) -> tuple[int, int, int] | None:
+    """`1448/6/3` (agent) and `03-06-1448` (as the server stores it) compare equal."""
+    parts = re.split(r"\s*[/-]\s*", date.strip()) if date else []
+    if len(parts) != 3 or not all(p.isdigit() for p in parts):
+        return None
+    a, m, c = parts
+    y, d = (a, c) if len(a) == 4 else (c, a)
+    return int(y), int(m), int(d)
+
+
 def _claim(lesson: TelegramLesson, owners: dict[Identity, str], dates: dict[str, str]) -> TelegramLesson | Skip:
     """The identity this post may take. A post colliding with another ref's identity is a repost when the dates
     match (or the other post's date is unknown); otherwise a caption typo, fixed by the filename's number."""
     owner = owners.get(_identity(lesson))
     if owner in (None, lesson.ref):
         return lesson
-    owner_date = dates.get(owner)
-    if owner_date == lesson.hijri_date:
+    owner_date = _hijri_key(dates.get(owner))
+    if owner_date == _hijri_key(lesson.hijri_date):
         return Skip(lesson.ref, f"duplicate-of:{owner}")
     n = lesson.file_number
     if n is not None and n != lesson.section_number and owners.get(_identity(lesson, n)) in (None, lesson.ref):
@@ -96,20 +113,30 @@ def _plan_lesson(lesson: TelegramLesson, known: dict[str, IndexedLesson], owners
     return action
 
 
-def plan(parsed: list[Parsed], index: IngestIndex) -> list[Action]:
-    """Ingested refs keep their identity; within the batch the lowest message id of an identity wins."""
+def plan(parsed: list[Parsed], index: IngestIndex, failed: dict[str, str] | None = None) -> list[Action]:
+    """Ingested refs keep their identity; within the batch the lowest message id of an identity wins.
+    Refs in `failed` failed permanently on an earlier tick and are skipped unless already done."""
+    failed = failed or {}
     known = {row.source_ref: row for row in index.lessons}
     owners = {_row_identity(row): row.source_ref for row in index.lessons}
-    dates = {p.ref: p.hijri_date for p in parsed if isinstance(p, TelegramLesson)}
+    dates = {row.source_ref: row.hijri_date for row in index.lessons if row.hijri_date}
+    dates |= {p.ref: p.hijri_date for p in parsed if isinstance(p, TelegramLesson)}
     exceptions = set(index.exception_refs)
     actions: list[Action] = []
     for p in sorted(parsed, key=_msg_id):
+        row = known.get(p.ref)
         if isinstance(p, (Absence, Lecture)):
-            actions.append(Skip(p.ref, "done") if p.ref in exceptions else Cancel(p))
+            if p.ref in exceptions:
+                actions.append(Skip(p.ref, "done"))
+            elif p.ref in failed:
+                actions.append(Skip(p.ref, f"failed:{failed[p.ref]}"))
+            else:
+                actions.append(Cancel(p))
+        elif isinstance(p, TelegramLesson) and p.ref in failed and not (row and row.recording_url):
+            actions.append(Skip(p.ref, f"failed:{failed[p.ref]}"))
         elif isinstance(p, TelegramLesson):
             actions.append(_plan_lesson(p, known, owners, dates))
         elif isinstance(p, SiteLesson):
-            row = known.get(p.ref)
             actions.append(Skip(p.ref, "done" if row and row.recording_url else "site-error"))
         else:
             actions.append(p)
@@ -136,6 +163,7 @@ class Summary:
     skipped: int = 0
     failed: int = 0
     unrecognised: int = 0
+    without_course: int = 0
     actions: list[Action] = field(default_factory=list)
 
     @property
@@ -146,7 +174,10 @@ class Summary:
         def count(n: int, word: str) -> str:
             return f"{n} {word}{'' if n == 1 else 's'}"
 
-        return f"{count(self.lessons, 'lesson')}, {count(self.cancellations, 'cancellation')}, {self.skipped} skipped, {self.failed} failed"
+        text = f"{count(self.lessons, 'lesson')}, {count(self.cancellations, 'cancellation')}, {self.skipped} skipped, {self.failed} failed"
+        if self.without_course:
+            text += f", {count(self.without_course, 'cancellation')} without a course"
+        return text
 
 
 def _note(item: Absence | Lecture) -> str:
@@ -173,14 +204,20 @@ def _lesson_body(lesson: TelegramLesson, recording_url: str, notify: bool) -> di
     }
 
 
-def _resolve(p: Parsed, site, done: set[str]) -> Parsed:
+def _resolve(p: Parsed, site, done: set[str], failed: dict[str, str]) -> Parsed:
     if not isinstance(p, SiteLesson) or p.ref in done:
         return p
+    if p.ref in failed:
+        return Skip(p.ref, f"failed:{failed[p.ref]}")
     try:
         page = parse_play_page(site.fetch(p.play_url))
-    except (httpx.HTTPError, SitePageError) as e:
+    except httpx.HTTPError as e:
         log.error("%s: could not read %s: %s", p.ref, p.play_url, e)
         return Skip(p.ref, "site-error")
+    except SitePageError as e:
+        log.error("%s: unusable play page %s: %s", p.ref, p.play_url, e)
+        failed[p.ref] = "site-page"
+        return Skip(p.ref, "failed:site-page")
     return SiteResolved(
         p.ref, p.course_id, "", page.number, p.hijri_date, page.start_point, _msg_id(p), "mp3", None, page.mp3_url,
     )
@@ -195,6 +232,10 @@ def _upload(api, telegram, site, lesson: TelegramLesson, work: Path, notify: boo
             path = site.download(lesson.mp3_url, folder / f"{lesson.msg_id}.mp3")
         else:
             path = telegram.download(lesson.msg_id, folder)
+        if lesson.ext not in CONTENT_TYPES:
+            raise PermanentFailure("unsupported-extension")
+        if path.stat().st_size > MEDIA_MAX_BYTES:
+            raise PermanentFailure("too-large")
         key = f"lessons/{lesson.course_id}/{lesson.msg_id}.{lesson.ext}"
         url = api.put_media(key, path, CONTENT_TYPES[lesson.ext])
         api.post_lesson(_lesson_body(lesson, url, notify))
@@ -202,15 +243,24 @@ def _upload(api, telegram, site, lesson: TelegramLesson, work: Path, notify: boo
         shutil.rmtree(folder, ignore_errors=True)
 
 
-def _execute(api, telegram, site, action: Action, work: Path, notify: bool) -> None:
-    if isinstance(action, Upload):
-        _upload(api, telegram, site, action.lesson, work, notify)
-    elif isinstance(action, Moved):
-        api.post_lesson(_lesson_body(action.lesson, action.recording_url, notify))
-    elif isinstance(action, Cancel):
-        result = api.slot_cancellation(_cancellation_body(action.item))
-        if not result.get("courseIds"):
-            log.warning("%s: the cancellation matched no course on that day", action.item.ref)
+def _permanent(e: ApiError) -> Exception:
+    return PermanentFailure(f"http-{e.status}") if e.status in PERMANENT_STATUSES else e
+
+
+def _execute(api, telegram, site, action: Action, work: Path, notify: bool) -> bool:
+    """Returns False for a cancellation that matched no course on that day."""
+    try:
+        if isinstance(action, Upload):
+            _upload(api, telegram, site, action.lesson, work, notify)
+        elif isinstance(action, Moved):
+            api.post_lesson(_lesson_body(action.lesson, action.recording_url, notify))
+        elif isinstance(action, Cancel):
+            if not api.slot_cancellation(_cancellation_body(action.item)).get("courseIds"):
+                log.warning("%s: the cancellation matched no course on that day", action.item.ref)
+                return False
+    except ApiError as e:
+        raise _permanent(e) from e
+    return True
 
 
 def _count(summary: Summary, action: Action) -> None:
@@ -225,50 +275,77 @@ def _count(summary: Summary, action: Action) -> None:
         summary.unrecognised += action.reason == "unrecognised"
 
 
-def _load_last_id(state_path: Path) -> int | None:
+def _load_state(state_path: Path) -> dict | None:
     try:
-        return int(json.loads(state_path.read_text())["last_id"])
-    except (OSError, ValueError, KeyError, TypeError):
+        state = json.loads(state_path.read_text())
+    except FileNotFoundError:
         return None
+    except (OSError, ValueError):
+        state = None
+    if not isinstance(state, dict):
+        log.warning("unreadable %s, starting from a fresh state", state_path)
+        return None
+    return state
 
 
-def _save_last_id(state_path: Path, last_id: int) -> None:
+def _save_state(state_path: Path, state: dict) -> None:
     state_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = state_path.with_suffix(".part")
-    tmp.write_text(json.dumps({"last_id": last_id}))
+    tmp.write_text(json.dumps(state, ensure_ascii=False))
     tmp.replace(state_path)
 
 
-def run_ingest(api, telegram, site, state_path: Path, *, from_id: int | None = None, notify: bool = True, dry_run: bool = False) -> Summary:
+def run_ingest(
+    api, telegram, site, state_path: Path, *,
+    from_id: int | None = None, notify: bool = True, dry_run: bool = False, retry_failed: bool = False,
+) -> Summary:
     """One pass over the channel: auth failures and a busy Telegram stop it, any other failure only fails that post."""
-    last_id = _load_last_id(state_path)
-    start = from_id if from_id is not None else max(FIRST_ID, last_id - RESCAN) if last_id is not None else FIRST_ID
+    state = _load_state(state_path)
+    if state is None and notify and not dry_run:
+        log.info("first run (no %s): a backfill, so nothing is pushed", state_path)
+        notify = False
+    state = state or {}
+    last_id = state.get("last_id")
+    failed: dict[str, str] = {} if retry_failed else dict(state.get("failed", {}))
+    if from_id is not None:
+        start = from_id
+    elif isinstance(last_id, int):
+        start = max(FIRST_ID, last_id - RESCAN)
+    else:
+        start = FIRST_ID
     messages = sorted(telegram.export(start), key=lambda m: m.id)
     log.info("ingest: %d message(s) from %d", len(messages), start)
     index = api.ingest_index()
     done = {row.source_ref for row in index.lessons if row.recording_url}
-    actions = plan([_resolve(parse_message(m), site, done) for m in messages], index)
+    actions = plan([_resolve(parse_message(m), site, done, failed) for m in messages], index, failed)
     summary = Summary(actions=actions)
     work = state_path.parent / "media"
     for action in actions:
-        log.info("%s", describe(action))
+        is_done = isinstance(action, Skip) and action.reason == "done"
+        log.log(logging.DEBUG if is_done else logging.INFO, "%s", describe(action))
         if dry_run:
             _count(summary, action)
             continue
         try:
-            _execute(api, telegram, site, action, work, notify)
+            matched = _execute(api, telegram, site, action, work, notify)
         except TelegramBusy:
             raise
+        except PermanentFailure as e:
+            log.error("%s: failed permanently (%s), skipped until --retry-failed", _ref(action), e)
+            failed[_ref(action)] = str(e)
+            summary.failed += 1
+            continue
         except Exception as e:
             if isinstance(e, ApiError) and e.status in (401, 403):
                 raise
-            log.exception("%s: failed, continuing with the next post", _ref(action))
+            log.exception("%s: failed, retrying next tick", _ref(action))
             summary.failed += 1
             continue
         _count(summary, action)
+        summary.without_course += not matched
     if dry_run:
         return summary
-    if messages:
-        _save_last_id(state_path, max(last_id or 0, messages[-1].id))
+    seen = [m.id for m in messages] + ([last_id] if isinstance(last_id, int) else [])
+    _save_state(state_path, {**({"last_id": max(seen)} if seen else {}), "failed": failed})
     api.heartbeat(summary.ok, str(summary))
     return summary

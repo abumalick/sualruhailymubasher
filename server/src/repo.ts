@@ -412,7 +412,7 @@ export async function addCancellations(
 export async function ingestIndex(db: D1Database): Promise<IngestIndex> {
   const lessons = await db
     .prepare(
-      'SELECT source_ref, course_id, section, section_number, recording_url FROM lessons WHERE source_ref IS NOT NULL ORDER BY course_id, number',
+      'SELECT source_ref, course_id, section, section_number, hijri_date, recording_url FROM lessons WHERE source_ref IS NOT NULL ORDER BY course_id, number',
     )
     .all<Row>();
   const refs = await db
@@ -424,6 +424,7 @@ export async function ingestIndex(db: D1Database): Promise<IngestIndex> {
       courseId: r.course_id as string,
       section: r.section as string,
       sectionNumber: r.section_number as number,
+      hijriDate: r.hijri_date as string,
       recordingUrl: (r.recording_url as string | null) ?? null,
     })),
     exceptionRefs: refs.results.map((r) => r.source_ref as string),

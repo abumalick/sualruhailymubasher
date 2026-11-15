@@ -55,7 +55,7 @@ export interface SlotCancellationInput {
 }
 export interface SlotCancellationResult { date: string; courseIds: string[]; created: number; }
 export interface IngestIndex {
-  lessons: { sourceRef: string; courseId: string; section: string; sectionNumber: number; recordingUrl: string | null }[];
+  lessons: { sourceRef: string; courseId: string; section: string; sectionNumber: number; hijriDate: string; recordingUrl: string | null }[]; // hijriDate as stored, DD-MM-YYYY
   exceptionRefs: string[];
 }
 export interface LessonUpsertResult { number: number; created: boolean; dateFlag: boolean; pushed: boolean; }

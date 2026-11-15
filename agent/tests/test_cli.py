@@ -1,7 +1,14 @@
+import json
+from pathlib import Path
+
 import httpx
 import pytest
 
 from sualruhaily_agent import cli
+from sualruhaily_agent.captions import Message
+from sualruhaily_agent.telegram import TelegramBusy
+
+FIXTURE = Path(__file__).parent / "fixtures" / "telegram-1448.json"
 
 
 def env(monkeypatch, tmp_path):
@@ -60,17 +67,9 @@ class FakeTelegram:
         pass
 
     def export(self, from_id):
-        from sualruhaily_agent.telegram import TelegramBusy
-
         if self.busy:
             raise TelegramBusy("tdl lock held")
-        import json
-        from pathlib import Path
-
-        from sualruhaily_agent.captions import Message
-
-        fixture = Path(__file__).parent / "fixtures" / "telegram-1448.json"
-        rows = json.loads(fixture.read_text(encoding="utf-8"))["messages"]
+        rows = json.loads(FIXTURE.read_text(encoding="utf-8"))["messages"]
         return [Message(m["id"], m["date"], m["file"], m["text"]) for m in rows if m["id"] in (971, 1111, 1112)]
 
     def download(self, msg_id, dest):
@@ -103,9 +102,10 @@ def ingest_env(monkeypatch, tmp_path):
 
 
 def test_no_notify_flag_reaches_every_lesson_post(monkeypatch, tmp_path):
-    import json
-
     ingest_env(monkeypatch, tmp_path)
+    state = tmp_path / "cache" / "ingest" / "state.json"
+    state.parent.mkdir(parents=True)
+    state.write_text(json.dumps({"last_id": 900}))
     seen = []
     assert cli.main(["ingest", "--no-notify"], transport=ingest_server(seen)) == 0
     posts = [json.loads(body) for method, path, body in seen if path == "/api/admin/lessons"]
@@ -150,3 +150,15 @@ def test_held_ingest_lock_exits_zero(monkeypatch, tmp_path, caplog):
 def test_ingest_auth_failure_exits_nonzero(monkeypatch, tmp_path):
     ingest_env(monkeypatch, tmp_path)
     assert cli.main(["ingest"], transport=httpx.MockTransport(lambda r: httpx.Response(401))) == 1
+
+
+def test_retry_failed_flag_clears_recorded_failures(monkeypatch, tmp_path):
+    ingest_env(monkeypatch, tmp_path)
+    state = tmp_path / "cache" / "ingest" / "state.json"
+    state.parent.mkdir(parents=True)
+    state.write_text(json.dumps({"last_id": 900, "failed": {"tg:1112": "http-413"}}))
+    seen = []
+    assert cli.main(["ingest", "--retry-failed"], transport=ingest_server(seen)) == 0
+    posts = [json.loads(body)["sourceRef"] for method, path, body in seen if path == "/api/admin/lessons"]
+    assert "tg:1112" in posts
+    assert json.loads(state.read_text())["failed"] == {}

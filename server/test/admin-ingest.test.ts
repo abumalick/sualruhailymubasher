@@ -107,8 +107,8 @@ describe('GET /api/admin/ingest-index', () => {
     expect(res.status).toBe(200);
     const index = (await res.json()) as IngestIndex;
     expect(index.lessons).toEqual([
-      { sourceRef: 'tg:8', courseId: 'kitab-tawhid', section: '', sectionNumber: 8, recordingUrl: 'https://m/8.mp3' },
-      { sourceRef: 'tg:9', courseId: 'kitab-tawhid', section: '', sectionNumber: 9, recordingUrl: null },
+      { sourceRef: 'tg:8', courseId: 'kitab-tawhid', section: '', sectionNumber: 8, hijriDate: '27-05-1448', recordingUrl: 'https://m/8.mp3' },
+      { sourceRef: 'tg:9', courseId: 'kitab-tawhid', section: '', sectionNumber: 9, hijriDate: '27-05-1448', recordingUrl: null },
     ]);
     expect(index.exceptionRefs).toEqual(['tg:971']);
   });

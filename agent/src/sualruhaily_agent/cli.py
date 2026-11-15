@@ -193,7 +193,7 @@ def ingest(args: argparse.Namespace, base: str, token: str, transport: httpx.Bas
         try:
             summary = run_ingest(
                 api, Telegram(tmp_dir=root / "ingest" / "tmp"), site, root / "ingest" / "state.json",
-                from_id=args.from_id, notify=not args.no_notify, dry_run=args.dry_run,
+                from_id=args.from_id, notify=not args.no_notify, dry_run=args.dry_run, retry_failed=args.retry_failed,
             )
         except TelegramBusy as e:
             log.info("telegram busy, skipping this tick: %s", e)
@@ -219,6 +219,7 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
     ing.add_argument("--from-id", type=int, help="export from this message id instead of the re-scan window")
     ing.add_argument("--no-notify", action="store_true", help="never push the lessons this run posts")
     ing.add_argument("--dry-run", action="store_true", help="print the planned actions and write nothing")
+    ing.add_argument("--retry-failed", action="store_true", help="retry the posts that failed permanently before")
     index = sub.add_parser("index-book", help="build the per-page text index of a book PDF")
     index.add_argument("url")
     index.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)

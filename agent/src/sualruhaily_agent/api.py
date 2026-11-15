@@ -43,6 +43,7 @@ class IndexedLesson(BaseModel):
     course_id: str
     section: str
     section_number: int
+    hijri_date: str | None = None
     recording_url: str | None
 
 

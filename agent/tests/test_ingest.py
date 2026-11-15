@@ -17,20 +17,25 @@ MESSAGES = {
 PAGE_2898 = (FIXTURES / "site-play-2898.html").read_text(encoding="utf-8")
 
 
-def indexed(ref, course, section, number, url="https://media.test/x.mp3"):
-    return IndexedLesson(source_ref=ref, course_id=course, section=section, section_number=number, recording_url=url)
+def indexed(ref, course, section, number, url="https://media.test/x.mp3", hijri=None):
+    return IndexedLesson(
+        source_ref=ref, course_id=course, section=section, section_number=number, hijri_date=hijri, recording_url=url,
+    )
 
 
 class FakeApi:
-    def __init__(self, lessons=(), exception_refs=(), fail=(), status=500, course_ids=("targhib",)):
+    def __init__(self, lessons=(), exception_refs=(), fail=(), status=500, course_ids=("targhib",), upload_status=None):
         self.index = IngestIndex(lessons=list(lessons), exception_refs=list(exception_refs))
         self.fail, self.status, self.course_ids = set(fail), status, list(course_ids)
+        self.upload_status = upload_status
         self.uploads, self.posts, self.cancellations, self.heartbeats = [], [], [], []
 
     def ingest_index(self):
         return self.index.model_copy(deep=True)
 
     def put_media(self, key, path, content_type):
+        if self.upload_status:
+            raise ApiError(f"PUT media returned {self.upload_status}", self.upload_status)
         self.uploads.append((key, content_type, path.read_bytes()))
         return f"https://media.test/{key}"
 
@@ -39,7 +44,9 @@ class FakeApi:
             raise ApiError("POST /api/admin/lessons returned the test status", self.status)
         self.posts.append(body)
         rows = [r for r in self.index.lessons if r.source_ref != body["sourceRef"]]
-        rows.append(indexed(body["sourceRef"], body["courseId"], body["section"], body["sectionNumber"], body["recordingUrl"]))
+        rows.append(indexed(
+            body["sourceRef"], body["courseId"], body["section"], body["sectionNumber"], body["recordingUrl"], body["hijriDate"],
+        ))
         self.index.lessons = rows
         return {"number": len(rows), "created": True, "dateFlag": False, "pushed": False}
 
@@ -54,8 +61,9 @@ class FakeApi:
 
 
 class FakeTelegram:
-    def __init__(self, messages):
+    def __init__(self, messages, size=None):
         self.messages = messages
+        self.size = size
         self.exports, self.downloads = [], []
 
     def export(self, from_id):
@@ -65,7 +73,7 @@ class FakeTelegram:
     def download(self, msg_id, dest):
         self.downloads.append(msg_id)
         path = dest / f"3174045392_{msg_id}_{MESSAGES[msg_id].file if msg_id in MESSAGES else 'a.mp3'}"
-        path.write_bytes(f"audio {msg_id}".encode())
+        path.write_bytes(b"x" * self.size if self.size else f"audio {msg_id}".encode())
         return path
 
 
@@ -90,6 +98,16 @@ class FakeSite:
 
 def messages(*ids):
     return [MESSAGES[i] for i in ids]
+
+
+def seed_state(tmp_path, state):
+    path = tmp_path / "ingest" / "state.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state))
+
+
+def state(tmp_path):
+    return json.loads((tmp_path / "ingest" / "state.json").read_text())
 
 
 def run(api, telegram, tmp_path, **kwargs):
@@ -233,6 +251,7 @@ def test_cancellation_matching_no_course_is_reported(tmp_path, caplog):
     run(api, FakeTelegram(messages(971)), tmp_path)
 
     assert "tg:971" in caplog.text and "no course" in caplog.text
+    assert api.heartbeats == [(True, "0 lessons, 1 cancellation, 0 skipped, 0 failed, 1 cancellation without a course")]
 
 
 def test_known_exception_ref_is_not_cancelled_again():
@@ -248,7 +267,7 @@ def test_one_failure_does_not_stop_the_run(tmp_path):
     assert [p["sourceRef"] for p in api.posts] == ["tg:1112"]
     assert summary.failed == 1
     assert api.heartbeats == [(False, "1 lesson, 0 cancellations, 0 skipped, 1 failed")]
-    assert json.loads((tmp_path / "ingest" / "state.json").read_text()) == {"last_id": 1112}
+    assert state(tmp_path)["last_id"] == 1112
 
 
 @pytest.mark.parametrize("status", [401, 403])
@@ -265,16 +284,14 @@ def test_auth_failure_stops_the_run(tmp_path, status):
 
 
 def test_rescan_window_uses_state(tmp_path):
-    state = tmp_path / "ingest" / "state.json"
-    state.parent.mkdir(parents=True)
-    state.write_text(json.dumps({"last_id": 1112}))
+    seed_state(tmp_path, {"last_id": 1112})
     telegram = FakeTelegram([])
 
     run(FakeApi(), telegram, tmp_path)
     run(FakeApi(), telegram, tmp_path, from_id=1100)
 
     assert telegram.exports == [962, 1100]
-    assert json.loads(state.read_text()) == {"last_id": 1112}
+    assert state(tmp_path)["last_id"] == 1112
 
 
 def test_first_run_starts_at_the_first_1448_lesson(tmp_path):
@@ -307,3 +324,116 @@ def test_heartbeat_ok_on_a_clean_run(tmp_path):
     api = FakeApi()
     run(api, FakeTelegram(messages(1112, 971)), tmp_path)
     assert api.heartbeats == [(True, "1 lesson, 1 cancellation, 0 skipped, 0 failed")]
+
+
+def test_index_held_owner_with_another_date_falls_back_to_filename():
+    index = IngestIndex(lessons=[indexed("tg:895", "dalil-talib", "كتاب الأطعمة", 1, hijri="01-04-1448")], exception_refs=[])
+
+    [action] = plan([parse_message(MESSAGES[915])], index)
+
+    assert isinstance(action, Upload) and identity(action.lesson) == ("dalil-talib", "كتاب الأطعمة", 2)
+
+
+def test_index_held_owner_with_another_date_and_no_filename_number_conflicts():
+    index = IngestIndex(lessons=[indexed("tg:916", "dalil-talib", "كتاب الأطعمة", 3, hijri="07-04-1448")], exception_refs=[])
+    clash = replace(parse_message(MESSAGES[916]), ref="tg:2000", msg_id=2000, hijri_date="1448/9/9", file_number=None)
+
+    assert plan([clash], index) == [Skip("tg:2000", "identity-conflict:tg:916")]
+
+
+def test_index_held_owner_with_the_same_date_is_a_repost():
+    index = IngestIndex(lessons=[indexed("tg:861", "kitab-tawhid", "", 1, hijri="23-03-1448")], exception_refs=[])
+
+    assert plan([parse_message(MESSAGES[940])], index) == [Skip("tg:940", "duplicate-of:tg:861")]
+
+
+def test_permanent_failure_is_not_downloaded_again(tmp_path):
+    seed_state(tmp_path, {"last_id": 1000})
+    api = FakeApi(upload_status=413)
+    first = FakeTelegram(messages(1112))
+    run(api, first, tmp_path)
+    assert first.downloads == [1112]
+    assert state(tmp_path)["failed"] == {"tg:1112": "http-413"}
+
+    api.upload_status = None
+    second = FakeTelegram(messages(1112))
+    summary = run(api, second, tmp_path)
+    assert second.downloads == [] and api.posts == []
+    assert summary.actions == [Skip("tg:1112", "failed:http-413")]
+    assert api.heartbeats[-1] == (False, "0 lessons, 0 cancellations, 0 skipped, 1 failed")
+
+    third = FakeTelegram(messages(1112))
+    run(api, third, tmp_path, retry_failed=True)
+    assert third.downloads == [1112] and [p["sourceRef"] for p in api.posts] == ["tg:1112"]
+    assert state(tmp_path)["failed"] == {}
+
+
+def test_file_over_the_upload_cap_fails_without_uploading(tmp_path):
+    seed_state(tmp_path, {"last_id": 1000})
+    api = FakeApi()
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("sualruhaily_agent.ingest.MEDIA_MAX_BYTES", 10)
+        run(api, FakeTelegram(messages(1112), size=11), tmp_path)
+
+    assert api.uploads == [] and api.posts == []
+    assert state(tmp_path)["failed"] == {"tg:1112": "too-large"}
+
+
+@pytest.mark.parametrize("status", [500, 502])
+def test_server_errors_are_retried_next_tick(tmp_path, status):
+    seed_state(tmp_path, {"last_id": 1000})
+    api = FakeApi(upload_status=status)
+    run(api, FakeTelegram(messages(1112)), tmp_path)
+    assert state(tmp_path)["failed"] == {}
+
+    api.upload_status = None
+    again = FakeTelegram(messages(1112))
+    run(api, again, tmp_path)
+    assert again.downloads == [1112]
+
+
+def test_unreadable_site_page_is_a_permanent_failure(tmp_path):
+    class BrokenSite(FakeSite):
+        def fetch(self, url):
+            self.fetched.append(url)
+            return "<title>no number</title>"
+
+    seed_state(tmp_path, {"last_id": 1000})
+    run(FakeApi(), FakeTelegram(messages(1049)), tmp_path, site=BrokenSite())
+    assert state(tmp_path)["failed"] == {"tg:1049": "site-page"}
+
+    site = BrokenSite()
+    summary = run(FakeApi(), FakeTelegram(messages(1049)), tmp_path, site=site)
+    assert site.fetched == [] and summary.actions == [Skip("tg:1049", "failed:site-page")]
+
+
+def test_first_run_is_a_backfill_without_notifications(tmp_path, caplog):
+    caplog.set_level("INFO")
+    api = FakeApi()
+
+    run(api, FakeTelegram(messages(1111)), tmp_path, notify=True)
+    run(api, FakeTelegram(messages(1112)), tmp_path, notify=True)
+
+    assert [p["notify"] for p in api.posts] == [False, True]
+    assert "first run" in caplog.text
+
+
+def test_done_skips_log_at_debug(tmp_path, caplog):
+    caplog.set_level("INFO")
+    api = FakeApi([indexed("tg:1112", "dalil-talib", "كتاب الشهادات", 1)])
+
+    run(api, FakeTelegram(messages(1112)), tmp_path)
+
+    assert "tg:1112" not in caplog.text
+
+
+def test_unreadable_state_is_treated_as_a_first_run(tmp_path):
+    path = tmp_path / "ingest" / "state.json"
+    path.parent.mkdir(parents=True)
+    path.write_text("not json")
+    api, telegram = FakeApi(), FakeTelegram(messages(1112))
+
+    run(api, telegram, tmp_path, notify=True)
+
+    assert telegram.exports == [859] and api.posts[0]["notify"] is False
