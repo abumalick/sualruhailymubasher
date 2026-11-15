@@ -1,0 +1,274 @@
+import json
+import logging
+import shutil
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+
+import httpx
+
+from .api import ApiError, IndexedLesson, IngestIndex
+from .captions import SLOTS, Absence, Lecture, SiteLesson, Skip, TelegramLesson, parse_message
+from .site import SitePageError, parse_play_page
+from .telegram import TelegramBusy
+
+log = logging.getLogger("sualruhaily_agent")
+
+FIRST_ID = 859
+RESCAN = 150
+CONTENT_TYPES = {"mp3": "audio/mpeg", "m4a": "audio/mp4"}
+SLOT_NAMES = {slot: arabic for arabic, slot in SLOTS.items()}
+FAILURE_PREFIXES = ("identity-conflict:", "site-error")
+
+
+@dataclass(frozen=True)
+class SiteResolved(TelegramLesson):
+    mp3_url: str = ""
+
+
+@dataclass(frozen=True)
+class Upload:
+    lesson: TelegramLesson
+
+
+@dataclass(frozen=True)
+class Moved:
+    lesson: TelegramLesson
+    recording_url: str
+
+
+@dataclass(frozen=True)
+class Cancel:
+    item: Absence | Lecture
+
+
+Parsed = TelegramLesson | SiteLesson | Absence | Lecture | Skip
+Action = Upload | Moved | Cancel | Skip
+Identity = tuple[str, str, int]
+
+
+def _ref(action: Action) -> str:
+    if isinstance(action, Skip):
+        return action.ref
+    return (action.item if isinstance(action, Cancel) else action.lesson).ref
+
+
+def _msg_id(p: Parsed) -> int:
+    return int(p.ref.removeprefix("tg:"))
+
+
+def _identity(lesson: TelegramLesson, number: int | None = None) -> Identity:
+    return lesson.course_id, lesson.section, lesson.section_number if number is None else number
+
+
+def _row_identity(row: IndexedLesson) -> Identity:
+    return row.course_id, row.section, row.section_number
+
+
+def _claim(lesson: TelegramLesson, owners: dict[Identity, str], dates: dict[str, str]) -> TelegramLesson | Skip:
+    """The identity this post may take. A post colliding with another ref's identity is a repost when the dates
+    match (or the other post's date is unknown); otherwise a caption typo, fixed by the filename's number."""
+    owner = owners.get(_identity(lesson))
+    if owner in (None, lesson.ref):
+        return lesson
+    owner_date = dates.get(owner)
+    if owner_date == lesson.hijri_date:
+        return Skip(lesson.ref, f"duplicate-of:{owner}")
+    n = lesson.file_number
+    if n is not None and n != lesson.section_number and owners.get(_identity(lesson, n)) in (None, lesson.ref):
+        return replace(lesson, section_number=n)
+    return Skip(lesson.ref, f"duplicate-of:{owner}" if owner_date is None else f"identity-conflict:{owner}")
+
+
+def _plan_lesson(lesson: TelegramLesson, known: dict[str, IndexedLesson], owners: dict[Identity, str], dates: dict[str, str]) -> Action:
+    claimed = _claim(lesson, owners, dates)
+    if isinstance(claimed, Skip):
+        return claimed
+    row = known.get(claimed.ref)
+    if row is None or row.recording_url is None:
+        action: Action = Upload(claimed)
+    elif _row_identity(row) == _identity(claimed):
+        action = Skip(claimed.ref, "done")
+    else:
+        action = Moved(claimed, row.recording_url)
+    if row is not None and owners.get(_row_identity(row)) == claimed.ref:
+        del owners[_row_identity(row)]
+    owners[_identity(claimed)] = claimed.ref
+    return action
+
+
+def plan(parsed: list[Parsed], index: IngestIndex) -> list[Action]:
+    """Ingested refs keep their identity; within the batch the lowest message id of an identity wins."""
+    known = {row.source_ref: row for row in index.lessons}
+    owners = {_row_identity(row): row.source_ref for row in index.lessons}
+    dates = {p.ref: p.hijri_date for p in parsed if isinstance(p, TelegramLesson)}
+    exceptions = set(index.exception_refs)
+    actions: list[Action] = []
+    for p in sorted(parsed, key=_msg_id):
+        if isinstance(p, (Absence, Lecture)):
+            actions.append(Skip(p.ref, "done") if p.ref in exceptions else Cancel(p))
+        elif isinstance(p, TelegramLesson):
+            actions.append(_plan_lesson(p, known, owners, dates))
+        elif isinstance(p, SiteLesson):
+            row = known.get(p.ref)
+            actions.append(Skip(p.ref, "done" if row and row.recording_url else "site-error"))
+        else:
+            actions.append(p)
+    return actions
+
+
+def describe(action: Action) -> str:
+    if isinstance(action, Skip):
+        return f"skip {action.ref}: {action.reason}"
+    if isinstance(action, Cancel):
+        item = action.item
+        when = item.date if isinstance(item, Absence) else item.hijri_date
+        return f"cancel {item.ref}: {item.slot} {when} ({_note(item)})"
+    lesson = action.lesson
+    verb = "move" if isinstance(action, Moved) else "upload"
+    section = f" {lesson.section}" if lesson.section else ""
+    return f"{verb} {lesson.ref}: {lesson.course_id}{section} {lesson.section_number} {lesson.hijri_date} — {lesson.start_point}"
+
+
+@dataclass
+class Summary:
+    lessons: int = 0
+    cancellations: int = 0
+    skipped: int = 0
+    failed: int = 0
+    unrecognised: int = 0
+    actions: list[Action] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return self.failed == 0 and self.unrecognised == 0
+
+    def __str__(self) -> str:
+        def count(n: int, word: str) -> str:
+            return f"{n} {word}{'' if n == 1 else 's'}"
+
+        return f"{count(self.lessons, 'lesson')}, {count(self.cancellations, 'cancellation')}, {self.skipped} skipped, {self.failed} failed"
+
+
+def _note(item: Absence | Lecture) -> str:
+    if isinstance(item, Absence):
+        return f"اعتذار الشيخ عن درس {SLOT_NAMES[item.slot]}"
+    return f"محاضرة: {item.title}"
+
+
+def _cancellation_body(item: Absence | Lecture) -> dict:
+    when = {"date": item.date} if isinstance(item, Absence) else {"hijriDate": item.hijri_date}
+    return {"sourceRef": item.ref, "slot": item.slot, **when, "note": _note(item)}
+
+
+def _lesson_body(lesson: TelegramLesson, recording_url: str, notify: bool) -> dict:
+    return {
+        "courseId": lesson.course_id,
+        "section": lesson.section,
+        "sectionNumber": lesson.section_number,
+        "hijriDate": lesson.hijri_date,
+        "startPoint": lesson.start_point,
+        "recordingUrl": recording_url,
+        "sourceRef": lesson.ref,
+        "notify": notify,
+    }
+
+
+def _resolve(p: Parsed, site, done: set[str]) -> Parsed:
+    if not isinstance(p, SiteLesson) or p.ref in done:
+        return p
+    try:
+        page = parse_play_page(site.fetch(p.play_url))
+    except (httpx.HTTPError, SitePageError) as e:
+        log.error("%s: could not read %s: %s", p.ref, p.play_url, e)
+        return Skip(p.ref, "site-error")
+    return SiteResolved(
+        p.ref, p.course_id, "", page.number, p.hijri_date, page.start_point, _msg_id(p), "mp3", None, page.mp3_url,
+    )
+
+
+def _upload(api, telegram, site, lesson: TelegramLesson, work: Path, notify: bool) -> None:
+    folder = work / str(lesson.msg_id)
+    shutil.rmtree(folder, ignore_errors=True)
+    folder.mkdir(parents=True)
+    try:
+        if isinstance(lesson, SiteResolved):
+            path = site.download(lesson.mp3_url, folder / f"{lesson.msg_id}.mp3")
+        else:
+            path = telegram.download(lesson.msg_id, folder)
+        key = f"lessons/{lesson.course_id}/{lesson.msg_id}.{lesson.ext}"
+        url = api.put_media(key, path, CONTENT_TYPES[lesson.ext])
+        api.post_lesson(_lesson_body(lesson, url, notify))
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def _execute(api, telegram, site, action: Action, work: Path, notify: bool) -> None:
+    if isinstance(action, Upload):
+        _upload(api, telegram, site, action.lesson, work, notify)
+    elif isinstance(action, Moved):
+        api.post_lesson(_lesson_body(action.lesson, action.recording_url, notify))
+    elif isinstance(action, Cancel):
+        result = api.slot_cancellation(_cancellation_body(action.item))
+        if not result.get("courseIds"):
+            log.warning("%s: the cancellation matched no course on that day", action.item.ref)
+
+
+def _count(summary: Summary, action: Action) -> None:
+    if isinstance(action, (Upload, Moved)):
+        summary.lessons += 1
+    elif isinstance(action, Cancel):
+        summary.cancellations += 1
+    elif action.reason.startswith(FAILURE_PREFIXES):
+        summary.failed += 1
+    elif action.reason != "done":
+        summary.skipped += 1
+        summary.unrecognised += action.reason == "unrecognised"
+
+
+def _load_last_id(state_path: Path) -> int | None:
+    try:
+        return int(json.loads(state_path.read_text())["last_id"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _save_last_id(state_path: Path, last_id: int) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = state_path.with_suffix(".part")
+    tmp.write_text(json.dumps({"last_id": last_id}))
+    tmp.replace(state_path)
+
+
+def run_ingest(api, telegram, site, state_path: Path, *, from_id: int | None = None, notify: bool = True, dry_run: bool = False) -> Summary:
+    """One pass over the channel: auth failures and a busy Telegram stop it, any other failure only fails that post."""
+    last_id = _load_last_id(state_path)
+    start = from_id if from_id is not None else max(FIRST_ID, last_id - RESCAN) if last_id is not None else FIRST_ID
+    messages = sorted(telegram.export(start), key=lambda m: m.id)
+    log.info("ingest: %d message(s) from %d", len(messages), start)
+    index = api.ingest_index()
+    done = {row.source_ref for row in index.lessons if row.recording_url}
+    actions = plan([_resolve(parse_message(m), site, done) for m in messages], index)
+    summary = Summary(actions=actions)
+    work = state_path.parent / "media"
+    for action in actions:
+        log.info("%s", describe(action))
+        if dry_run:
+            _count(summary, action)
+            continue
+        try:
+            _execute(api, telegram, site, action, work, notify)
+        except TelegramBusy:
+            raise
+        except Exception as e:
+            if isinstance(e, ApiError) and e.status in (401, 403):
+                raise
+            log.exception("%s: failed, continuing with the next post", _ref(action))
+            summary.failed += 1
+            continue
+        _count(summary, action)
+    if dry_run:
+        return summary
+    if messages:
+        _save_last_id(state_path, max(last_id or 0, messages[-1].id))
+    api.heartbeat(summary.ok, str(summary))
+    return summary

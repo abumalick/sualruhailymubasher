@@ -51,3 +51,102 @@ def test_index_book_command(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr("sualruhaily_agent.cli.book_pages", lambda url, cache_dir: ["a", "b"])
     assert cli.main(["index-book", "https://x.test/b.pdf", "--cache-dir", str(tmp_path)]) == 0
     assert "indexed 2 page(s)" in caplog.text
+
+
+class FakeTelegram:
+    busy = False
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def export(self, from_id):
+        from sualruhaily_agent.telegram import TelegramBusy
+
+        if self.busy:
+            raise TelegramBusy("tdl lock held")
+        import json
+        from pathlib import Path
+
+        from sualruhaily_agent.captions import Message
+
+        fixture = Path(__file__).parent / "fixtures" / "telegram-1448.json"
+        rows = json.loads(fixture.read_text(encoding="utf-8"))["messages"]
+        return [Message(m["id"], m["date"], m["file"], m["text"]) for m in rows if m["id"] in (971, 1111, 1112)]
+
+    def download(self, msg_id, dest):
+        path = dest / f"{msg_id}.mp3"
+        path.write_bytes(b"audio")
+        return path
+
+
+def ingest_server(seen):
+    def handler(request):
+        seen.append((request.method, request.url.path, request.read()))
+        path = request.url.path
+        if path == "/api/admin/ingest-index":
+            return httpx.Response(200, json={"lessons": [], "exceptionRefs": []})
+        if path.startswith("/api/admin/media/"):
+            return httpx.Response(200, json={"url": "https://media.test" + path})
+        if path == "/api/admin/lessons":
+            return httpx.Response(200, json={"number": 1, "created": True, "dateFlag": False, "pushed": False})
+        if path == "/api/admin/slot-cancellations":
+            return httpx.Response(200, json={"date": "2026-10-10", "courseIds": ["targhib"], "created": 1})
+        return httpx.Response(204)
+
+    return httpx.MockTransport(handler)
+
+
+def ingest_env(monkeypatch, tmp_path):
+    env(monkeypatch, tmp_path)
+    monkeypatch.setenv("SUALRUHAILY_AGENT_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setattr(cli, "Telegram", FakeTelegram)
+
+
+def test_no_notify_flag_reaches_every_lesson_post(monkeypatch, tmp_path):
+    import json
+
+    ingest_env(monkeypatch, tmp_path)
+    seen = []
+    assert cli.main(["ingest", "--no-notify"], transport=ingest_server(seen)) == 0
+    posts = [json.loads(body) for method, path, body in seen if path == "/api/admin/lessons"]
+    assert len(posts) == 2 and all(p["notify"] is False for p in posts)
+    assert (tmp_path / "cache" / "ingest" / "state.json").exists()
+    assert ("PUT", "/api/admin/heartbeat/ingest") in [(m, p) for m, p, _ in seen]
+
+
+def test_dry_run_prints_the_plan_and_writes_nothing(monkeypatch, tmp_path, capsys):
+    ingest_env(monkeypatch, tmp_path)
+    seen = []
+    assert cli.main(["ingest", "--dry-run", "--from-id", "900"], transport=ingest_server(seen)) == 0
+    assert [(m, p) for m, p, _ in seen] == [("GET", "/api/admin/ingest-index")]
+    out = capsys.readouterr().out
+    assert "tg:1112" in out and "tg:971" in out
+    assert not (tmp_path / "cache" / "ingest" / "state.json").exists()
+
+
+def test_telegram_busy_skips_tick(monkeypatch, tmp_path, caplog):
+    caplog.set_level("INFO")
+    ingest_env(monkeypatch, tmp_path)
+    monkeypatch.setattr(FakeTelegram, "busy", True)
+    seen = []
+    assert cli.main(["ingest"], transport=ingest_server(seen)) == 0
+    assert "/api/admin/heartbeat/ingest" not in [p for _, p, _ in seen]
+    assert "busy" in caplog.text
+
+
+def test_held_ingest_lock_exits_zero(monkeypatch, tmp_path, caplog):
+    caplog.set_level("INFO")
+    ingest_env(monkeypatch, tmp_path)
+    from sualruhaily_agent.lock import run_lock
+
+    def boom(r):
+        raise AssertionError("must not call server")
+
+    with run_lock(tmp_path / "cache" / "ingest.lock"):
+        assert cli.main(["ingest"], transport=httpx.MockTransport(boom)) == 0
+    assert "lock" in caplog.text
+
+
+def test_ingest_auth_failure_exits_nonzero(monkeypatch, tmp_path):
+    ingest_env(monkeypatch, tmp_path)
+    assert cli.main(["ingest"], transport=httpx.MockTransport(lambda r: httpx.Response(401))) == 1

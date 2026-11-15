@@ -1,0 +1,11 @@
+[Unit]
+Description=Sulayman al-Ruhayli lessons ingest from the Telegram channel
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=%h/.config/sualruhailymubasher/agent.env
+ExecStart=/usr/bin/env zsh -c 'heavy uv run --frozen --project %h/workspace/dawa/ruhaylimubasher/agent sualruhaily-agent ingest'
+TimeoutStartSec=1h
+Nice=10
+SyslogIdentifier=sualruhaily-ingest

@@ -10,6 +10,38 @@ systemctl --user start sualruhaily-agent.service   # run once now
 journalctl --user -t sualruhaily-agent -n 50   # heavy moves the job into a transient scope, so `-u sualruhaily-agent` misses its logs
 ```
 
+## Ingest
+
+`sualruhaily-agent ingest` reads the official channel @Sulalruhaily with the owner's `tdl` session, uploads each
+lesson recording to R2 (`lessons/<course>/<message id>.<mp3|m4a>`) through the admin API and creates the lesson.
+Kaba'ir posts link to the official site: the lesson number, start point and mp3 come from the play page. Absence
+and lecture posts become slot cancellations. Posts are keyed by `tg:<message id>`, so a second pass changes
+nothing; a repost of an ingested lesson is skipped, a corrected caption moves the lesson without a re-upload.
+
+```sh
+uv run sualruhaily-agent ingest [--from-id N] [--no-notify] [--dry-run]
+```
+
+- `--from-id N` exports from message N; otherwise from the last 150 ids before the highest one seen (from 859,
+  the first 1448 lesson, on the first run).
+- `--no-notify` never pushes the lessons this run posts (for a backfill).
+- `--dry-run` prints the planned actions and writes nothing: no upload, lesson, cancellation, heartbeat or state.
+
+It needs `API_BASE` and `ADMIN_TOKEN`; `SUALRUHAILY_AGENT_CACHE` moves its lock (`ingest.lock`), state
+(`ingest/state.json`) and downloads. Every `tdl` call runs under `flock ~/.tdl/cli.lock`, shared with the other
+Telegram tools; when it stays held for 120 s the tick is skipped. Each run ends with a heartbeat
+(`3 lessons, 1 cancellation, 2 skipped, 0 failed`), not ok when a post failed or a caption was not understood.
+"skipped" counts every post that is not a lesson or a cancellation (live-stream notices, khutbas, reposts…).
+
+The timer runs it every 20 minutes:
+
+```sh
+cp systemd/sualruhaily-ingest.service systemd/sualruhaily-ingest.timer ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now sualruhaily-ingest.timer
+journalctl --user -t sualruhaily-ingest -n 50
+```
+
 A course whose book must not be linked from the app (no public PDF) can still be located: list its local
 PDF files in `agent.env`, one course per `;`, volumes in order separated by `,`:
 

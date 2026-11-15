@@ -8,13 +8,17 @@ from pathlib import Path
 
 import httpx
 
+from . import site
 from .api import Api, ApiError, Pending
 from .books import DEFAULT_CACHE, book_pages
 from .locate import (
     MIN_CONFIDENCE, NEXT_MATCH, WINDOW_SIZE, ClaudeUnavailable, LocateResult, Page, accept,
     build_prompt, candidate_pages, find_page, locate, match_score, page_position,
 )
+from .ingest import describe, run_ingest
 from .lock import DEFAULT_LOCK, run_lock
+from .paths import cache_root
+from .telegram import Telegram, TelegramBusy, TelegramError
 from .endpoints import corrections, recorded_end_point
 from .transcribe import CACHE_ROOT, DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
@@ -179,11 +183,42 @@ def process_lesson(api: Api, lesson: Pending) -> End | None:
         return None
 
 
+def ingest(args: argparse.Namespace, base: str, token: str, transport: httpx.BaseTransport | None) -> int:
+    root = cache_root()
+    with run_lock(root / "ingest.lock") as acquired:
+        if not acquired:
+            log.info("another ingest holds the lock, exiting")
+            return 0
+        api = Api(base, token, httpx.Client(transport=transport, timeout=30))
+        try:
+            summary = run_ingest(
+                api, Telegram(tmp_dir=root / "ingest" / "tmp"), site, root / "ingest" / "state.json",
+                from_id=args.from_id, notify=not args.no_notify, dry_run=args.dry_run,
+            )
+        except TelegramBusy as e:
+            log.info("telegram busy, skipping this tick: %s", e)
+            return 0
+        except (TelegramError, ApiError) as e:
+            log.error("ingest stopped: %s", e)
+            return 1
+        finally:
+            api.close()
+    if args.dry_run:
+        for action in summary.actions:
+            print(describe(action))
+    log.info("ingest%s: %s", " (dry run)" if args.dry_run else "", summary)
+    return 0
+
+
 def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(prog="sualruhaily-agent")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("run", help="process every pending lesson")
+    ing = sub.add_parser("ingest", help="ingest lessons and cancellations from the Telegram channel")
+    ing.add_argument("--from-id", type=int, help="export from this message id instead of the re-scan window")
+    ing.add_argument("--no-notify", action="store_true", help="never push the lessons this run posts")
+    ing.add_argument("--dry-run", action="store_true", help="print the planned actions and write nothing")
     index = sub.add_parser("index-book", help="build the per-page text index of a book PDF")
     index.add_argument("url")
     index.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
@@ -230,13 +265,15 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
             return 1
         log.info("result: %s accepted=%s", found.model_dump_json(), accept(found, candidates))
         return 0
-    if args.command != "run":
+    if args.command not in ("run", "ingest"):
         parser.print_help()
         return 2
     base, token = os.environ.get("API_BASE"), os.environ.get("ADMIN_TOKEN")
     if not base or not token:
         log.error("API_BASE and ADMIN_TOKEN must be set (see ~/.config/sualruhailymubasher/agent.env)")
         return 1
+    if args.command == "ingest":
+        return ingest(args, base, token, transport)
     lock_path = Path(os.environ.get("SUALRUHAILY_AGENT_LOCK", DEFAULT_LOCK))
     with run_lock(lock_path) as acquired:
         if not acquired:
