@@ -29,3 +29,10 @@ def test_page_without_mp3_is_rejected():
 
     with pytest.raises(SitePageError):
         parse_play_page(html)
+
+
+def test_gregorian_title_date_is_rejected():
+    html = '<title> (3) الكبيرة: س.... 2026/10/12 هـ - الشيخ</title><source src="https://sualruhaily.com/upload/a.mp3">'
+
+    with pytest.raises(SitePageError):
+        parse_play_page(html)

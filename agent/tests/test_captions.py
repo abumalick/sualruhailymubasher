@@ -20,6 +20,9 @@ MESSAGES = {
 }
 
 
+FILE_NUMBERS = {859: 5, 861: 1, 866: 11, 867: 12, 895: 1, 917: 4, 918: 3, 955: 4, 1006: 10, 1009: 6, 1112: 1}
+
+
 def parse(msg_id):
     return parse_message(MESSAGES[msg_id])
 
@@ -70,7 +73,7 @@ def parse(msg_id):
 )
 def test_course_lessons(msg_id, course, section, number, hijri, start_point):
     assert parse(msg_id) == TelegramLesson(
-        f"tg:{msg_id}", course, section, number, hijri, start_point, msg_id, "mp3"
+        f"tg:{msg_id}", course, section, number, hijri, start_point, msg_id, "mp3", FILE_NUMBERS[msg_id]
     )
 
 
@@ -87,6 +90,7 @@ def test_duplicate_post_parses_like_the_original():
         original.start_point,
         940,
         "mp3",
+        original.file_number,
     )
 
 
@@ -191,3 +195,61 @@ def test_m4a_extension_is_kept():
     lesson = parse_message(Message(6, 0, "02قوله_س_05_05_1448.m4a", text))
 
     assert lesson.ext == "m4a"
+    assert lesson.file_number == 2
+
+
+def test_file_number_is_the_leading_integer_of_the_filename():
+    assert parse(915).file_number == 2
+    assert parse(866).file_number == 11
+    assert parse(861).file_number == 1
+
+
+def test_file_number_is_none_without_leading_digits():
+    text = "شرح دليل الطالب\n\nكتاب الأيمان [2]\n\n٥/ ٥/ ١٤٤٨هـ"
+
+    assert parse_message(Message(7, 0, "قوله_س.mp3", text)).file_number is None
+
+
+def test_gregorian_date_is_not_taken_for_a_hijri_one():
+    text = "شرح دليل الطالب\n\nكتاب الأيمان [2]\n\n12/10/2026"
+
+    assert parse_message(Message(8, 0, "02قوله_س.mp3", text)) == Skip("tg:8", "unrecognised")
+
+
+@pytest.mark.parametrize("heading", ["كتاب الشهادات: [1]", "كتاب الشهادات - [1]", "كتاب الشهادات،[1]", "كتاب الشهادات.:[1]"])
+def test_section_name_drops_trailing_punctuation(heading):
+    text = f"شرح دليل الطالب\n\n{heading}\n\n٣/ ٦/ ١٤٤٨هـ"
+
+    assert parse_message(Message(9, 0, "01قوله_س.mp3", text)).section == "كتاب الشهادات"
+
+
+def test_absence_for_the_day_after_tomorrow():
+    text = "يعتذر شيخنا بعد غد عن درس العصر"
+
+    assert parse_message(Message(1, 1794524400, "", text)) == Absence("tg:1", "asr", "2026-11-15")
+
+
+def test_absence_naming_two_slots_is_unrecognised():
+    text = "يعتذر شيخنا اليوم عن درس العصر ودرس المغرب"
+
+    assert parse_message(Message(1, 1794524400, "", text)) == Skip("tg:1", "unrecognised")
+
+
+def test_course_caption_mentioning_a_lecture_is_still_a_lesson():
+    text = "شرح دليل الطالب\n\nكتاب الأيمان [2]\n\n٥/ ٥/ ١٤٤٨هـ\nمحاضرة"
+
+    assert isinstance(parse_message(Message(10, 0, "02قوله_س.mp3", text)), TelegramLesson)
+
+
+def test_course_caption_mentioning_an_apology_is_still_a_lesson():
+    text = "شرح دليل الطالب\n\nكتاب الأيمان [2]\n\n٥/ ٥/ ١٤٤٨هـ\nيعتذر"
+
+    assert isinstance(parse_message(Message(11, 0, "02قوله_س.mp3", text)), TelegramLesson)
+
+
+def test_audio_with_the_lecture_hashtag_is_lecture_audio():
+    assert parse_message(Message(12, 0, "a.mp3", "#محاضرة")) == Skip("tg:12", "lecture-audio")
+
+
+def test_audio_that_merely_says_lecture_is_unrecognised():
+    assert parse_message(Message(13, 0, "a.mp3", "ألقى محاضرة")) == Skip("tg:13", "unrecognised")

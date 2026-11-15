@@ -5,6 +5,7 @@ from pathlib import PurePosixPath
 
 MEDINA = timezone(timedelta(hours=3))
 AUDIO_EXTENSIONS = {".mp3", ".m4a"}
+HIJRI_YEARS = range(1300, 1600)
 
 DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
 TASHKEEL_AND_TATWEEL = re.compile("[ً-ٰٟـ]")
@@ -62,6 +63,7 @@ class TelegramLesson:
     start_point: str
     msg_id: int
     ext: str
+    file_number: int | None = None
 
 
 @dataclass(frozen=True)
@@ -102,24 +104,24 @@ def _collapse(text: str) -> str:
 
 
 def _section_name(raw: str) -> str:
-    return _collapse(_plain(raw)).rstrip(". ")
+    return _collapse(_plain(raw)).rstrip(".:،- ")
+
+
+def valid_hijri_year(year: str) -> bool:
+    return HIJRI_YEARS.start <= int(year) < HIJRI_YEARS.stop
 
 
 def _hijri_date(text: str) -> str | None:
-    if m := DAY_FIRST_DATE.search(text):
-        day, month, year = m.groups()
-    elif m := YEAR_FIRST_DATE.search(text):
-        year, month, day = m.groups()
-    else:
-        return None
-    return f"{year}/{int(month)}/{int(day)}"
-
-
-def _slot(text: str, prefix: str = "") -> str | None:
-    for arabic, slot in SLOTS.items():
-        if prefix + arabic in text:
-            return slot
+    candidates = [(y, mo, d) for d, mo, y in DAY_FIRST_DATE.findall(text)]
+    candidates += YEAR_FIRST_DATE.findall(text)
+    for year, month, day in candidates:
+        if valid_hijri_year(year):
+            return f"{year}/{int(month)}/{int(day)}"
     return None
+
+
+def _slots(text: str, prefix: str = "") -> list[str]:
+    return [slot for arabic, slot in SLOTS.items() if prefix + arabic in text]
 
 
 def _start_point_from_filename(file: str) -> str:
@@ -137,17 +139,20 @@ def _start_point(old_format: re.Match | None, file: str) -> str:
 
 
 def _absence(m: Message, text: str) -> Absence | Skip:
-    slot = _slot(text, "درس ")
-    if slot is None:
+    slots = _slots(text, "درس ")
+    if len(slots) != 1:
         return Skip(f"tg:{m.id}", "unrecognised")
     posted = datetime.fromtimestamp(m.date, MEDINA).date()
-    if "غدا" in text:
+    if re.search(r"بعد\s+غدا?\b", text):
+        posted += timedelta(days=2)
+    elif "غدا" in text:
         posted += timedelta(days=1)
-    return Absence(f"tg:{m.id}", slot, posted.isoformat())
+    return Absence(f"tg:{m.id}", slots[0], posted.isoformat())
 
 
 def _lecture(m: Message, text: str) -> Lecture | None:
-    slot = _slot(text, "⏱ ")
+    slots = _slots(text, "⏱ ")
+    slot = slots[0] if slots else None
     named = NAMED_MONTH_DATE.search(text)
     title = re.search(r"📘\s*(.+)", text)
     if not (slot and named and title):
@@ -167,19 +172,26 @@ def _majlis(m: Message, text: str, raw: str) -> SiteLesson | Skip:
     return SiteLesson(ref, "kabair", url.group(0), hijri)
 
 
+def _course(text: str) -> str | None:
+    course = next((cid for title, cid in COURSES if title in text), None)
+    if course is None and OLD_FORMAT_SECTION.search(text):
+        return "dalil-talib"
+    return course
+
+
 def _audio(m: Message, text: str, ext: str) -> TelegramLesson | Skip:
     ref = f"tg:{m.id}"
-    if "شرح كتاب الكبائر" in text:
-        return Skip(ref, "kabair-audio")
-    if "محاضرة" in text:
-        return Skip(ref, "lecture-audio")
+    course = _course(text)
+    if course is None:
+        if "شرح كتاب الكبائر" in text:
+            return Skip(ref, "kabair-audio")
+        if "#محاضرة" in text or "محاضرة بعنوان" in text:
+            return Skip(ref, "lecture-audio")
+        return Skip(ref, "unrecognised")
 
     hijri = _hijri_date(text)
     old_start = OLD_FORMAT_START.search(m.text.translate(DIGITS))
-    course = next((cid for title, cid in COURSES if title in text), None)
-    if course is None and old_start:
-        course = "dalil-talib"
-    if course is None or hijri is None:
+    if hijri is None:
         return Skip(ref, "unrecognised")
 
     if course == "kitab-tawhid":
@@ -197,7 +209,18 @@ def _audio(m: Message, text: str, ext: str) -> TelegramLesson | Skip:
         return Skip(ref, "unrecognised")
 
     n = int(number.group(number.lastindex))
-    return TelegramLesson(ref, course, section, n, hijri, _start_point(old_start, m.file), m.id, ext)
+    file_number = re.match(r"\d+", PurePosixPath(m.file).name)
+    return TelegramLesson(
+        ref,
+        course,
+        section,
+        n,
+        hijri,
+        _start_point(old_start, m.file),
+        m.id,
+        ext,
+        int(file_number.group(0)) if file_number else None,
+    )
 
 
 def parse_message(m: Message) -> TelegramLesson | SiteLesson | Absence | Lecture | Skip:
@@ -208,7 +231,7 @@ def parse_message(m: Message) -> TelegramLesson | SiteLesson | Absence | Lecture
 
     if "#محاضرة" in text and (lecture := _lecture(m, text)):
         return lecture
-    if "يعتذر" in text:
+    if "يعتذر" in text and _course(text) is None:
         return _absence(m, text)
     if "بدأ البث المباشر" in text:
         return Skip(ref, "live-start")
