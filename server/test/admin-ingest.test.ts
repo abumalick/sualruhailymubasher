@@ -117,3 +117,70 @@ describe('GET /api/admin/ingest-index', () => {
     expect((await call('GET', '/api/admin/ingest-index', undefined, null)).status).toBe(401);
   });
 });
+
+const upload = (file: string, headers: Record<string, string>, body: BodyInit | null = new Uint8Array([1, 2, 3]), token: string | null = env.ADMIN_TOKEN, course = 'dalil-talib') =>
+  app.request(
+    `/api/admin/media/lessons/${course}/${file}`,
+    { method: 'PUT', headers: { ...(token === null ? {} : { Authorization: `Bearer ${token}` }), ...headers }, body },
+    env,
+  );
+
+describe('PUT /api/admin/media/lessons/:courseId/:file', () => {
+  it('stores the body in R2 and returns its public url', async () => {
+    const res = await upload('1112.mp3', { 'Content-Type': 'audio/mpeg', 'Content-Length': '3' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ url: `${env.MEDIA_BASE}/lessons/dalil-talib/1112.mp3` });
+    const obj = await env.MEDIA.get('lessons/dalil-talib/1112.mp3');
+    expect([...new Uint8Array((await obj?.arrayBuffer()) ?? new ArrayBuffer(0))]).toEqual([1, 2, 3]);
+    expect(obj?.httpMetadata?.contentType).toBe('audio/mpeg');
+  });
+
+  it('accepts m4a as audio/mp4', async () => {
+    expect((await upload('1113.m4a', { 'Content-Type': 'audio/mp4', 'Content-Length': '3' })).status).toBe(200);
+  });
+
+  it('refuses a body over the cap', async () => {
+    expect((await upload('1114.mp3', { 'Content-Type': 'audio/mpeg', 'Content-Length': '95000001' })).status).toBe(413);
+    expect(await env.MEDIA.get('lessons/dalil-talib/1114.mp3')).toBeNull();
+  });
+
+  it('refuses a missing length', async () => {
+    expect((await upload('1115.mp3', { 'Content-Type': 'audio/mpeg' }, null)).status).toBe(411);
+  });
+
+  it('refuses a content type that does not match the extension', async () => {
+    expect((await upload('1116.m4a', { 'Content-Type': 'audio/mpeg', 'Content-Length': '3' })).status).toBe(415);
+    expect((await upload('1116.mp3', { 'Content-Type': 'video/mp4', 'Content-Length': '3' })).status).toBe(415);
+  });
+
+  it('refuses a bad file name or an unknown course', async () => {
+    expect((await upload('abc.mp3', { 'Content-Type': 'audio/mpeg', 'Content-Length': '3' })).status).toBe(400);
+    expect((await upload('1117.mp3', { 'Content-Type': 'audio/mpeg', 'Content-Length': '3' }, undefined, env.ADMIN_TOKEN, 'nope')).status).toBe(400);
+  });
+
+  it('needs the admin token', async () => {
+    expect((await upload('1118.mp3', { 'Content-Type': 'audio/mpeg', 'Content-Length': '3' }, undefined, null)).status).toBe(401);
+  });
+});
+
+describe('ingest heartbeat', () => {
+  beforeEach(async () => {
+    await env.DB.exec("DELETE FROM settings WHERE key = 'heartbeat_ingest'");
+  });
+
+  it('is null before the first beat', async () => {
+    expect(await (await call('GET', '/api/admin/heartbeats')).json()).toEqual({ ingest: null });
+  });
+
+  it('round-trips a beat stamped with the current time', async () => {
+    expect((await call('PUT', '/api/admin/heartbeat/ingest', { ok: false, summary: 'tdl busy' })).status).toBe(204);
+    expect(await (await call('GET', '/api/admin/heartbeats')).json()).toEqual({
+      ingest: { at: '2026-11-15T09:00:00.000Z', ok: false, summary: 'tdl busy' },
+    });
+  });
+
+  it('refuses a malformed beat', async () => {
+    expect((await call('PUT', '/api/admin/heartbeat/ingest', { ok: 'yes', summary: 'x' })).status).toBe(400);
+    expect((await call('PUT', '/api/admin/heartbeat/ingest', { ok: true })).status).toBe(400);
+  });
+});

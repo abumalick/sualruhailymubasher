@@ -3,10 +3,12 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Fcm } from '../fcm';
 import { getFcm, type Env } from '../index';
+import { MEDIA_MAX_BYTES, MEDIA_TYPES, mediaKeyProblem } from '../media';
 import { sendRecordingPush, shouldPushRecording } from '../jobs/recording-push';
 import {
   addCancellations,
   addException,
+  getSetting,
   ingestIndex,
   deleteException,
   listCourses,
@@ -226,6 +228,31 @@ adminRoutes.post('/api/admin/slot-cancellations', async (c) => {
 adminRoutes.get('/api/admin/ingest-index', async (c) => {
   const index: IngestIndex = await ingestIndex(c.env.DB);
   return c.json(index);
+});
+
+adminRoutes.put('/api/admin/media/lessons/:courseId/:file', async (c) => {
+  const key = `lessons/${c.req.param('courseId')}/${c.req.param('file')}`;
+  if (mediaKeyProblem(key) !== null || !(await listCourses(c.env.DB)).some((course) => course.id === c.req.param('courseId'))) return bad(c);
+  const contentType = c.req.header('Content-Type')?.split(';')[0].trim();
+  if (contentType !== MEDIA_TYPES[key.slice(key.lastIndexOf('.') + 1)]) return c.json({ error: 'unsupported media type' }, 415);
+  const length = c.req.header('Content-Length');
+  if (!length || !/^\d+$/.test(length)) return c.json({ error: 'length required' }, 411);
+  if (Number(length) > MEDIA_MAX_BYTES) return c.json({ error: 'too large' }, 413);
+  if (!c.req.raw.body) return bad(c);
+  await c.env.MEDIA.put(key, c.req.raw.body, { httpMetadata: { contentType } });
+  return c.json({ url: `${c.env.MEDIA_BASE}/${key}` });
+});
+
+adminRoutes.put('/api/admin/heartbeat/ingest', async (c) => {
+  const b = await readJson(c);
+  if (!isObject(b) || typeof b.ok !== 'boolean' || !isString(b.summary)) return bad(c);
+  await setSetting(c.env.DB, 'heartbeat_ingest', JSON.stringify({ at: (c.get('now') ?? new Date()).toISOString(), ok: b.ok, summary: b.summary }));
+  return c.body(null, 204);
+});
+
+adminRoutes.get('/api/admin/heartbeats', async (c) => {
+  const raw = await getSetting(c.env.DB, 'heartbeat_ingest');
+  return c.json({ ingest: raw ? JSON.parse(raw) : null });
 });
 
 adminRoutes.delete('/api/admin/exceptions/:id', async (c) => {

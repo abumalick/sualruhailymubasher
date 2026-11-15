@@ -8,6 +8,8 @@ import { publicRoutes } from './routes/public';
 
 export interface Env {
   DB: D1Database;
+  MEDIA: R2Bucket;
+  MEDIA_BASE: string;
   ADMIN_TOKEN: string;
   FCM_SERVICE_ACCOUNT: string;
 }
