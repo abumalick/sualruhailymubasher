@@ -9,7 +9,7 @@
     {
       "binding": "DB",
       "database_name": "sualruhaily-lessons",
-      "database_id": "TBD-task-6",
+      "database_id": "fe8afa6f-65ec-4f5b-a4c7-81121825fcb7",
       "migrations_dir": "migrations"
     }
   ]

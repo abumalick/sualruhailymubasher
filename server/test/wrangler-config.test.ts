@@ -9,10 +9,11 @@ describe('wrangler.jsonc', () => {
     expect(config.routes).toEqual([{ pattern: 'api.sualruhailymubasher.com', custom_domain: true }]);
   });
 
-  it('binds the D1 database (the real id replaces the placeholder at provisioning)', () => {
+  it('binds the production D1 database by its id', () => {
     expect(config.d1_databases).toEqual([
-      expect.objectContaining({ binding: 'DB', database_id: 'TBD-task-6' }),
+      expect.objectContaining({ binding: 'DB', database_name: 'sualruhaily-lessons' }),
     ]);
+    expect(config.d1_databases[0].database_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 
   it('runs the scheduled jobs every minute', () => {
