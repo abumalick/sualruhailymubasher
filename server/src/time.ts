@@ -65,4 +65,4 @@ export function normalizeHijri(raw: string): string | null {
 export const RECENT_DAYS = 10;
 
 export const isRecentDate = (date: string | null, now: Date): boolean =>
-  date !== null && date >= addDays(medinaDate(now), -RECENT_DAYS);
+  date !== null && date >= addDays(medinaDate(now), -RECENT_DAYS) && date <= addDays(medinaDate(now), 1);

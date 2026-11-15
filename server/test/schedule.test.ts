@@ -60,6 +60,10 @@ describe('isRecentDate', () => {
     expect(isRecentDate('2026-11-04', now)).toBe(false);
     expect(isRecentDate(null, now)).toBe(false);
   });
+  it('is not recent in the future beyond tomorrow', () => {
+    expect(isRecentDate('2026-11-16', now)).toBe(true);
+    expect(isRecentDate('2026-11-17', now)).toBe(false);
+  });
 });
 
 describe('lessonTime', () => {
