@@ -140,7 +140,7 @@ def _start_point(old_format: re.Match | None, file: str) -> str:
 
 def _absence(m: Message, text: str) -> Absence | Skip:
     slots = _slots(text, "درس ")
-    if len(slots) != 1:
+    if len(slots) != 1 or len(_slots(text)) != 1:
         return Skip(f"tg:{m.id}", "unrecognised")
     posted = datetime.fromtimestamp(m.date, MEDINA).date()
     if re.search(r"بعد\s+غدا?\b", text):

@@ -253,3 +253,9 @@ def test_audio_with_the_lecture_hashtag_is_lecture_audio():
 
 def test_audio_that_merely_says_lecture_is_unrecognised():
     assert parse_message(Message(13, 0, "a.mp3", "ألقى محاضرة")) == Skip("tg:13", "unrecognised")
+
+
+def test_absence_naming_two_slots_without_repeating_the_word_lesson_is_unrecognised():
+    text = "يعتذر شيخنا عن درس العصر والفجر"
+
+    assert parse_message(Message(1, 1794737704, "", text)) == Skip("tg:1", "unrecognised")
