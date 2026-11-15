@@ -34,6 +34,7 @@ export interface LessonPatch {                          // null clears a field
 export interface ExceptionInput { courseId: string | null; kind: ExceptionKind; dateFrom: string; dateTo?: string | null; time?: string | null; note?: string; }
 export interface PendingTranscription {
   courseId: string; number: number; recordingUrl: string; startPoint: string; pdfUrls: string[];
-  nextStartPoint: string | null;                        // published start point of lesson number+1, when scraped
+  nextStartPoint: string | null;                        // published start point of the next lesson in sequence, when scraped
+  prevNumber: number | null;                            // number of the previous lesson in sequence
   startPage: number | null; pdfIndex: number | null;    // the lesson's own chained start, when known
 }

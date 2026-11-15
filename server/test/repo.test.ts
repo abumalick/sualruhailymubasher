@@ -109,7 +109,7 @@ describe('lessons', () => {
     const pending = (await pendingTranscriptions(db)).filter((p) => p.courseId === 'l-pend');
     expect(pending).toEqual([{
       courseId: 'l-pend', number: 3, recordingUrl: 'r3', startPoint: 'point 3', pdfUrls: ['u1'],
-      nextStartPoint: 'point 4', startPage: 5, pdfIndex: null,
+      nextStartPoint: 'point 4', prevNumber: 2, startPage: 5, pdfIndex: null,
     }]);
   });
 

@@ -62,6 +62,28 @@ const toLesson = (r: Row): LessonDTO => ({
   detailPath: r.detail_path as string,
 });
 
+export interface LessonRow extends LessonDTO {
+  courseId: string;
+  section: string;
+  sectionNumber: number | null;
+}
+
+const toLessonRow = (r: Row): LessonRow => ({
+  ...toLesson(r),
+  courseId: r.course_id as string,
+  section: r.section as string,
+  sectionNumber: (r.section_number as number | null) ?? null,
+});
+
+// Sequence order is the sheikh's own: section ord, then section_number. Sections never registered
+// (legacy rows, section '') sort first; a NULL section_number sorts after the numbered ones, by number.
+const SEQ = `seq AS (
+  SELECT l.*, coalesce(s.ord, 0) AS ord, l.section_number IS NULL AS no_sn, coalesce(l.section_number, 0) AS sn
+  FROM lessons l LEFT JOIN sections s ON s.course_id = l.course_id AND s.section = l.section
+  WHERE l.course_id = ?1)`;
+const SEQ_COLS = 'ord, no_sn, sn, number';
+const SEQ_KEY = `(${SEQ_COLS})`;
+
 const toException = (r: Row): ExceptionDTO => ({
   id: r.id as number,
   courseId: r.course_id as string | null,
@@ -109,10 +131,54 @@ export async function lessonsBefore(
   limit: number,
 ): Promise<LessonDTO[]> {
   const { results } = await db
-    .prepare('SELECT * FROM lessons WHERE course_id = ?1 AND (?2 IS NULL OR number < ?2) ORDER BY number DESC LIMIT ?3')
+    .prepare(
+      `WITH ${SEQ}
+       SELECT * FROM seq
+       WHERE ?2 IS NULL OR ${SEQ_KEY} < (SELECT ${SEQ_COLS} FROM seq WHERE number = ?2)
+       ORDER BY ord DESC, no_sn DESC, sn DESC, number DESC LIMIT ?3`,
+    )
     .bind(courseId, before, limit)
     .all<Row>();
   return results.map(toLesson);
+}
+
+export async function previousInSequence(db: D1Database, courseId: string, number: number): Promise<LessonRow | null> {
+  const r = await db
+    .prepare(
+      `WITH ${SEQ}
+       SELECT * FROM seq WHERE ${SEQ_KEY} < (SELECT ${SEQ_COLS} FROM seq WHERE number = ?2)
+       ORDER BY ord DESC, no_sn DESC, sn DESC, number DESC LIMIT 1`,
+    )
+    .bind(courseId, number)
+    .first<Row>();
+  return r ? toLessonRow(r) : null;
+}
+
+export async function nextInSequence(db: D1Database, courseId: string, number: number): Promise<LessonRow | null> {
+  const r = await db
+    .prepare(
+      `WITH ${SEQ}
+       SELECT * FROM seq WHERE ${SEQ_KEY} > (SELECT ${SEQ_COLS} FROM seq WHERE number = ?2)
+       ORDER BY ord, no_sn, sn, number LIMIT 1`,
+    )
+    .bind(courseId, number)
+    .first<Row>();
+  return r ? toLessonRow(r) : null;
+}
+
+export async function ensureSection(db: D1Database, courseId: string, section: string): Promise<number> {
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO sections (course_id, section, ord)
+       VALUES (?1, ?2, (SELECT coalesce(max(ord), 0) + 1 FROM sections WHERE course_id = ?1))`,
+    )
+    .bind(courseId, section)
+    .run();
+  const r = await db
+    .prepare('SELECT ord FROM sections WHERE course_id = ? AND section = ?')
+    .bind(courseId, section)
+    .first<{ ord: number }>();
+  return r!.ord;
 }
 
 export const latestLessons = (db: D1Database, courseId: string, limit: number) =>
@@ -121,14 +187,22 @@ export const latestLessons = (db: D1Database, courseId: string, limit: number) =
 export async function insertLessonIfNew(
   db: D1Database,
   courseId: string,
-  l: Omit<LessonDTO, 'pdfIndex' | 'startPage' | 'endPoint' | 'endPage' | 'endPdfIndex'>,
+  l: Omit<LessonDTO, 'pdfIndex' | 'startPage' | 'endPoint' | 'endPage' | 'endPdfIndex'> & {
+    section?: string;
+    sectionNumber?: number | null;
+  },
 ): Promise<boolean> {
+  const section = l.section ?? '';
+  if (section !== '') await ensureSection(db, courseId, section);
   const res = await db
     .prepare(
-      `INSERT OR IGNORE INTO lessons (course_id, number, hijri_date, start_point, recording_url, detail_path, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO lessons (course_id, number, hijri_date, start_point, recording_url, detail_path, created_at, section, section_number)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(courseId, l.number, l.hijriDate, l.startPoint, l.recordingUrl, l.detailPath, new Date().toISOString())
+    .bind(
+      courseId, l.number, l.hijriDate, l.startPoint, l.recordingUrl, l.detailPath, new Date().toISOString(),
+      section, l.sectionNumber === undefined ? l.number : l.sectionNumber,
+    )
     .run();
   if (res.meta.changes === 0) return false;
   await fillStartFromPrevious(db, courseId, l.number);
@@ -136,16 +210,14 @@ export async function insertLessonIfNew(
 }
 
 async function fillStartFromPrevious(db: D1Database, courseId: string, number: number): Promise<void> {
+  const prev = await previousInSequence(db, courseId, number);
+  if (!prev || prev.endPage === null) return;
   await db
     .prepare(
-      `WITH p AS (SELECT end_page, coalesce(end_pdf_index, pdf_index) AS idx FROM lessons
-                 WHERE course_id = ?1 AND number = ?2 - 1 AND end_page IS NOT NULL)
-       UPDATE lessons SET
-         start_page = coalesce(start_page, (SELECT end_page FROM p)),
-         pdf_index = coalesce(pdf_index, (SELECT idx FROM p))
-       WHERE course_id = ?1 AND number = ?2 AND EXISTS (SELECT 1 FROM p)`,
+      `UPDATE lessons SET start_page = coalesce(start_page, ?3), pdf_index = coalesce(pdf_index, ?4)
+       WHERE course_id = ?1 AND number = ?2`,
     )
-    .bind(courseId, number)
+    .bind(courseId, number, prev.endPage, prev.endPdfIndex ?? prev.pdfIndex)
     .run();
 }
 
@@ -180,7 +252,10 @@ export async function patchLesson(db: D1Database, courseId: string, number: numb
     .bind(...entries.map((k) => p[k]), courseId, number)
     .run();
   if (res.meta.changes === 0) return false;
-  if (p.endPage !== undefined || p.endPdfIndex !== undefined) await fillStartFromPrevious(db, courseId, number + 1);
+  if (p.endPage !== undefined || p.endPdfIndex !== undefined) {
+    const next = await nextInSequence(db, courseId, number);
+    if (next) await fillStartFromPrevious(db, courseId, next.number);
+  }
   return true;
 }
 
@@ -289,13 +364,21 @@ export async function expectedNextNumber(db: D1Database, courseId: string, on: s
 export async function pendingTranscriptions(db: D1Database): Promise<PendingTranscription[]> {
   const { results } = await db
     .prepare(
-      `SELECT l.course_id, l.number, l.recording_url, l.start_point, l.start_page, l.pdf_index, c.pdf_urls,
-              n.start_point AS next_start_point
-       FROM (SELECT *, row_number() OVER (PARTITION BY course_id ORDER BY number DESC) AS rank FROM lessons) l
+      `WITH seq AS (
+         SELECT l.*, coalesce(s.ord, 0) AS ord, l.section_number IS NULL AS no_sn, coalesce(l.section_number, 0) AS sn
+         FROM lessons l LEFT JOIN sections s ON s.course_id = l.course_id AND s.section = l.section),
+       pos AS (
+         SELECT *, row_number() OVER (PARTITION BY course_id ORDER BY ord, no_sn, sn, number) AS idx,
+                row_number() OVER (PARTITION BY course_id ORDER BY ord DESC, no_sn DESC, sn DESC, number DESC) AS rank
+         FROM seq)
+       SELECT l.course_id, l.number, l.recording_url, l.start_point, l.start_page, l.pdf_index, c.pdf_urls,
+              n.start_point AS next_start_point, p.number AS prev_number
+       FROM pos l
        JOIN courses c ON c.id = l.course_id
-       LEFT JOIN lessons n ON n.course_id = l.course_id AND n.number = l.number + 1
+       LEFT JOIN pos n ON n.course_id = l.course_id AND n.idx = l.idx + 1
+       LEFT JOIN pos p ON p.course_id = l.course_id AND p.idx = l.idx - 1
        WHERE l.rank <= 3 AND l.recording_url IS NOT NULL AND l.end_page IS NULL
-       ORDER BY l.course_id, l.number`,
+       ORDER BY l.course_id, l.idx`,
     )
     .all<Row>();
   return results.map((r) => ({
@@ -305,6 +388,7 @@ export async function pendingTranscriptions(db: D1Database): Promise<PendingTran
     startPoint: r.start_point as string,
     pdfUrls: JSON.parse(r.pdf_urls as string),
     nextStartPoint: (r.next_start_point as string | null) ?? null,
+    prevNumber: (r.prev_number as number | null) ?? null,
     startPage: (r.start_page as number | null) ?? null,
     pdfIndex: (r.pdf_index as number | null) ?? null,
   }));
