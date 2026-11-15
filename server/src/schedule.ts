@@ -1,4 +1,4 @@
-import type { ExceptionDTO } from '@albadr/shared';
+import type { ExceptionDTO } from '@sualruhaily/shared';
 import { fajrMinutes, formatMinutes, sunsetMinutes } from './prayer';
 import type { CourseRow } from './repo';
 import { addDays, medinaDate, medinaInstant, weekday } from './time';

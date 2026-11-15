@@ -1,4 +1,4 @@
-import { courseTopic, DISMISS_LIVE, lessonNoticeBody, LIVE_OTHER_TOPIC, LIVE_TAG, NOTICE_TITLE } from '@albadr/shared';
+import { courseTopic, DISMISS_LIVE, lessonNoticeBody, LIVE_OTHER_TOPIC, LIVE_TAG, NOTICE_TITLE } from '@sualruhaily/shared';
 import type { Fcm } from '../fcm';
 import { courseInWindow } from '../schedule';
 import { parseChannelView } from '../sources/mixlr';
@@ -16,7 +16,7 @@ import {
 } from '../repo';
 import { medinaDate } from '../time';
 
-const CHANNEL_VIEW_URL = 'https://apicdn.mixlr.com/v3/channel_view/albadrnet';
+const CHANNEL_VIEW_URL = 'https://apicdn.mixlr.com/v3/channel_view/sualruhaily';
 const LIVE_TTL_SEC = 2 * 3600;
 // A Mixlr reconnect shows as a short gap; only a broadcast still off after this counts as ended.
 const END_GRACE_MS = 3 * 60_000;
@@ -138,7 +138,7 @@ export async function runLivePoll({ db, fetch: f, fcm, now }: LiveDeps): Promise
     } else {
       await fcm.sendToTopic(LIVE_OTHER_TOPIC, {
         title: '🔴 بث مباشر الآن',
-        body: 'دروس الشيخ عبد الرزاق البدر',
+        body: 'دروس الشيخ سليمان الرحيلي',
         data: { kind: 'live-other', number: '' },
         tag: LIVE_TAG,
         ttlSec: LIVE_TTL_SEC,

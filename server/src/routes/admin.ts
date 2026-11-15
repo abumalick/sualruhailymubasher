@@ -1,4 +1,4 @@
-import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonPatch } from '@albadr/shared';
+import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonPatch } from '@sualruhaily/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { getFcm, type Env } from '../index';
@@ -166,7 +166,7 @@ adminRoutes.post('/api/admin/test-push', async (c) => {
   try {
     await getFcm(c.env.FCM_SERVICE_ACCOUNT ?? '').sendToTopic(b.topic, {
       title: 'تجربة',
-      body: 'تنبيه تجريبي من دروس البدر',
+      body: 'تنبيه تجريبي من دروس سليمان الرحيلي',
       tag: NOTICE_TAG,
       ttlSec: 3600,
     });

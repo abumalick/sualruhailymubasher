@@ -76,7 +76,7 @@ describe('runLivePoll', () => {
     });
   });
 
-  it('counts an earlier broadcast not yet published on al-badr.net', async () => {
+  it('counts an earlier broadcast not yet published on media.sualruhailymubasher.com', async () => {
     await insertLessonIfNew(env.DB, 'kitab-tawhid', {
       number: 7, hijriDate: '01-01-1448', startPoint: 'x', recordingUrl: null, detailPath: '/detail/x',
     });
@@ -114,7 +114,7 @@ describe('runLivePoll', () => {
     await runLivePoll(deps);
     expect(sendToTopic).toHaveBeenCalledWith('live-other', {
       title: '🔴 بث مباشر الآن',
-      body: 'دروس الشيخ عبد الرزاق البدر',
+      body: 'دروس الشيخ سليمان الرحيلي',
       data: { kind: 'live-other', number: '' },
       tag: 'live',
       ttlSec: 7200,

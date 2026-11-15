@@ -1,4 +1,4 @@
-import type { PushData } from '@albadr/shared';
+import type { PushData } from '@sualruhaily/shared';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';

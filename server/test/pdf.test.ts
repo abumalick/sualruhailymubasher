@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { upsertCourse } from '../src/repo';
 import { isBookUrl, servePdf, type PdfDeps } from '../src/pdf';
 
-const BOOK = 'https://al-badr.net/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_01.pdf';
+const BOOK = 'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_01.pdf';
 const PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
 
 function fakeCache() {
@@ -33,19 +33,19 @@ const pdfResponse = (init: ResponseInit = {}) =>
   new Response(PDF, { status: 200, headers: { 'content-type': 'application/pdf', 'content-length': String(PDF.length), 'set-cookie': 'x=1' }, ...init });
 
 describe('isBookUrl', () => {
-  it('accepts the al-badr.net PDFs the courses reference', () => {
+  it('accepts the media.sualruhailymubasher.com PDFs the courses reference', () => {
     expect(isBookUrl(BOOK)).toBe(true);
-    expect(isBookUrl('https://al-badr.net/download/mutun/x.PDF')).toBe(true);
+    expect(isBookUrl('https://media.sualruhailymubasher.com/download/mutun/x.PDF')).toBe(true);
   });
 
   it.each([
-    ['plain http', 'http://al-badr.net/download/mutun/a.pdf'],
+    ['plain http', 'http://media.sualruhailymubasher.com/download/mutun/a.pdf'],
     ['another host', 'https://evil.example/a.pdf'],
-    ['a look-alike host', 'https://al-badr.net.evil.example/a.pdf'],
-    ['a subdomain', 'https://x.al-badr.net/a.pdf'],
-    ['credentials', 'https://user@al-badr.net/a.pdf'],
-    ['a port', 'https://al-badr.net:8443/a.pdf'],
-    ['not a pdf', 'https://al-badr.net/download/esound/a.mp3'],
+    ['a look-alike host', 'https://media.sualruhailymubasher.com.evil.example/a.pdf'],
+    ['a subdomain', 'https://x.media.sualruhailymubasher.com/a.pdf'],
+    ['credentials', 'https://user@media.sualruhailymubasher.com/a.pdf'],
+    ['a port', 'https://media.sualruhailymubasher.com:8443/a.pdf'],
+    ['not a pdf', 'https://media.sualruhailymubasher.com/download/esound/a.mp3'],
     ['garbage', 'not a url'],
     ['nothing', undefined],
   ])('refuses %s', (_, url) => {
@@ -54,7 +54,7 @@ describe('isBookUrl', () => {
 });
 
 describe('servePdf', () => {
-  it('streams the PDF from al-badr.net without following redirects, and caches it', async () => {
+  it('streams the PDF from media.sualruhailymubasher.com without following redirects, and caches it', async () => {
     const { d, cache, fetch, settle } = deps(async () => pdfResponse());
     const res = await servePdf(BOOK, d);
     expect(res.status).toBe(200);
@@ -68,7 +68,7 @@ describe('servePdf', () => {
     expect(cache.store.has(BOOK)).toBe(true);
   });
 
-  it('answers from the cache without calling al-badr.net again', async () => {
+  it('answers from the cache without calling media.sualruhailymubasher.com again', async () => {
     const { d, fetch, settle } = deps(async () => pdfResponse());
     await (await servePdf(BOOK, d)).arrayBuffer();
     await settle();
@@ -98,7 +98,7 @@ describe('servePdf', () => {
     expect((await servePdf(BOOK, d)).status).toBe(502);
   });
 
-  it('never fetches a URL outside al-badr.net', async () => {
+  it('never fetches a URL outside media.sualruhailymubasher.com', async () => {
     const { d, fetch } = deps(async () => pdfResponse());
     expect((await servePdf('https://evil.example/a.pdf', d)).status).toBe(404);
     expect(fetch).not.toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe('servePdf', () => {
 });
 
 describe('GET /api/courses/:id/pdf/:index', () => {
-  const get = (path: string) => exports.default.fetch(`http://example.com${path}`, { headers: { origin: 'https://albadrmubasher.com' } });
+  const get = (path: string) => exports.default.fetch(`http://example.com${path}`, { headers: { origin: 'https://sualruhailymubasher.com' } });
   const upstream = vi.fn(async (..._: unknown[]) => pdfResponse());
 
   afterEach(() => {
@@ -120,7 +120,7 @@ describe('GET /api/courses/:id/pdf/:index', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('access-control-allow-origin')).toBe('*');
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PDF);
-    expect(upstream).toHaveBeenCalledWith('https://al-badr.net/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_02.pdf', { redirect: 'manual' });
+    expect(upstream).toHaveBeenCalledWith('https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_02.pdf', { redirect: 'manual' });
 
     const again = await get('/api/courses/kitab-tawhid/pdf/1');
     expect(again.status).toBe(200);
@@ -142,7 +142,7 @@ describe('GET /api/courses/:id/pdf/:index', () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
-  it('refuses a course PDF URL that is not on al-badr.net', async () => {
+  it('refuses a course PDF URL that is not on media.sualruhailymubasher.com', async () => {
     vi.stubGlobal('fetch', upstream);
     await upsertCourse(env.DB, 'odd', { title: 'x', slot: 'fajr', weekdays: [0], offsetMin: 0, seriesId: 1, pdfUrls: ['https://evil.example/a.pdf'], active: true });
     try {

@@ -16,7 +16,7 @@ const lesson = (number: number) => ({
   number,
   hijriDate: `${number}-01-1448`,
   startPoint: `نقطة ${number}`,
-  recordingUrl: `https://al-badr.net/download/${number}.mp3`,
+  recordingUrl: `https://media.sualruhailymubasher.com/download/${number}.mp3`,
   detailPath: `/detail/${number}`,
 });
 

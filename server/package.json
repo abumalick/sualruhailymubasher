@@ -1,5 +1,5 @@
 {
-  "name": "@albadr/server",
+  "name": "@sualruhaily/server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
     "wrangler": "^4.155.0"
   },
   "dependencies": {
-    "@albadr/shared": "workspace:*",
+    "@sualruhaily/shared": "workspace:*",
     "hono": "^4.13.14"
   }
 }

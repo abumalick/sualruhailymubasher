@@ -1,4 +1,4 @@
-import { courseTopic, NOTICE_TAG, NOTICE_TITLE, prepNoticeBody } from '@albadr/shared';
+import { courseTopic, NOTICE_TAG, NOTICE_TITLE, prepNoticeBody } from '@sualruhaily/shared';
 import { nextPassage } from '../estimate';
 import type { Fcm } from '../fcm';
 import { expectedNextNumber, latestLessons, listCourses, listExceptions, markSent, type CourseRow } from '../repo';

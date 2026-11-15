@@ -4,7 +4,7 @@ export const ADMIN_HTML = String.raw`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>إدارة دروس البدر</title>
+<title>إدارة دروس سليمان الرحيلي</title>
 <style>
 :root{--bg:#f6f1e6;--card:#ebe3cc;--brown:#5b2b00;--gold:#a67c37;--red:#c8321c;--text:#1c0b1a}
 *{box-sizing:border-box}
@@ -35,7 +35,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
 </head>
 <body>
 <main>
-<div class="row"><h1>إدارة دروس البدر</h1><button id="logout" class="ghost" hidden>خروج</button></div>
+<div class="row"><h1>إدارة دروس سليمان الرحيلي</h1><button id="logout" class="ghost" hidden>خروج</button></div>
 
 <section id="login" class="card" hidden>
   <label for="tok">رمز الإدارة</label>
@@ -101,7 +101,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
 </main>
 <script>
 (function () {
-  var KEY = 'albadr-admin-token';
+  var KEY = 'sualruhaily-admin-token';
   var DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
   var KINDS = { cancel: 'إلغاء', pause: 'توقف', extra: 'درس إضافي', move: 'تأجيل' };
   var courses = [];
@@ -203,13 +203,13 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     };
     return el('div', { className: 'card' }, [
       isNew ? el('h3', { text: 'إضافة دورة' }) : el('h3', { text: c.id }),
-      isNew ? el('p', { className: 'muted', text: 'عند انتهاء كتاب: اجعل دورته غير فعّالة، وأضف الكتاب الجديد هنا بمعرّف دورة جديد ورقم سلسلته في al-badr.net. لا تغيّر رقم السلسلة لدورة موجودة.' }) : null,
+      isNew ? el('p', { className: 'muted', text: 'عند انتهاء كتاب: اجعل دورته غير فعّالة، وأضف الكتاب الجديد هنا بمعرّف دورة جديد ورقم سلسلته. لا تغيّر رقم السلسلة لدورة موجودة.' }) : null,
       isNew ? field('معرّف الدورة (حروف إنجليزية صغيرة وأرقام و-)', idInput) : null,
       field('العنوان', title),
       el('div', { className: 'grid' }, [field('الفترة', slot), field('دقائق بعد الأذان/الغروب', offset)]),
       el('label', { text: 'أيام الدرس' }),
       el('div', { className: 'days' }, boxes.map(function (b) { return b.node; })),
-      field('رقم السلسلة في al-badr.net', series),
+      field('رقم السلسلة', series),
       field('روابط PDF (رابط في كل سطر)', pdfs),
       field('الطبعة (تظهر مع أرقام الصفحات حين لا يُربط الكتاب)', edition),
       field('فرق الصفحات لكل جزء: رقم صفحة PDF ناقص الرقم المطبوع عليها، بترتيب الروابط', offsets),

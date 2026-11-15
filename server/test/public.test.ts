@@ -41,12 +41,12 @@ describe('GET /api/state', () => {
     expect(saadi.next.number).toBe(8);
     expect(saadi.time).toBe(saadi.next.time);
     expect(saadi.time).toMatch(/^0[45]:\d\d$/);
-    expect(body.links).toHaveLength(6);
-    expect(body.links[0]).toEqual({ title: 'موقع الشيخ', url: 'https://al-badr.net' });
-    expect(body.links[5].url).toBe('https://chat.whatsapp.com/DZCeVH4kiLT8Gul4yMicY0');
+    expect(body.links).toHaveLength(4);
+    expect(body.links[0]).toEqual({ title: 'الموقع الرسمي', url: 'https://sualruhaily.com' });
+    expect(body.links[3].url).toBe('https://sualruhaily.mixlr.com');
   });
 
-  it('counts lessons broadcast but not yet on al-badr.net in next.number', async () => {
+  it('counts lessons broadcast but not yet on media.sualruhailymubasher.com in next.number', async () => {
     const next = async () => ((await (await get('/api/state')).json()) as any).courses[0].next.number;
     await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(7));
     await env.DB.prepare("UPDATE lessons SET created_at = '2026-01-01T00:00:00.000Z'").run();
@@ -68,7 +68,7 @@ describe('GET /api/state', () => {
     expect(live).toEqual({
       isLive: true,
       mode: 'embed',
-      embedUrl: 'https://albadrnet.mixlr.com/embed',
+      embedUrl: 'https://sualruhaily.mixlr.com/embed',
       streamUrl: null,
       courseId: 'tafsir-saadi',
       startedAt: '2026-10-30T02:00:00.000Z',

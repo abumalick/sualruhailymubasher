@@ -1,4 +1,4 @@
-import type { ExceptionDTO } from '@albadr/shared';
+import type { ExceptionDTO } from '@sualruhaily/shared';
 import { describe, expect, it } from 'vitest';
 import { courseInWindow, isLessonDay, lessonTime, nextLessonDate } from '../src/schedule';
 import type { CourseRow } from '../src/repo';
@@ -26,7 +26,7 @@ describe('time', () => {
 });
 
 describe('hijriToMedinaDate', () => {
-  it('converts an al-badr.net Umm al-Qura date near now', () => {
+  it('converts an media.sualruhailymubasher.com Umm al-Qura date near now', () => {
     expect(hijriToMedinaDate('09-05-1448', new Date('2026-10-30T12:00:00Z'))).toBe('2026-10-20');
     expect(hijriToMedinaDate('10-05-1448', new Date('2026-10-30T12:00:00Z'))).toBe('2026-10-21');
   });
