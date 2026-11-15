@@ -162,3 +162,28 @@ def test_retry_failed_flag_clears_recorded_failures(monkeypatch, tmp_path):
     posts = [json.loads(body)["sourceRef"] for method, path, body in seen if path == "/api/admin/lessons"]
     assert "tg:1112" in posts
     assert json.loads(state.read_text())["failed"] == {}
+
+
+def test_crash_sends_a_failed_heartbeat_and_exits_nonzero(monkeypatch, tmp_path, caplog):
+    ingest_env(monkeypatch, tmp_path)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("planner bug")
+
+    monkeypatch.setattr(cli, "run_ingest", boom)
+    seen = []
+    assert cli.main(["ingest"], transport=ingest_server(seen)) == 1
+    [(method, path, body)] = seen
+    assert (method, path) == ("PUT", "/api/admin/heartbeat/ingest")
+    assert json.loads(body) == {"ok": False, "summary": "crashed: RuntimeError"}
+    assert "planner bug" in caplog.text
+
+
+def test_crash_heartbeat_failure_is_ignored(monkeypatch, tmp_path):
+    ingest_env(monkeypatch, tmp_path)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("planner bug")
+
+    monkeypatch.setattr(cli, "run_ingest", boom)
+    assert cli.main(["ingest"], transport=httpx.MockTransport(lambda r: httpx.Response(500))) == 1

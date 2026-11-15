@@ -243,7 +243,7 @@ adminRoutes.put('/api/admin/media/lessons/:courseId/:file', async (c) => {
     const stored = await c.env.MEDIA.put(key, c.req.raw.body, { httpMetadata: { contentType } });
     if (stored.size !== Number(length)) {
       await c.env.MEDIA.delete(key);
-      return c.json({ error: 'length mismatch' }, 400);
+      return c.json({ error: 'length mismatch' }, 502);
     }
   } catch (e) {
     console.error('media upload failed', key, e);

@@ -24,8 +24,10 @@ def indexed(ref, course, section, number, url="https://media.test/x.mp3", hijri=
 
 
 class FakeApi:
-    def __init__(self, lessons=(), exception_refs=(), fail=(), status=500, course_ids=("targhib",), upload_status=None):
+    def __init__(self, lessons=(), exception_refs=(), fail=(), status=500, course_ids=("targhib",), upload_status=None,
+                 record_exceptions=True):
         self.index = IngestIndex(lessons=list(lessons), exception_refs=list(exception_refs))
+        self.record_exceptions = record_exceptions
         self.fail, self.status, self.course_ids = set(fail), status, list(course_ids)
         self.upload_status = upload_status
         self.uploads, self.posts, self.cancellations, self.heartbeats = [], [], [], []
@@ -52,7 +54,7 @@ class FakeApi:
 
     def slot_cancellation(self, body):
         self.cancellations.append(body)
-        if self.course_ids:
+        if self.course_ids and self.record_exceptions:
             self.index.exception_refs.append(body["sourceRef"])
         return {"date": "2026-10-10", "courseIds": self.course_ids, "created": len(self.course_ids)}
 
@@ -266,7 +268,7 @@ def test_one_failure_does_not_stop_the_run(tmp_path):
 
     assert [p["sourceRef"] for p in api.posts] == ["tg:1112"]
     assert summary.failed == 1
-    assert api.heartbeats == [(False, "1 lesson, 0 cancellations, 0 skipped, 1 failed")]
+    assert api.heartbeats == [(False, "1 lesson, 0 cancellations, 0 skipped, 1 failed (tg:1111)")]
     assert state(tmp_path)["last_id"] == 1112
 
 
@@ -317,7 +319,7 @@ def test_heartbeat_reports_failures(tmp_path):
 
     run(api, FakeTelegram([*messages(1112, 1105), unrecognised]), tmp_path)
 
-    assert api.heartbeats == [(False, "1 lesson, 0 cancellations, 2 skipped, 0 failed")]
+    assert api.heartbeats == [(False, "1 lesson, 0 cancellations, 2 skipped, 0 failed, unrecognised tg:5000")]
 
 
 def test_heartbeat_ok_on_a_clean_run(tmp_path):
@@ -360,7 +362,7 @@ def test_permanent_failure_is_not_downloaded_again(tmp_path):
     summary = run(api, second, tmp_path)
     assert second.downloads == [] and api.posts == []
     assert summary.actions == [Skip("tg:1112", "failed:http-413")]
-    assert api.heartbeats[-1] == (False, "0 lessons, 0 cancellations, 0 skipped, 1 failed")
+    assert api.heartbeats[-1] == (False, "0 lessons, 0 cancellations, 0 skipped, 1 failed (tg:1112)")
 
     third = FakeTelegram(messages(1112))
     run(api, third, tmp_path, retry_failed=True)
@@ -437,3 +439,52 @@ def test_unreadable_state_is_treated_as_a_first_run(tmp_path):
     run(api, telegram, tmp_path, notify=True)
 
     assert telegram.exports == [859] and api.posts[0]["notify"] is False
+
+
+def test_deleted_cancellation_does_not_come_back(tmp_path):
+    seed_state(tmp_path, {"last_id": 1000})
+    api = FakeApi(record_exceptions=False)
+    run(api, FakeTelegram(messages(971)), tmp_path)
+    assert len(api.cancellations) == 1 and state(tmp_path)["cancelled"] == ["tg:971"]
+
+    summary = run(api, FakeTelegram(messages(971)), tmp_path)
+
+    assert len(api.cancellations) == 1
+    assert summary.actions == [Skip("tg:971", "done")]
+
+
+def test_cancellation_matching_no_course_is_not_remembered(tmp_path):
+    seed_state(tmp_path, {"last_id": 1000})
+    run(FakeApi(course_ids=()), FakeTelegram(messages(971)), tmp_path)
+    assert state(tmp_path).get("cancelled", []) == []
+
+
+def test_retryable_failures_become_permanent_after_five_ticks(tmp_path):
+    seed_state(tmp_path, {"last_id": 1000})
+    api = FakeApi(upload_status=502)
+    for tick in range(4):
+        run(api, FakeTelegram(messages(1112)), tmp_path)
+        assert state(tmp_path)["retries"] == {"tg:1112": tick + 1} and state(tmp_path)["failed"] == {}
+
+    run(api, FakeTelegram(messages(1112)), tmp_path)
+    assert state(tmp_path)["failed"] == {"tg:1112": "retries:http-502"}
+    assert state(tmp_path)["retries"] == {}
+
+    sixth = FakeTelegram(messages(1112))
+    summary = run(api, sixth, tmp_path)
+    assert sixth.downloads == [] and summary.actions == [Skip("tg:1112", "failed:retries:http-502")]
+
+
+def test_a_success_clears_the_retry_count(tmp_path):
+    seed_state(tmp_path, {"last_id": 1000, "retries": {"tg:1112": 4}})
+    run(FakeApi(), FakeTelegram(messages(1112)), tmp_path)
+    assert state(tmp_path)["retries"] == {}
+
+
+def test_heartbeat_lists_at_most_three_failing_refs(tmp_path):
+    seed_state(tmp_path, {"last_id": 1000})
+    api = FakeApi(fail={"tg:1088", "tg:1089", "tg:1090", "tg:1111"})
+
+    run(api, FakeTelegram(messages(1088, 1089, 1090, 1111)), tmp_path)
+
+    assert api.heartbeats == [(False, "0 lessons, 0 cancellations, 0 skipped, 4 failed (tg:1088, tg:1089, tg:1090, …)")]

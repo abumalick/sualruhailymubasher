@@ -229,8 +229,8 @@ def parse_message(m: Message) -> TelegramLesson | SiteLesson | Absence | Lecture
     ext = PurePosixPath(m.file).suffix.lower()
     is_audio = ext in AUDIO_EXTENSIONS
 
-    if "#محاضرة" in text and (lecture := _lecture(m, text)):
-        return lecture
+    if "#محاضرة" in text and not is_audio:
+        return _lecture(m, text) or Skip(ref, "unrecognised")
     if "يعتذر" in text and _course(text) is None:
         return _absence(m, text)
     if "بدأ البث المباشر" in text:

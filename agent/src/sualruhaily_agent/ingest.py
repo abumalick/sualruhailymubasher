@@ -21,6 +21,8 @@ SLOT_NAMES = {slot: arabic for arabic, slot in SLOTS.items()}
 FAILURE_PREFIXES = ("identity-conflict:", "site-error", "failed:")
 MEDIA_MAX_BYTES = 95_000_000
 PERMANENT_STATUSES = {400, 409, 413, 415}
+MAX_RETRIES = 5
+LISTED_REFS = 3
 
 
 class PermanentFailure(Exception):
@@ -113,15 +115,18 @@ def _plan_lesson(lesson: TelegramLesson, known: dict[str, IndexedLesson], owners
     return action
 
 
-def plan(parsed: list[Parsed], index: IngestIndex, failed: dict[str, str] | None = None) -> list[Action]:
+def plan(
+    parsed: list[Parsed], index: IngestIndex, failed: dict[str, str] | None = None, cancelled: set[str] | None = None,
+) -> list[Action]:
     """Ingested refs keep their identity; within the batch the lowest message id of an identity wins.
-    Refs in `failed` failed permanently on an earlier tick and are skipped unless already done."""
+    Refs in `failed` failed permanently on an earlier tick and are skipped unless already done. Refs in
+    `cancelled` were cancelled before: done even when the owner has since deleted the exception."""
     failed = failed or {}
     known = {row.source_ref: row for row in index.lessons}
     owners = {_row_identity(row): row.source_ref for row in index.lessons}
     dates = {row.source_ref: row.hijri_date for row in index.lessons if row.hijri_date}
     dates |= {p.ref: p.hijri_date for p in parsed if isinstance(p, TelegramLesson)}
-    exceptions = set(index.exception_refs)
+    exceptions = set(index.exception_refs) | (cancelled or set())
     actions: list[Action] = []
     for p in sorted(parsed, key=_msg_id):
         row = known.get(p.ref)
@@ -164,7 +169,13 @@ class Summary:
     failed: int = 0
     unrecognised: int = 0
     without_course: int = 0
+    failed_refs: list[str] = field(default_factory=list)
+    unrecognised_refs: list[str] = field(default_factory=list)
     actions: list[Action] = field(default_factory=list)
+
+    def fail(self, ref: str) -> None:
+        self.failed += 1
+        self.failed_refs.append(ref)
 
     @property
     def ok(self) -> bool:
@@ -174,7 +185,15 @@ class Summary:
         def count(n: int, word: str) -> str:
             return f"{n} {word}{'' if n == 1 else 's'}"
 
+        def refs(listed: list[str]) -> str:
+            more = ", …" if len(listed) > LISTED_REFS else ""
+            return ", ".join(listed[:LISTED_REFS]) + more
+
         text = f"{count(self.lessons, 'lesson')}, {count(self.cancellations, 'cancellation')}, {self.skipped} skipped, {self.failed} failed"
+        if self.failed_refs:
+            text += f" ({refs(self.failed_refs)})"
+        if self.unrecognised_refs:
+            text += f", unrecognised {refs(self.unrecognised_refs)}"
         if self.without_course:
             text += f", {count(self.without_course, 'cancellation')} without a course"
         return text
@@ -243,10 +262,6 @@ def _upload(api, telegram, site, lesson: TelegramLesson, work: Path, notify: boo
         shutil.rmtree(folder, ignore_errors=True)
 
 
-def _permanent(e: ApiError) -> Exception:
-    return PermanentFailure(f"http-{e.status}") if e.status in PERMANENT_STATUSES else e
-
-
 def _execute(api, telegram, site, action: Action, work: Path, notify: bool) -> bool:
     """Returns False for a cancellation that matched no course on that day."""
     try:
@@ -259,7 +274,9 @@ def _execute(api, telegram, site, action: Action, work: Path, notify: bool) -> b
                 log.warning("%s: the cancellation matched no course on that day", action.item.ref)
                 return False
     except ApiError as e:
-        raise _permanent(e) from e
+        if e.status in PERMANENT_STATUSES:
+            raise PermanentFailure(f"http-{e.status}") from e
+        raise
     return True
 
 
@@ -269,10 +286,12 @@ def _count(summary: Summary, action: Action) -> None:
     elif isinstance(action, Cancel):
         summary.cancellations += 1
     elif action.reason.startswith(FAILURE_PREFIXES):
-        summary.failed += 1
+        summary.fail(action.ref)
     elif action.reason != "done":
         summary.skipped += 1
-        summary.unrecognised += action.reason == "unrecognised"
+        if action.reason == "unrecognised":
+            summary.unrecognised += 1
+            summary.unrecognised_refs.append(action.ref)
 
 
 def _load_state(state_path: Path) -> dict | None:
@@ -295,6 +314,10 @@ def _save_state(state_path: Path, state: dict) -> None:
     tmp.replace(state_path)
 
 
+def _reason(e: Exception) -> str:
+    return f"http-{e.status}" if isinstance(e, ApiError) and e.status else type(e).__name__
+
+
 def run_ingest(
     api, telegram, site, state_path: Path, *,
     from_id: int | None = None, notify: bool = True, dry_run: bool = False, retry_failed: bool = False,
@@ -307,6 +330,8 @@ def run_ingest(
     state = state or {}
     last_id = state.get("last_id")
     failed: dict[str, str] = {} if retry_failed else dict(state.get("failed", {}))
+    retries: dict[str, int] = {} if retry_failed else dict(state.get("retries", {}))
+    cancelled: set[str] = set(state.get("cancelled", []))
     if from_id is not None:
         start = from_id
     elif isinstance(last_id, int):
@@ -317,7 +342,7 @@ def run_ingest(
     log.info("ingest: %d message(s) from %d", len(messages), start)
     index = api.ingest_index()
     done = {row.source_ref for row in index.lessons if row.recording_url}
-    actions = plan([_resolve(parse_message(m), site, done, failed) for m in messages], index, failed)
+    actions = plan([_resolve(parse_message(m), site, done, failed) for m in messages], index, failed, cancelled)
     summary = Summary(actions=actions)
     work = state_path.parent / "media"
     for action in actions:
@@ -326,26 +351,42 @@ def run_ingest(
         if dry_run:
             _count(summary, action)
             continue
+        ref = _ref(action)
         try:
             matched = _execute(api, telegram, site, action, work, notify)
         except TelegramBusy:
             raise
         except PermanentFailure as e:
-            log.error("%s: failed permanently (%s), skipped until --retry-failed", _ref(action), e)
-            failed[_ref(action)] = str(e)
-            summary.failed += 1
+            log.error("%s: failed permanently (%s), skipped until --retry-failed", ref, e)
+            failed[ref] = str(e)
+            retries.pop(ref, None)
+            summary.fail(ref)
             continue
         except Exception as e:
             if isinstance(e, ApiError) and e.status in (401, 403):
                 raise
-            log.exception("%s: failed, retrying next tick", _ref(action))
-            summary.failed += 1
+            retries[ref] = retries.get(ref, 0) + 1
+            if retries[ref] >= MAX_RETRIES:
+                failed[ref] = f"retries:{_reason(e)}"
+                del retries[ref]
+                log.exception("%s: failed %d times in a row, skipped until --retry-failed", ref, MAX_RETRIES)
+            else:
+                log.exception("%s: failed (%d/%d), retrying next tick", ref, retries[ref], MAX_RETRIES)
+            summary.fail(ref)
             continue
+        retries.pop(ref, None)
+        if isinstance(action, Cancel) and matched:
+            cancelled.add(ref)
         _count(summary, action)
         summary.without_course += not matched
     if dry_run:
         return summary
     seen = [m.id for m in messages] + ([last_id] if isinstance(last_id, int) else [])
-    _save_state(state_path, {**({"last_id": max(seen)} if seen else {}), "failed": failed})
+    _save_state(state_path, {
+        **({"last_id": max(seen)} if seen else {}),
+        "failed": failed,
+        "retries": retries,
+        "cancelled": sorted(cancelled, key=lambda r: int(r.removeprefix("tg:"))),
+    })
     api.heartbeat(summary.ok, str(summary))
     return summary

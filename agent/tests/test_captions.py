@@ -259,3 +259,8 @@ def test_absence_naming_two_slots_without_repeating_the_word_lesson_is_unrecogni
     text = "يعتذر شيخنا عن درس العصر والفجر"
 
     assert parse_message(Message(1, 1794737704, "", text)) == Skip("tg:1", "unrecognised")
+
+
+def test_lecture_post_without_a_time_line_is_unrecognised():
+    text = "💡#دعوة\n📌لحضور #محاضرة\n📘 عنوان\n🗓 الأحد: 12 رجب ١٤٤٩ هـ"
+    assert parse_message(Message(13, 0, "", text)) == Skip("tg:13", "unrecognised")

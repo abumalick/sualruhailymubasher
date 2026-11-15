@@ -201,6 +201,13 @@ def ingest(args: argparse.Namespace, base: str, token: str, transport: httpx.Bas
         except (TelegramError, ApiError) as e:
             log.error("ingest stopped: %s", e)
             return 1
+        except Exception as e:
+            log.exception("ingest crashed")
+            try:
+                api.heartbeat(False, f"crashed: {type(e).__name__}")
+            except Exception:
+                log.exception("could not report the crash in the heartbeat")
+            return 1
         finally:
             api.close()
     if args.dry_run:

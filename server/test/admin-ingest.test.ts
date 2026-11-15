@@ -193,10 +193,10 @@ describe('PUT media with a misbehaving bucket', () => {
       { ...env, MEDIA },
     );
 
-  it('deletes the object and answers 400 when the stored size differs from the declared length', async () => {
+  it('deletes the object and answers 502 (retryable) when the stored size differs from the declared length', async () => {
     const del = vi.fn();
     const res = await withBucket({ put: async () => ({ size: 2 }), delete: del })('1120.mp3');
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(502);
     expect(await res.json()).toEqual({ error: 'length mismatch' });
     expect(del).toHaveBeenCalledWith('lessons/dalil-talib/1120.mp3');
   });

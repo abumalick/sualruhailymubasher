@@ -39,8 +39,24 @@ Telegram tools; when it stays held for 120 s the tick is skipped. Each run ends 
 (`3 lessons, 1 cancellation, 2 skipped, 0 failed`), not ok when a post failed or a caption was not understood.
 "skipped" counts every post that is not a lesson or a cancellation (live-stream notices, khutbas, reposts…).
 
-The timer runs it every 20 minutes. Install it only after the backfill: run `uv run sualruhaily-agent ingest`
-once by hand (with `agent.env` loaded), review the lessons in /admin, then enable the timer:
+A post that fails retryably 5 times in a row becomes permanent too (`failed:retries:<last reason>`); a success
+resets its count. A cancellation that matched courses is remembered, so one the owner deletes in /admin does not
+come back. An early 4xx from the media route (the Worker answers before reading the whole body) can reach the
+agent as a transport error instead of the status: it is then retried, within that cap of 5.
+
+`tdl dl` runs with `--restart`: an unfinished download is started over, and tdl's resume state for it is
+discarded (a timer has no terminal to answer tdl's "resume?" question).
+
+The timer runs it every 20 minutes. Install it only after the backfill. The manual run and the timer share the
+default cache (`~/.cache/sualruhaily-agent/`, where `ingest/state.json` lives), so do not set
+`SUALRUHAILY_AGENT_CACHE` for production. Load the environment, look at the plan, run the backfill, review the
+lessons in /admin, then enable the timer:
+
+```sh
+set -a; . ~/.config/sualruhailymubasher/agent.env; set +a
+uv run --frozen --project ~/workspace/dawa/ruhaylimubasher/agent sualruhaily-agent ingest --from-id 859 --dry-run
+uv run --frozen --project ~/workspace/dawa/ruhaylimubasher/agent sualruhaily-agent ingest --from-id 859 --no-notify
+```
 
 ```sh
 cp systemd/sualruhaily-ingest.service systemd/sualruhaily-ingest.timer ~/.config/systemd/user/
