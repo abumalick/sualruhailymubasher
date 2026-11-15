@@ -1,7 +1,7 @@
 import type { CourseDTO, StateDTO } from '@albadr/shared';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { asksPermission, cardFor, finalPrefs, initialDraft, hasSwitch, pick, pickedCourses, setStep, stepHint, stepOn, STEPS, type Draft, type Step } from '../logic/onboarding';
+import { asksPermission, cardFor, finalPrefs, initialDraft, hasSwitch, pick, pickedCourses, setStep, stepHint, stepOn, stepsFor, type Draft, type Step } from '../logic/onboarding';
 import type { Prefs } from '../logic/prefs';
 import { dragShift, swipeAxis, swipeEnd } from '../logic/swipe';
 import { nativeUI } from '../platform';
@@ -12,7 +12,7 @@ import { Toggle } from './Notifications';
 import { Preview, useReducedMotion } from './Preview';
 import { Icon } from './Star';
 
-const TEXT: Record<Exclude<Step, 'app'>, { title: string; body: string; switches: string; fallback: string }> = {
+const TEXT: Record<Exclude<Step, 'app' | 'invite'>, { title: string; body: string; switches: string; fallback: string }> = {
   live: {
     title: 'استمع مباشرةً',
     body: 'يُبَثّ الدرس من المسجد النبوي وقت إلقائه، فتستمع إليه من هنا أينما كنت.',
@@ -52,9 +52,9 @@ function Pick({ course: c, all, on, onToggle }: { course: CourseDTO; all: Course
   );
 }
 
-const Dots = ({ at }: { at: number }) => (
-  <div class="dots" aria-label={`الخطوة ${ar(at + 1)} من ${ar(STEPS.length)}`}>
-    {STEPS.map((_, i) => (
+const Dots = ({ at, count }: { at: number; count: number }) => (
+  <div class="dots" aria-label={`الخطوة ${ar(at + 1)} من ${ar(count)}`}>
+    {Array.from({ length: count }, (_, i) => (
       <i class={i === at ? 'on' : ''} />
     ))}
   </div>
@@ -114,9 +114,10 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
   }
 
   const courses = state.courses;
-  const step = STEPS[at];
+  const steps = stepsFor(true);
+  const step = steps[at];
   const picked = pickedCourses(draft, courses);
-  const last = at === STEPS.length - 1;
+  const last = at === steps.length - 1;
 
   const go = async () => {
     if (busy) return;
@@ -169,7 +170,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
 
   const top = (
     <div class="obtop">
-      <Dots at={at} />
+      <Dots at={at} count={steps.length} />
       {(at > 0 || replay) && (
         <button type="button" class="chip plain" onClick={back}>
           رجوع
@@ -204,6 +205,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
     );
   }
 
+  if (step === 'invite') return null;
   const text = TEXT[step];
   const card = cardFor(step, picked, state.live);
   const on = stepOn(step, draft, picked);

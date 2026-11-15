@@ -3,8 +3,9 @@ import { attended, kindsOf, type Kind, type Prefs } from './prefs';
 import { COURSE_KINDS, topicsFor } from './topics';
 import { courseLabel, REMINDER, slotName } from '../ui/format';
 
-export type Step = 'app' | 'live' | 'rec' | 'prep';
-export const STEPS: Step[] = ['app', 'live', 'rec', 'prep'];
+export type Step = 'app' | 'live' | 'rec' | 'prep' | 'invite';
+// The website has no notifications: it ends by inviting to the app, which has them.
+export const stepsFor = (native: boolean): Step[] => (native ? ['app', 'live', 'rec', 'prep'] : ['app', 'live', 'rec', 'prep', 'invite']);
 
 // picked: the lessons the listener attends; wanted: every switch, kept for unticked lessons until the end.
 export interface Draft {
@@ -56,7 +57,7 @@ export function stepOn(step: Step, d: Draft, picked: CourseDTO[]): boolean {
 }
 
 export function stepHint(step: Step, picked: CourseDTO[], courses: CourseDTO[]): string {
-  if (step === 'app') return '';
+  if (step === 'app' || step === 'invite') return '';
   if (step !== 'prep') return picked.map((c) => courseLabel(c, courses)).join(' و');
   if (picked.length === 1) return REMINDER[picked[0].slot];
   const sharedSlot = new Set(picked.map((c) => c.slot)).size < picked.length;
@@ -70,7 +71,7 @@ export function setStep(d: Draft, step: Step, picked: CourseDTO[], on: boolean):
 }
 
 export function cardFor(step: Step, picked: CourseDTO[], live: LiveDTO): Card | null {
-  if (step === 'live') {
+  if (step === 'live' || step === 'invite') {
     const course = (live.isLive && picked.find((c) => c.id === live.courseId)) || picked[0];
     return course ? { course, kind: 'live' } : null;
   }
