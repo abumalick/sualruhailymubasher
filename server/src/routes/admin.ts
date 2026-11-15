@@ -45,7 +45,8 @@ function parseCourse(b: unknown): CourseInput | null {
   const ok =
     isString(b.title) &&
     b.title.trim() !== '' &&
-    (b.slot === 'fajr' || b.slot === 'maghrib') &&
+    (b.slot === 'fajr' || b.slot === 'asr' || b.slot === 'maghrib') &&
+    isString(b.place) &&
     Array.isArray(b.weekdays) &&
     b.weekdays.every((d) => isInt(d, 0) && d <= 6) &&
     isInt(b.offsetMin, 0) &&

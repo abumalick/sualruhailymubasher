@@ -16,10 +16,11 @@ export const FIXTURE_STATE: StateDTO = {
   },
   courses: [
     {
-      id: 'tafsir-saadi',
-      title: 'شرح تفسير السعدي',
+      id: 'kitab-tawhid',
+      title: 'شرح كتاب التوحيد',
       slot: 'fajr',
-      weekdays: [0, 1, 2, 3, 4, 5],
+      place: 'المسجد النبوي (الغربية)',
+      weekdays: [6],
       time: '05:25',
       pdfUrls: ['https://media.sualruhailymubasher.com/download/mutun/TafsirAsSaadi.pdf'],
       edition: null,
@@ -74,10 +75,11 @@ export const FIXTURE_STATE: StateDTO = {
       exceptions: [],
     },
     {
-      id: 'kitab-tawhid',
-      title: 'التعليق على شرح كتاب التوحيد من تقريرات الشيخ محمد بن إبراهيم',
-      slot: 'maghrib',
-      weekdays: [0, 1, 2, 3, 4],
+      id: 'kabair',
+      title: 'شرح كتاب الكبائر للذهبي',
+      slot: 'asr',
+      place: 'مسجد قباء',
+      weekdays: [2],
       time: '18:20',
       pdfUrls: [
         'https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_01.pdf',

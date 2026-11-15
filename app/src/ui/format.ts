@@ -4,7 +4,8 @@ import { medinaDate } from '../logic/time';
 export const ar = (n: number) => toArabicDigits(n);
 export const arText = (s: string) => s.replace(/\d/g, (d) => toArabicDigits(Number(d)));
 
-export const slotName = (slot: Slot) => (slot === 'fajr' ? 'الفجر' : 'المغرب');
+const SLOT_NAME: Record<Slot, string> = { fajr: 'الفجر', asr: 'العصر', maghrib: 'المغرب' };
+export const slotName = (slot: Slot) => SLOT_NAME[slot];
 
 const WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
@@ -89,5 +90,6 @@ export function summary(all: CourseDTO[], ids: string[]): string {
 
 export const REMINDER: Record<Slot, string> = {
   fajr: 'مساء اليوم السابق · ٩:٠٠ م',
+  asr: 'قبل الدرس بثلاث ساعات',
   maghrib: 'عصر يوم الدرس · ٣:٣٠ م',
 };

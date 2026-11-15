@@ -57,9 +57,10 @@ describe('Lesson page', () => {
     expect(container.querySelector('[data-slot]')!.getAttribute('data-slot')).toBe('fajr');
     cleanup();
     page(tawhid, { now: MON_0940 });
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('درس المغرب');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('درس العصر');
     expect(screen.getByText(tawhid.title)).toBeTruthy();
-    expect(screen.getByText(/يوميًّا عدا الجمعة والسبت/)).toBeTruthy();
+    expect(screen.getByText('مسجد قباء').className).toContain('place');
+    expect(screen.getByText(/الثلاثاء/)).toBeTruthy();
     expect(document.querySelector('.lh .date')!.textContent).toBe('الاثنين٢٢ جمادى الأولى');
   });
 
@@ -73,9 +74,9 @@ describe('Lesson page', () => {
     page(tafsir, { onTick });
     expect(screen.getByText('الدرس ٤٤٤ · غدًا بعد الفجر · ٥:٢٥ ص')).toBeTruthy();
     expect(screen.getByText('يتابع من حيث توقف الدرس ٤٤٣ · إلى نحو ص ٣١٤')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'اقرأ في الكتاب · ص ٣١٢' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/312?marker=1');
+    expect(screen.getByRole('link', { name: 'اقرأ في الكتاب · ص ٣١٢' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/312?marker=1');
     fireEvent.click(screen.getByRole('button', { name: 'قرأتُه' }));
-    expect(onTick).toHaveBeenCalledWith('read', 'tafsir-saadi', 444);
+    expect(onTick).toHaveBeenCalledWith('read', 'kitab-tawhid', 444);
   });
 
   it('آخر درس plays the recording, opens the book at its start and carries the reviewed tick', () => {
@@ -86,9 +87,9 @@ describe('Lesson page', () => {
     expect(last.textContent).toContain('الدرس ٤٤٣');
     fireEvent.click(last.querySelector('button.chip.pri')!);
     expect(onPlay.mock.calls[0][0].number).toBe(443);
-    expect(screen.getByRole('link', { name: 'الكتاب · ص ٣١٠' }).getAttribute('href')).toBe('#/book/tafsir-saadi/0/310');
+    expect(screen.getByRole('link', { name: 'الكتاب · ص ٣١٠' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/310');
     fireEvent.click([...last.querySelectorAll('button')].find((b) => b.textContent === 'راجعتُه')!);
-    expect(onTick).toHaveBeenCalledWith('reviewed', 'tafsir-saadi', 443);
+    expect(onTick).toHaveBeenCalledWith('reviewed', 'kitab-tawhid', 443);
   });
 
   it('كل الدروس omits the lesson shown in آخر درس', () => {
@@ -98,9 +99,9 @@ describe('Lesson page', () => {
 
   it('on air, the live hero replaces الدرس القادم and its listen button calls onLive', () => {
     const onLive = vi.fn();
-    const { container } = page(TAWHID, { live: liveDTO('kitab-tawhid'), now: new Date('2026-11-02T15:30:00Z'), onLive });
+    const { container } = page(TAWHID, { live: liveDTO('kabair'), now: new Date('2026-11-02T15:30:00Z'), onLive });
     expect(sections()).toEqual(['آخر درس· راجعه', 'كل الدروس']);
-    expect(screen.getByText('مباشر الآن · درس المغرب')).toBeTruthy();
+    expect(screen.getByText('مباشر الآن · درس العصر')).toBeTruthy();
     expect(container.querySelector('.disc.live.pulse')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'استمع إلى البث المباشر' }));
     expect(onLive).toHaveBeenCalledOnce();
@@ -108,16 +109,16 @@ describe('Lesson page', () => {
   });
 
   it('the live hero while already listening stops pulsing and says so', () => {
-    const { container } = page(TAWHID, { live: liveDTO('kitab-tawhid'), listening: true });
+    const { container } = page(TAWHID, { live: liveDTO('kabair'), listening: true });
     expect(container.querySelector('.disc')!.classList.contains('pulse')).toBe(false);
     expect(screen.getByRole('button', { name: 'تستمع الآن إلى البث' })).toBeTruthy();
   });
 
   it('the other lesson on air shows a red card above the title that calls onLive', () => {
     const onLive = vi.fn();
-    const { container } = page(tafsir, { live: liveDTO('kitab-tawhid'), otherLive: { course: TAWHID }, onLive });
+    const { container } = page(tafsir, { live: liveDTO('kabair'), otherLive: { course: TAWHID }, onLive });
     const card = container.querySelector('.livecard')!;
-    expect(card.textContent).toContain('درس المغرب مباشر الآن');
+    expect(card.textContent).toContain('درس العصر مباشر الآن');
     expect(card.compareDocumentPosition(container.querySelector('.lh')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(card.querySelector('button')!);
     expect(onLive).toHaveBeenCalledOnce();
@@ -165,11 +166,11 @@ describe('Lesson page', () => {
 
   it('loads older lessons at the end of كل الدروس, with reviewed ticks', async () => {
     vi.mocked(api.fetchLessons).mockResolvedValue([lesson(440), lesson(439)]);
-    const ticks: Ticks = { read: new Set(), reviewed: new Set(['tafsir-saadi:442']) };
+    const ticks: Ticks = { read: new Set(), reviewed: new Set(['kitab-tawhid:442']) };
     const { container } = page(tafsir, { ticks });
     expect([...container.querySelectorAll('.archive button[aria-label="راجعتُه"]')].map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
     await act(async () => observer!.cb([{ isIntersecting: true }]));
-    expect(api.fetchLessons).toHaveBeenCalledWith('tafsir-saadi', 441);
+    expect(api.fetchLessons).toHaveBeenCalledWith('kitab-tawhid', 441);
     await waitFor(() => expect(archive()).toEqual(['الدرس ٤٤٢', 'الدرس ٤٤١', 'الدرس ٤٤٠', 'الدرس ٤٣٩']));
   });
 
@@ -177,9 +178,9 @@ describe('Lesson page', () => {
     const blank = { ...tawhid, latest: tawhid.latest.map((l) => ({ ...l, startPage: null, endPage: null })), next: { ...tawhid.next!, startPage: null } };
     page(blank, { now: MON_0940 });
     expect(['الجزء ١', 'الجزء ٢', 'الجزء ٣'].map((n) => screen.getByRole('link', { name: n }).getAttribute('href'))).toEqual([
-      '#/book/kitab-tawhid/0/1',
-      '#/book/kitab-tawhid/1/1',
-      '#/book/kitab-tawhid/2/1',
+      '#/book/kabair/0/1',
+      '#/book/kabair/1/1',
+      '#/book/kabair/2/1',
     ]);
   });
 
@@ -193,8 +194,8 @@ describe('Lesson page', () => {
 describe('Kitab at-Tawhid page numbers (PDF page = printed page + 2)', () => {
   it('shows printed numbers for the next passage, the last lesson and the archive', () => {
     page(TAWHID, { now: MON_0940 });
-    expect(screen.getByRole('link', { name: 'اقرأ في الكتاب · ص ٢٧٨' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
-    expect(screen.getByRole('link', { name: 'الكتاب · ص ٢٧٣' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/275');
+    expect(screen.getByRole('link', { name: 'اقرأ في الكتاب · ص ٢٧٨' }).getAttribute('href')).toBe('#/book/kabair/0/280?marker=1');
+    expect(screen.getByRole('link', { name: 'الكتاب · ص ٢٧٣' }).getAttribute('href')).toBe('#/book/kabair/0/275');
     expect(screen.getByText(/· ص ٢٦٨$/)).toBeTruthy();
   });
 

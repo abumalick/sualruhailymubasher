@@ -65,7 +65,7 @@ import { replaceRoute } from '../src/router';
 import { Notifications } from '../src/ui/Notifications';
 
 const ids = FIXTURE_STATE.courses.map((c) => c.id);
-const known: Prefs['known'] = [['tafsir-saadi', 'fajr'], ['kitab-tawhid', 'maghrib']];
+const known: Prefs['known'] = [['kitab-tawhid', 'fajr'], ['kabair', 'asr']];
 const prefs = (wanted: string[]): Prefs => ({ wanted, known });
 const unsubscribed = () => fm.unsubscribeFromTopic.mock.calls.map((c) => c[0].topic);
 const subscribed = () => fm.subscribeToTopic.mock.calls.map((c) => c[0].topic);
@@ -135,7 +135,7 @@ describe('Notifications screen', () => {
     render(<Notifications state={FIXTURE_STATE} prefs={prefs([...topicsFor([ids[0]])])} onToggle={() => {}} />);
     await waitFor(() => screen.getAllByRole('switch'));
     expect(screen.getByText('مساء اليوم السابق · ٩:٠٠ م')).toBeTruthy();
-    expect(screen.getByText('عصر يوم الدرس · ٣:٣٠ م')).toBeTruthy();
+    expect(screen.getByText('قبل الدرس بثلاث ساعات')).toBeTruthy();
     const live = screen.getAllByRole('switch', { name: 'بدء البث المباشر' });
     expect(live.map((sw) => sw.getAttribute('aria-checked'))).toEqual(['true', 'false', 'true']);
   });
@@ -240,18 +240,18 @@ describe('tapping a notification', () => {
 
   it('a live notification asks for the player and opens its lesson', async () => {
     location.hash = '#/more';
-    await tap({ kind: 'live', courseId: 'kitab-tawhid', number: '3' });
-    expect(requestLive).toHaveBeenCalledWith({ courseId: 'kitab-tawhid' });
+    await tap({ kind: 'live', courseId: 'kabair', number: '3' });
+    expect(requestLive).toHaveBeenCalledWith({ courseId: 'kabair' });
     expect(markTapped).toHaveBeenCalledOnce();
-    expect(location.hash).toBe('#/course/kitab-tawhid');
+    expect(location.hash).toBe('#/course/kabair');
     expect(replaceRoute).not.toHaveBeenCalled();
   });
 
   it('a live-other notification asks for the player and stays on the current page', async () => {
-    location.hash = '#/course/tafsir-saadi';
+    location.hash = '#/course/kitab-tawhid';
     await tap({ kind: 'live-other', number: '' });
     expect(requestLive).toHaveBeenCalledWith({ courseId: null });
-    expect(location.hash).toBe('#/course/tafsir-saadi');
+    expect(location.hash).toBe('#/course/kitab-tawhid');
   });
 
   it('a live-other notification during the tour closes it, without leaving it in the history', async () => {
@@ -263,8 +263,8 @@ describe('tapping a notification', () => {
   });
 
   it('a recording notification asks for no player', async () => {
-    await tap({ kind: 'rec', courseId: 'tafsir-saadi', number: '443' });
+    await tap({ kind: 'rec', courseId: 'kitab-tawhid', number: '443' });
     expect(requestLive).not.toHaveBeenCalled();
-    expect(location.hash).toBe('#/course/tafsir-saadi');
+    expect(location.hash).toBe('#/course/kitab-tawhid');
   });
 });

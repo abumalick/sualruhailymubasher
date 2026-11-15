@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { fajrTime, sunsetTime } from '../src/prayer';
+import { asrMinutes, fajrTime, sunsetTime } from '../src/prayer';
+import umm from './fixtures/umm-al-qura-medina-2026.json';
 
 const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3));
 const near = (actual: string, expected: string, tol = 3) =>
@@ -20,5 +21,15 @@ describe('Medina prayer times', () => {
 
   it('formats HH:MM', () => {
     expect(fajrTime('2026-06-21')).toMatch(/^0[34]:\d\d$/);
+  });
+});
+
+// Fixture: api.aladhan.com/v1/timings/<15th of each month of 2026>?latitude=24.4672&longitude=39.6111&method=4&school=0
+describe('asrMinutes', () => {
+  it('matches Umm al-Qura for Medina', () => {
+    expect(umm).toHaveLength(12);
+    for (const { date, asr } of umm) {
+      expect(Math.abs(asrMinutes(date) - minutes(asr)), date).toBeLessThanOrEqual(2);
+    }
   });
 });

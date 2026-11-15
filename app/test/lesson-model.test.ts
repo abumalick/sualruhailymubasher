@@ -61,13 +61,13 @@ describe('buildLesson', () => {
   });
 
   it('tawhid on air: the live top with its lesson number, last recording 2', () => {
-    const m = buildLesson(tawhid, liveDTO('kitab-tawhid'), none, MON_2110);
+    const m = buildLesson(tawhid, liveDTO('kabair'), none, MON_2110);
     expect(m.top).toEqual({ kind: 'live', lessonNumber: 3 });
     expect(m.last).toMatchObject({ kind: 'recording', lesson: { number: 2 } });
   });
 
   it('another course on air leaves this one quiet', () => {
-    expect(buildLesson(tafsir, liveDTO('kitab-tawhid'), none, MON_2110).top.kind).toBe('next');
+    expect(buildLesson(tafsir, liveDTO('kabair'), none, MON_2110).top.kind).toBe('next');
   });
 
   it('broadcast counted before it was published (next 4, latest 2): awaiting 3, next 4', () => {
@@ -93,7 +93,7 @@ describe('buildLesson', () => {
   });
 
   it('read and reviewed ticks flow into top.read and last.reviewed', () => {
-    const ticks: Ticks = { read: new Set(['tafsir-saadi:444']), reviewed: new Set(['tafsir-saadi:443']) };
+    const ticks: Ticks = { read: new Set(['kitab-tawhid:444']), reviewed: new Set(['kitab-tawhid:443']) };
     const m = buildLesson(tafsir, quiet, ticks, MON_2110);
     expect(m.top).toMatchObject({ kind: 'next', read: true });
     expect(m.last).toMatchObject({ kind: 'recording', reviewed: true });
@@ -152,10 +152,10 @@ describe('time helpers', () => {
 describe('ticks', () => {
   beforeEach(() => store.clear());
   it('round-trips through preferences', async () => {
-    await setTick('read', 'tafsir-saadi', 444, true);
-    await setTick('reviewed', 'kitab-tawhid', 2, true);
-    expect(await loadTicks()).toEqual({ read: new Set(['tafsir-saadi:444']), reviewed: new Set(['kitab-tawhid:2']) });
-    await setTick('read', 'tafsir-saadi', 444, false);
+    await setTick('read', 'kitab-tawhid', 444, true);
+    await setTick('reviewed', 'kabair', 2, true);
+    expect(await loadTicks()).toEqual({ read: new Set(['kitab-tawhid:444']), reviewed: new Set(['kabair:2']) });
+    await setTick('read', 'kitab-tawhid', 444, false);
     expect((await loadTicks()).read.size).toBe(0);
   });
 });

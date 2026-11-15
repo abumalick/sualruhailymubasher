@@ -22,8 +22,8 @@ vi.mock('../src/audio/player', () => ({ player: fake }));
 
 import { MiniPlayer } from '../src/ui/MiniPlayer';
 
-const REC = { kind: 'recording' as const, url: 'https://x/459.mp3', title: 'شرح تفسير السعدي · الدرس ٤٥٩', subtitle: 'تفسير سورة التوبة: من الآية (١)' };
-const LIVE = { kind: 'live' as const, url: 'https://x/live', title: 'شرح كتاب التوحيد', subtitle: '' };
+const REC = { kind: 'recording' as const, url: 'https://x/459.mp3', title: 'شرح كتاب التوحيد · الدرس ٤٥٩', subtitle: 'تفسير سورة التوبة: من الآية (١)' };
+const LIVE = { kind: 'live' as const, url: 'https://x/live', title: 'شرح كتاب الكبائر للذهبي', subtitle: '' };
 const RAIL = { left: 100, width: 200 };
 
 beforeEach(() => {
@@ -172,6 +172,6 @@ it('the live stream keeps its one-row player, without a bar or skip buttons', ()
   const { container } = render(<MiniPlayer />);
   expect(screen.queryByRole('slider')).toBeNull();
   expect(container.innerHTML).toBe(
-    '<div class="mp"><button class="mini" aria-label="إيقاف مؤقت"><svg aria-hidden="true"><use href="#i-pause"></use></svg></button><div class="t"><span class="b">شرح كتاب التوحيد</span><span class="m">بث مباشر</span></div></div>',
+    '<div class="mp"><button class="mini" aria-label="إيقاف مؤقت"><svg aria-hidden="true"><use href="#i-pause"></use></svg></button><div class="t"><span class="b">شرح كتاب الكبائر للذهبي</span><span class="m">بث مباشر</span></div></div>',
   );
 });

@@ -87,7 +87,7 @@ describe('About', () => {
 describe('App on the web', () => {
   it('shows one tab per lesson and المزيد, which leaves out notifications', async () => {
     await app('#/more');
-    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
+    expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']);
     expect(screen.queryByRole('link', { name: /التنبيهات/ })).toBeNull();
   });
 
@@ -183,7 +183,7 @@ describe('App in the mobile app', () => {
 
   it('reaches notifications from المزيد', async () => {
     await app('#/more');
-    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
+    expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']);
     expect(screen.getByRole('link', { name: /التنبيهات/ }).getAttribute('href')).toBe('#/notifications');
     cleanup();
     await app('#/notifications');

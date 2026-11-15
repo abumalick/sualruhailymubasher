@@ -8,7 +8,7 @@ describe('GET /admin', () => {
     expect(res.headers.get('content-type')).toContain('text/html');
     const html = await res.text();
     expect(html).toContain('dir="rtl"');
-    for (const label of ['إلغاء', 'توقف', 'درس إضافي', 'تأجيل', 'دقائق بعد الأذان/الغروب', 'إضافة دورة', 'id="load-msg"']) expect(html).toContain(label);
+    for (const label of ['إلغاء', 'توقف', 'درس إضافي', 'تأجيل', 'دقائق بعد الأذان/العصر/الغروب', 'المكان', 'العصر', 'إضافة دورة', 'id="load-msg"']) expect(html).toContain(label);
     expect(html).toContain('لا تفعّل البث المباشر من الرابط المباشر إلا بعد موافقة أصحاب القناة على Mixlr');
   });
 

@@ -18,7 +18,8 @@ export type Card =
   | { course: CourseDTO; kind: 'recording'; lesson: LessonDTO }
   | { course: CourseDTO; kind: 'next'; next: NextPassageDTO };
 
-const slotOrder = (c: CourseDTO) => (c.slot === 'fajr' ? 0 : 1);
+const SLOT_ORDER: Record<CourseDTO['slot'], number> = { fajr: 0, asr: 1, maghrib: 2 };
+const slotOrder = (c: CourseDTO) => SLOT_ORDER[c.slot];
 
 export function initialDraft(p: Prefs | null, courses: CourseDTO[]): Draft {
   return { picked: attended(p, courses), wanted: p ? p.wanted : topicsFor(courses.map((c) => c.id)) };

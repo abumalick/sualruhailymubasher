@@ -16,7 +16,7 @@ vi.mock('../../src/pdf/cache', () => ({
 vi.mock('../../src/audio/player', () => ({
   player: {
     state: {
-      src: { kind: 'recording', url: 'about:blank', title: 'شرح تفسير السعدي · الدرس ٤٥٩', subtitle: 'تفسير سورة التوبة: من الآية (١)' },
+      src: { kind: 'recording', url: 'about:blank', title: 'شرح كتاب التوحيد · الدرس ٤٥٩', subtitle: 'تفسير سورة التوبة: من الآية (١)' },
       playing: true,
       position: 120,
       duration: 3600,
@@ -49,10 +49,10 @@ const CAPTION_MIN = 13;
 const noop = () => {};
 const ticks = { read: new Set<string>(), reviewed: new Set<string>() };
 const tabs = [
-  { courseId: 'tafsir-saadi', slot: 'fajr' as const, label: 'الفجر', live: false },
-  { courseId: 'kitab-tawhid', slot: 'maghrib' as const, label: 'المغرب', live: true },
+  { courseId: 'kitab-tawhid', slot: 'fajr' as const, label: 'الفجر', live: false },
+  { courseId: 'kabair', slot: 'asr' as const, label: 'العصر', live: true },
 ];
-const embed = { isLive: true, mode: 'embed' as const, embedUrl: 'about:blank#mixlr', streamUrl: null, courseId: 'kitab-tawhid', startedAt: '2026-11-02T15:00:00Z' };
+const embed = { isLive: true, mode: 'embed' as const, embedUrl: 'about:blank#mixlr', streamUrl: null, courseId: 'kabair', startedAt: '2026-11-02T15:00:00Z' };
 
 afterEach(() => {
   cleanup();
@@ -67,18 +67,18 @@ const shell = (body: ComponentChildren, after?: ComponentChildren) => (
   </div>
 );
 
-const lesson = (course = TAWHID, live = liveDTO('kitab-tawhid'), otherLive: { course: typeof TAFSIR | null } | null = null) => (
+const lesson = (course = TAWHID, live = liveDTO('kabair'), otherLive: { course: typeof TAFSIR | null } | null = null) => (
   <Lesson course={course} live={live} otherLive={otherLive} ticks={ticks} now={new Date('2026-11-02T18:00:00Z')} listening={false} onTick={noop} onPlay={noop} onLive={noop} />
 );
 
 const screens: Record<string, { node: () => ComponentChildren; steps?: number; ready?: string }> = {
-  'the lesson page with the live hero': { node: () => shell(lesson(), <NavBar route={{ name: 'course', id: 'kitab-tawhid' }} tabs={tabs} />) },
+  'the lesson page with the live hero': { node: () => shell(lesson(), <NavBar route={{ name: 'course', id: 'kabair' }} tabs={tabs} />) },
   'the lesson page with another lesson on air': {
-    node: () => shell(lesson(TAFSIR, liveDTO('kitab-tawhid'), { course: TAWHID }), <><MiniPlayer /><NavBar route={{ name: 'course', id: 'tafsir-saadi' }} tabs={tabs} /></>),
+    node: () => shell(lesson(TAFSIR, liveDTO('kabair'), { course: TAWHID }), <><MiniPlayer /><NavBar route={{ name: 'course', id: 'kitab-tawhid' }} tabs={tabs} /></>),
   },
   'the more page': { node: () => shell(<More />, <NavBar route={{ name: 'more' }} tabs={tabs} />) },
   'the notifications page': {
-    node: () => shell(<Notifications state={liveState('kitab-tawhid')} prefs={{ wanted: ['live-other'], known: [] }} onToggle={noop} />),
+    node: () => shell(<Notifications state={liveState('kabair')} prefs={{ wanted: ['live-other'], known: [] }} onToggle={noop} />),
     ready: '.card.reach',
   },
   'the links page': { node: () => shell(<Links state={FIXTURE_STATE} />) },

@@ -52,7 +52,7 @@ async function app(cached: StateDTO | null, now = MON_0940) {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   store.clear();
-  follow(['tafsir-saadi', 'kitab-tawhid']);
+  follow(['kitab-tawhid', 'kabair']);
   history.replaceState(null, '', '#/');
 });
 afterEach(() => {
@@ -64,42 +64,42 @@ describe('App tabs', () => {
   it("#/ opens the soonest lesson's tab and replaces the entry", async () => {
     const replace = vi.spyOn(location, 'replace');
     await app(FIXTURE_STATE);
-    await waitFor(() => expect(location.hash).toBe('#/course/kitab-tawhid'));
-    expect(replace).toHaveBeenCalledWith('#/course/kitab-tawhid');
+    await waitFor(() => expect(location.hash).toBe('#/course/kabair'));
+    expect(replace).toHaveBeenCalledWith('#/course/kabair');
     replace.mockRestore();
-    expect(await screen.findByRole('heading', { level: 1, name: 'درس المغرب' })).toBeTruthy();
-    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
-    expect(document.querySelector('.nav a.on')!.textContent).toBe('المغرب');
+    expect(await screen.findByRole('heading', { level: 1, name: 'درس العصر' })).toBeTruthy();
+    expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']);
+    expect(document.querySelector('.nav a.on')!.textContent).toBe('العصر');
   });
 
   it('#/ re-resolves once on the first fresh state', async () => {
     await app(FIXTURE_STATE);
+    await waitFor(() => expect(location.hash).toBe('#/course/kabair'));
+    await act(async () => resolveFetch(onAir('kitab-tawhid')));
     await waitFor(() => expect(location.hash).toBe('#/course/kitab-tawhid'));
-    await act(async () => resolveFetch(onAir('tafsir-saadi')));
-    await waitFor(() => expect(location.hash).toBe('#/course/tafsir-saadi'));
   });
 
   it('#/ does not move a listener who picked a tab before the fresh state', async () => {
     await app(FIXTURE_STATE);
-    await waitFor(() => expect(location.hash).toBe('#/course/kitab-tawhid'));
+    await waitFor(() => expect(location.hash).toBe('#/course/kabair'));
     await go('#/more');
-    await go('#/course/kitab-tawhid');
-    await act(async () => resolveFetch(onAir('tafsir-saadi')));
+    await go('#/course/kabair');
+    await act(async () => resolveFetch(onAir('kitab-tawhid')));
     await screen.findByText('درس الفجر مباشر الآن');
-    expect(location.hash).toBe('#/course/kitab-tawhid');
+    expect(location.hash).toBe('#/course/kabair');
   });
 
   it('an old #/courses link lands on a lesson tab', async () => {
     history.replaceState(null, '', '#/courses');
     await app(FIXTURE_STATE, MON_2110);
-    await waitFor(() => expect(location.hash).toBe('#/course/tafsir-saadi'));
+    await waitFor(() => expect(location.hash).toBe('#/course/kitab-tawhid'));
   });
 
   it('a listener with every notification off still has both lesson tabs', async () => {
     follow([]);
     await app(FIXTURE_STATE);
-    await waitFor(() => expect(location.hash).toBe('#/course/kitab-tawhid'));
-    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
+    await waitFor(() => expect(location.hash).toBe('#/course/kabair'));
+    expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']);
   });
 
   it('nav shows only المزيد without a state, with a retry once the fetch failed', async () => {
@@ -113,15 +113,15 @@ describe('App tabs', () => {
   });
 
   it('a one-lesson listener sees both tabs and opens on their own lesson', async () => {
-    follow(['tafsir-saadi']);
+    follow(['kitab-tawhid']);
     await app(FIXTURE_STATE);
-    await waitFor(() => expect(location.hash).toBe('#/course/tafsir-saadi'));
-    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
+    await waitFor(() => expect(location.hash).toBe('#/course/kitab-tawhid'));
+    expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']);
   });
 
   it('المزيد is active on its pages', async () => {
     await app(FIXTURE_STATE);
-    await waitFor(() => expect(location.hash).toBe('#/course/kitab-tawhid'));
+    await waitFor(() => expect(location.hash).toBe('#/course/kabair'));
     for (const hash of ['#/more', '#/links', '#/about']) {
       await go(hash);
       expect(document.querySelector('.nav a.on')!.textContent).toBe('المزيد');
@@ -132,26 +132,26 @@ describe('App tabs', () => {
     history.replaceState(null, '', '#/book/nope/0/1');
     await app(FIXTURE_STATE);
     fireEvent.click(await screen.findByRole('link', { name: 'الدروس' }));
-    await waitFor(() => expect(location.hash).toBe('#/course/kitab-tawhid'));
+    await waitFor(() => expect(location.hash).toBe('#/course/kabair'));
   });
 });
 
 describe('NavBar', () => {
   const tabs = [
-    { courseId: 'tafsir-saadi', slot: 'fajr' as const, label: 'الفجر', live: false },
-    { courseId: 'kitab-tawhid', slot: 'maghrib' as const, label: 'المغرب', live: true },
+    { courseId: 'kitab-tawhid', slot: 'fajr' as const, label: 'الفجر', live: false },
+    { courseId: 'kabair', slot: 'asr' as const, label: 'العصر', live: true },
   ];
 
   it('the tab of the lesson on air has a red dot', () => {
     render(<NavBar route={{ name: 'more' }} tabs={tabs} />);
     const links = [...document.querySelectorAll('.nav a')];
     expect(links.map((a) => !!a.querySelector('.ld'))).toEqual([false, true, false]);
-    expect(links.map((a) => a.getAttribute('href'))).toEqual(['#/course/tafsir-saadi', '#/course/kitab-tawhid', '#/more']);
-    expect(links.map((a) => a.getAttribute('data-slot'))).toEqual(['fajr', 'maghrib', null]);
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(['#/course/kitab-tawhid', '#/course/kabair', '#/more']);
+    expect(links.map((a) => a.getAttribute('data-slot'))).toEqual(['fajr', 'asr', null]);
   });
 
   it('the lesson tab stays active in its book', () => {
-    render(<NavBar route={{ name: 'book', id: 'tafsir-saadi', pdfIndex: 0, page: 1, marker: false }} tabs={tabs} />);
+    render(<NavBar route={{ name: 'book', id: 'kitab-tawhid', pdfIndex: 0, page: 1, marker: false }} tabs={tabs} />);
     expect(document.querySelector('.nav a.on')!.textContent).toBe('الفجر');
   });
 });
@@ -161,10 +161,10 @@ describe('zoom', () => {
     await app(FIXTURE_STATE, MON_2110);
     await screen.findAllByText(FIXTURE_STATE.courses[0].title);
     zoom.reset.mockClear();
-    await go('#/book/tafsir-saadi/0/312?marker=1');
+    await go('#/book/kitab-tawhid/0/312?marker=1');
     await waitFor(() => expect(document.querySelector('.book')).toBeTruthy());
     expect(zoom.reset).not.toHaveBeenCalled();
-    await go('#/course/tafsir-saadi');
+    await go('#/course/kitab-tawhid');
     await waitFor(() => expect(document.querySelector('.book')).toBeNull());
     expect(zoom.reset).toHaveBeenCalledOnce();
     await go('#/more');

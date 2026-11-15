@@ -4,7 +4,7 @@ import liveJson from './fixtures/channel-view-live.json';
 import offlineJson from './fixtures/channel-view-offline.json';
 import { offlineStep, runLivePoll } from '../src/jobs/live';
 import { parseChannelView } from '../src/sources/mixlr';
-import { getLive, insertLessonIfNew, recordBroadcast, setLive } from '../src/repo';
+import { getLive, insertLessonIfNew, recordBroadcast, setLive, upsertCourse } from '../src/repo';
 import type { Fcm } from '../src/fcm';
 
 const UID = 'fbaff98792b1bbbcb8e73ad92348916c';
@@ -25,6 +25,10 @@ const withStart = (startedAt: string, uid = UID) => ({
 });
 
 beforeEach(async () => {
+  await upsertCourse(env.DB, 'maghrib-test', {
+    title: 'درس المغرب', slot: 'maghrib', place: 'المسجد', weekdays: [0, 1, 2, 3, 4], offsetMin: 30,
+    seriesId: 1, pdfUrls: [], active: true,
+  });
   await env.DB.exec('DELETE FROM sent_notifications');
   await env.DB.exec('DELETE FROM lessons');
   await env.DB.exec('DELETE FROM broadcasts');
@@ -58,30 +62,30 @@ describe('runLivePoll', () => {
     await runLivePoll(deps);
     await runLivePoll(deps);
     expect(sendToTopic).toHaveBeenCalledTimes(1);
-    expect(await getLive(env.DB)).toMatchObject({ isLive: true, broadcastUid: UID, courseId: 'kitab-tawhid' });
+    expect(await getLive(env.DB)).toMatchObject({ isLive: true, broadcastUid: UID, courseId: 'maghrib-test' });
   });
 
   it('maps a Monday maghrib broadcast to its course with the next lesson number', async () => {
-    await insertLessonIfNew(env.DB, 'kitab-tawhid', {
+    await insertLessonIfNew(env.DB, 'maghrib-test', {
       number: 7, hijriDate: '01-01-1448', startPoint: 'x', recordingUrl: null, detailPath: '/detail/x',
     });
     const { deps, sendToTopic } = setup(respond(liveJson) as typeof fetch);
     await runLivePoll(deps);
-    expect(sendToTopic).toHaveBeenCalledWith('c-kitab-tawhid-live', {
+    expect(sendToTopic).toHaveBeenCalledWith('c-maghrib-test-live', {
       title: '🔴 بدأ البث المباشر',
       body: expect.stringMatching(/ · الدرس ٨$/),
-      data: { kind: 'live', courseId: 'kitab-tawhid', number: '8' },
+      data: { kind: 'live', courseId: 'maghrib-test', number: '8' },
       tag: 'live',
       ttlSec: 7200,
     });
   });
 
   it('counts an earlier broadcast not yet published on media.sualruhailymubasher.com', async () => {
-    await insertLessonIfNew(env.DB, 'kitab-tawhid', {
+    await insertLessonIfNew(env.DB, 'maghrib-test', {
       number: 7, hijriDate: '01-01-1448', startPoint: 'x', recordingUrl: null, detailPath: '/detail/x',
     });
     await env.DB.exec("UPDATE lessons SET created_at = '2026-10-01T00:00:00.000Z'");
-    await recordBroadcast(env.DB, 'earlier', 'kitab-tawhid', '2026-10-15T15:20:00.000Z');
+    await recordBroadcast(env.DB, 'earlier', 'maghrib-test', '2026-10-15T15:20:00.000Z');
     const { deps, sendToTopic } = setup(respond(liveJson) as typeof fetch);
     await runLivePoll(deps);
     expect(sendToTopic.mock.calls[0][1].data.number).toBe('9');
@@ -91,7 +95,7 @@ describe('runLivePoll', () => {
     await runLivePoll(setup(respond(liveJson) as typeof fetch).deps);
     await runLivePoll(setup(respond(withStart('2026-10-23T09:00:00.000Z', 'other-uid')) as typeof fetch).deps);
     const { results } = await env.DB.prepare('SELECT uid, course_id FROM broadcasts ORDER BY uid').all();
-    expect(results).toEqual([{ uid: UID, course_id: 'kitab-tawhid' }, { uid: 'other-uid', course_id: null }]);
+    expect(results).toEqual([{ uid: UID, course_id: 'maghrib-test' }, { uid: 'other-uid', course_id: null }]);
   });
 
   it('pushes once per course and day when the broadcaster reconnects', async () => {
@@ -148,7 +152,7 @@ describe('runLivePoll', () => {
   });
 
   it('keeps reporting live through the grace period, then clears live state', async () => {
-    const live = { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' };
+    const live = { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'maghrib-test', startedAt: 'x' };
     await setLive(env.DB, live);
     const { deps, sendToTopic } = setup(respond(offlineJson) as typeof fetch);
     await runLivePoll(deps);
@@ -177,7 +181,7 @@ describe('live dismiss', () => {
     runLivePoll({ db: env.DB, fetch: fetchImpl, fcm, now: at(min) });
 
   it('dismisses the live notification once the broadcast has stayed off past the grace period', async () => {
-    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' });
+    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'maghrib-test', startedAt: 'x' });
     const { deps, sendDataToTopic } = setup(offline);
     await poll(offline, 0, deps.fcm);
     await poll(offline, 2, deps.fcm);
@@ -185,7 +189,7 @@ describe('live dismiss', () => {
     await poll(offline, 3, deps.fcm);
     await poll(offline, 4, deps.fcm);
     expect(sendDataToTopic).toHaveBeenCalledTimes(1);
-    expect(sendDataToTopic).toHaveBeenCalledWith('c-kitab-tawhid-live', { dismiss: 'live' }, 7200);
+    expect(sendDataToTopic).toHaveBeenCalledWith('c-maghrib-test-live', { dismiss: 'live' }, 7200);
   });
 
   it('sends the dismiss to live-other for a broadcast outside every course', async () => {
@@ -197,7 +201,7 @@ describe('live dismiss', () => {
   });
 
   it('does not dismiss when the broadcaster reconnects within the grace period', async () => {
-    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' });
+    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'maghrib-test', startedAt: 'x' });
     const { deps, sendDataToTopic } = setup(offline);
     await poll(offline, 0, deps.fcm);
     await poll(respond(withStart('2026-10-19T17:01:00Z', 'again')) as typeof fetch, 1, deps.fcm);
@@ -219,7 +223,7 @@ describe('live dismiss', () => {
     await pollAt(resumed, '2026-10-19T15:36:30Z');
     await pollAt(resumed, '2026-10-19T15:37:30Z');
     expect(sendToTopic).toHaveBeenCalledTimes(2);
-    expect(sendToTopic.mock.calls[1][0]).toBe('c-kitab-tawhid-live');
+    expect(sendToTopic.mock.calls[1][0]).toBe('c-maghrib-test-live');
   });
 
   it('does not push again after a reconnect within the grace period', async () => {
@@ -234,7 +238,7 @@ describe('live dismiss', () => {
   });
 
   it('logs a failed dismiss and does not resend it', async () => {
-    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'kitab-tawhid', startedAt: 'x' });
+    await setLive(env.DB, { isLive: true, broadcastUid: UID, streamUrl: 's', courseId: 'maghrib-test', startedAt: 'x' });
     const { deps, sendDataToTopic } = setup(offline);
     sendDataToTopic.mockRejectedValue(new Error('fcm down'));
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});

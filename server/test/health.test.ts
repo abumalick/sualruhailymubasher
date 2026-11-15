@@ -8,8 +8,8 @@ describe('worker', () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
-  it('applies migrations and seeds two courses', async () => {
+  it('applies migrations and seeds the four courses', async () => {
     const row = await env.DB.prepare('SELECT count(*) AS n FROM courses').first<{ n: number }>();
-    expect(row?.n).toBe(2);
+    expect(row?.n).toBe(4);
   });
 });

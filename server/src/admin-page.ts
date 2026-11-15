@@ -168,9 +168,11 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     var title = el('input', { value: c.title });
     var slot = el('select');
     slot.appendChild(el('option', { value: 'fajr', text: 'الفجر' }));
+    slot.appendChild(el('option', { value: 'asr', text: 'العصر' }));
     slot.appendChild(el('option', { value: 'maghrib', text: 'المغرب' }));
     slot.value = c.slot;
     var offset = el('input', { type: 'number', min: 0, max: 120, value: String(c.offsetMin) });
+    var place = el('input', { value: c.place || '', placeholder: 'مسجد قباء' });
     var series = el('input', { type: 'number', min: 0, value: String(c.seriesId) });
     var pdfs = el('textarea', { value: c.pdfUrls.join('\n') });
     var edition = el('input', { value: c.edition || '', placeholder: 'طبعة دار ابن الجوزي' });
@@ -186,6 +188,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
       var body = {
         title: title.value.trim(),
         slot: slot.value,
+        place: place.value.trim(),
         weekdays: boxes.map(function (b, i) { return b.cb.checked ? i : -1; }).filter(function (i) { return i >= 0; }),
         offsetMin: Number(offset.value),
         seriesId: Number(series.value),
@@ -206,7 +209,8 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
       isNew ? el('p', { className: 'muted', text: 'عند انتهاء كتاب: اجعل دورته غير فعّالة، وأضف الكتاب الجديد هنا بمعرّف دورة جديد ورقم سلسلته. لا تغيّر رقم السلسلة لدورة موجودة.' }) : null,
       isNew ? field('معرّف الدورة (حروف إنجليزية صغيرة وأرقام و-)', idInput) : null,
       field('العنوان', title),
-      el('div', { className: 'grid' }, [field('الفترة', slot), field('دقائق بعد الأذان/الغروب', offset)]),
+      field('المكان', place),
+      el('div', { className: 'grid' }, [field('الفترة', slot), field('دقائق بعد الأذان/العصر/الغروب', offset)]),
       el('label', { text: 'أيام الدرس' }),
       el('div', { className: 'days' }, boxes.map(function (b) { return b.node; })),
       field('رقم السلسلة', series),
@@ -222,7 +226,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     var box = $('courses');
     box.textContent = '';
     courses.forEach(function (c) { box.appendChild(courseCard(c, false)); });
-    box.appendChild(courseCard({ id: '', title: '', slot: 'fajr', weekdays: [], offsetMin: 25, seriesId: 0, pdfUrls: [], edition: null, pageOffsets: [], active: true }, true));
+    box.appendChild(courseCard({ id: '', title: '', slot: 'fajr', place: '', weekdays: [], offsetMin: 25, seriesId: 0, pdfUrls: [], edition: null, pageOffsets: [], active: true }, true));
     var sel = $('exc-course');
     sel.textContent = '';
     sel.appendChild(el('option', { value: '', text: 'كل الدورات' }));

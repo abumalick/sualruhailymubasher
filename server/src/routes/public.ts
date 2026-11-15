@@ -66,6 +66,7 @@ publicRoutes.get('/api/state', async (c) => {
         id: course.id,
         title: course.title,
         slot: course.slot,
+        place: course.place,
         weekdays: course.weekdays,
         time: next?.time ?? lessonTime(course, medinaDate(now)),
         pdfUrls: course.pdfUrls,

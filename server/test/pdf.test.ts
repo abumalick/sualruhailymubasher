@@ -1,5 +1,5 @@
 import { env, exports } from 'cloudflare:workers';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { upsertCourse } from '../src/repo';
 import { isBookUrl, servePdf, type PdfDeps } from '../src/pdf';
 
@@ -114,15 +114,22 @@ describe('GET /api/courses/:id/pdf/:index', () => {
     upstream.mockClear();
   });
 
+  beforeAll(() =>
+    upsertCourse(env.DB, 'kitab-pdf', {
+      title: 'ك', slot: 'fajr', place: '', weekdays: [6], offsetMin: 30, seriesId: 1, active: true,
+      pdfUrls: [1, 2, 3].map((n) => `https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_0${n}.pdf`),
+    }),
+  );
+
   it('serves a volume the course data lists, with CORS, and serves the cached copy afterwards', async () => {
     vi.stubGlobal('fetch', upstream);
-    const res = await get('/api/courses/kitab-tawhid/pdf/1');
+    const res = await get('/api/courses/kitab-pdf/pdf/1');
     expect(res.status).toBe(200);
     expect(res.headers.get('access-control-allow-origin')).toBe('*');
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PDF);
     expect(upstream).toHaveBeenCalledWith('https://media.sualruhailymubasher.com/download/mutun/SharhKitaabAtTawheed_IbnIbraheem_02.pdf', { redirect: 'manual' });
 
-    const again = await get('/api/courses/kitab-tawhid/pdf/1');
+    const again = await get('/api/courses/kitab-pdf/pdf/1');
     expect(again.status).toBe(200);
     expect(again.headers.get('access-control-allow-origin')).toBe('*');
     expect(new Uint8Array(await again.arrayBuffer())).toEqual(PDF);
@@ -131,11 +138,11 @@ describe('GET /api/courses/:id/pdf/:index', () => {
 
   it.each([
     ['an unknown course', '/api/courses/nope/pdf/0'],
-    ['a course without a PDF', '/api/courses/tafsir-saadi/pdf/0'],
-    ['an index past the last volume', '/api/courses/kitab-tawhid/pdf/3'],
-    ['a negative index', '/api/courses/kitab-tawhid/pdf/-1'],
-    ['a fractional index', '/api/courses/kitab-tawhid/pdf/0.5'],
-    ['a non-numeric index', '/api/courses/kitab-tawhid/pdf/x'],
+    ['a course without a PDF', '/api/courses/dalil-talib/pdf/0'],
+    ['an index past the last volume', '/api/courses/kitab-pdf/pdf/3'],
+    ['a negative index', '/api/courses/kitab-pdf/pdf/-1'],
+    ['a fractional index', '/api/courses/kitab-pdf/pdf/0.5'],
+    ['a non-numeric index', '/api/courses/kitab-pdf/pdf/x'],
   ])('answers 404 for %s without fetching anything', async (_, path) => {
     vi.stubGlobal('fetch', upstream);
     expect((await get(path)).status).toBe(404);
@@ -144,7 +151,7 @@ describe('GET /api/courses/:id/pdf/:index', () => {
 
   it('refuses a course PDF URL that is not on media.sualruhailymubasher.com', async () => {
     vi.stubGlobal('fetch', upstream);
-    await upsertCourse(env.DB, 'odd', { title: 'x', slot: 'fajr', weekdays: [0], offsetMin: 0, seriesId: 1, pdfUrls: ['https://evil.example/a.pdf'], active: true });
+    await upsertCourse(env.DB, 'odd', { title: 'x', slot: 'fajr', place: '', weekdays: [0], offsetMin: 0, seriesId: 1, pdfUrls: ['https://evil.example/a.pdf'], active: true });
     try {
       expect((await get('/api/courses/odd/pdf/0')).status).toBe(404);
       expect(upstream).not.toHaveBeenCalled();

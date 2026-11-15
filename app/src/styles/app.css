@@ -81,6 +81,7 @@ button:disabled { cursor: default; }
 .sec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .lp { display: contents; }
 [data-slot=fajr] { --acc: var(--dawn); --tint: var(--dawn-bg); }
+[data-slot=asr] { --acc: var(--asr); --tint: var(--asr-bg); }
 [data-slot=maghrib] { --acc: var(--dusk); --tint: var(--dusk-bg); }
 .lh { display: flex; align-items: center; gap: 12px; }
 .lh .sym { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--tint); color: var(--acc); flex: none; }
@@ -90,6 +91,7 @@ button:disabled { cursor: default; }
 .lh small { font: 400 var(--fs-caption) var(--ui); color: var(--soft); }
 .lh .date { font: 500 var(--fs-caption) var(--ui); color: var(--soft); text-align: left; line-height: 1.5; flex: none; }
 .ct { font-family: var(--naskh); font-size: var(--fs-body); margin: -6px 0 0; }
+.ct.place { font-size: var(--fs-caption); color: var(--soft); margin-top: -10px; }
 .sec.lsec { font: 700 var(--fs-title) var(--naskh); margin: 6px 0 -3px; }
 .sec small { font: 500 var(--fs-caption) var(--ui); color: var(--soft); }
 .card.livecard { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--live-bg); border-color: color-mix(in srgb, var(--live) 40%, transparent); }

@@ -7,7 +7,7 @@ import '../../src/styles/app.css';
 
 const fake = vi.hoisted(() => ({
   state: {
-    src: { kind: 'recording', url: 'about:blank', title: 'شرح تفسير السعدي · الدرس ٤٥٩', subtitle: 'تفسير سورة التوبة: من الآية (١)' },
+    src: { kind: 'recording', url: 'about:blank', title: 'شرح كتاب التوحيد · الدرس ٤٥٩', subtitle: 'تفسير سورة التوبة: من الآية (١)' },
     playing: true,
     position: 900,
     duration: 3600,

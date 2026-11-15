@@ -14,7 +14,7 @@ const follow = (ids: string[], courses = FIXTURE_STATE.courses): Follow => ({
 });
 
 describe('reconcilePrefs', () => {
-  const both: Prefs = { wanted: ['c-kitab-tawhid-live'], known: [['tafsir-saadi', 'fajr'], ['kitab-tawhid', 'maghrib']] };
+  const both: Prefs = { wanted: ['c-kabair-live'], known: [['kitab-tawhid', 'fajr'], ['kabair', 'asr']] };
 
   it('returns the same record when no course is new', () => {
     expect(reconcilePrefs(both, [TAFSIR, TAWHID])).toBe(both);
@@ -22,19 +22,19 @@ describe('reconcilePrefs', () => {
 
   it('a paused course keeps its switches while unlisted and when it comes back', () => {
     const paused = reconcilePrefs(both, [TAFSIR]);
-    expect(paused.wanted).toContain('c-kitab-tawhid-live');
+    expect(paused.wanted).toContain('c-kabair-live');
     expect(reconcilePrefs(paused, [TAFSIR, TAWHID]).wanted).toEqual(both.wanted);
   });
 
   it('a new book inherits the kinds of the last course of its slot', () => {
-    const p: Prefs = { wanted: ['c-tafsir-saadi-rec', 'c-tafsir-saadi-prep'], known: [['tafsir-saadi', 'fajr']] };
+    const p: Prefs = { wanted: ['c-kitab-tawhid-rec', 'c-kitab-tawhid-prep'], known: [['kitab-tawhid', 'fajr']] };
     const next = reconcilePrefs(p, [TAFSIR, book('tafsir-2', TAFSIR)]);
     expect(kindsOf(next, 'tafsir-2')).toEqual(['rec', 'prep']);
     expect(next.known.at(-1)).toEqual(['tafsir-2', 'fajr']);
   });
 
   it('a new book after a gap still inherits from the book that left', () => {
-    const p: Prefs = { wanted: ['c-tafsir-saadi-live'], known: [['tafsir-saadi', 'fajr']] };
+    const p: Prefs = { wanted: ['c-kitab-tawhid-live'], known: [['kitab-tawhid', 'fajr']] };
     const gap = reconcilePrefs(p, []);
     expect(kindsOf(reconcilePrefs(gap, [book('tafsir-2', TAFSIR)]), 'tafsir-2')).toEqual(['live']);
   });
@@ -47,15 +47,15 @@ describe('reconcilePrefs', () => {
   });
 
   it('a course in a slot with no history starts with every notification on', () => {
-    const p: Prefs = { wanted: [], known: [['tafsir-saadi', 'fajr']] };
+    const p: Prefs = { wanted: [], known: [['kitab-tawhid', 'fajr']] };
     const next = reconcilePrefs(p, [TAFSIR, TAWHID]);
-    expect(kindsOf(next, 'kitab-tawhid')).toEqual(['live', 'rec', 'prep']);
-    expect(kindsOf(next, 'tafsir-saadi')).toEqual([]);
-    expect(next.known.map(([id]) => id)).toEqual(['tafsir-saadi', 'kitab-tawhid']);
+    expect(kindsOf(next, 'kabair')).toEqual(['live', 'rec', 'prep']);
+    expect(kindsOf(next, 'kitab-tawhid')).toEqual([]);
+    expect(next.known.map(([id]) => id)).toEqual(['kitab-tawhid', 'kabair']);
   });
 
   it('a new book in a slot whose lesson was left unticked stays silent', () => {
-    const p: Prefs = { wanted: topicsFor(['tafsir-saadi']), known: [['tafsir-saadi', 'fajr'], ['kitab-tawhid', 'maghrib']] };
+    const p: Prefs = { wanted: topicsFor(['kitab-tawhid']), known: [['kitab-tawhid', 'fajr'], ['kabair', 'asr']] };
     expect(kindsOf(reconcilePrefs(p, [TAFSIR, book('tawhid-2', TAWHID)]), 'tawhid-2')).toEqual([]);
   });
 });
@@ -64,10 +64,10 @@ describe('migratePrefs', () => {
   const courses = FIXTURE_STATE.courses;
 
   it('keeps stored topics and the follow record decides nothing more', () => {
-    const topics = [...topicsFor(['tafsir-saadi'])];
-    const p = migratePrefs({ topics, topicCourses: ['tafsir-saadi'], follow: follow(['tafsir-saadi']) }, courses)!;
+    const topics = [...topicsFor(['kitab-tawhid'])];
+    const p = migratePrefs({ topics, topicCourses: ['kitab-tawhid'], follow: follow(['kitab-tawhid']) }, courses)!;
     expect(p.wanted.sort()).toEqual([...topics].sort());
-    expect(p.known).toEqual([['tafsir-saadi', 'fajr'], ['kitab-tawhid', 'maghrib']]);
+    expect(p.known).toEqual([['kitab-tawhid', 'fajr'], ['kabair', 'asr']]);
   });
 
   it('takes the slot of a course that left from the follow record', () => {
@@ -77,39 +77,39 @@ describe('migratePrefs', () => {
   });
 
   it('a follow record without stored topics gets its lessons and live-other', () => {
-    const p = migratePrefs({ topics: null, topicCourses: null, follow: follow(['tafsir-saadi']) }, courses)!;
-    expect(p.wanted.sort()).toEqual(topicsFor(['tafsir-saadi']).sort());
+    const p = migratePrefs({ topics: null, topicCourses: null, follow: follow(['kitab-tawhid']) }, courses)!;
+    expect(p.wanted.sort()).toEqual(topicsFor(['kitab-tawhid']).sort());
   });
 
   it('keeps the order courses were seen, so the next book inherits from the current one, not one that left', () => {
-    const f: Follow = { ids: ['m2'], known: { 'tafsir-saadi': 'fajr', m1: 'maghrib', m2: 'maghrib' }, fresh: [], hint: false };
+    const f: Follow = { ids: ['m2'], known: { 'kitab-tawhid': 'fajr', m1: 'maghrib', m2: 'maghrib' }, fresh: [], hint: false };
     const m2 = book('m2', TAWHID);
     const p = migratePrefs({ topics: topicsFor(['m2']), topicCourses: ['m2'], follow: f }, [TAFSIR, m2])!;
-    expect(p.known.map(([id]) => id)).toEqual(['tafsir-saadi', 'm1', 'm2']);
+    expect(p.known.map(([id]) => id)).toEqual(['kitab-tawhid', 'm1', 'm2']);
     expect(kindsOf(reconcilePrefs(p, [TAFSIR, book('m3', TAWHID)]), 'm3')).toEqual(['live', 'rec', 'prep']);
   });
 
   it('a book that started before the update inherits from the one the old version knew', () => {
-    const f: Follow = { ids: ['m1'], known: { 'tafsir-saadi': 'fajr', m1: 'maghrib' }, fresh: [], hint: false };
+    const f: Follow = { ids: ['m1'], known: { 'kitab-tawhid': 'fajr', m1: 'maghrib' }, fresh: [], hint: false };
     const p = migratePrefs({ topics: [...topicsFor(['m1'])], topicCourses: ['m1'], follow: f }, [TAFSIR, book('m2', TAWHID)])!;
     expect(kindsOf(p, 'm2')).toEqual(['live', 'rec', 'prep']);
-    expect(kindsOf(p, 'tafsir-saadi')).toEqual([]);
+    expect(kindsOf(p, 'kitab-tawhid')).toEqual([]);
   });
 
   it('without a follow record (before the lesson choice), a course the old version had not seen gets all three, as it did then', () => {
-    const p = migratePrefs({ topics: ['c-kitab-tawhid-rec'], topicCourses: ['kitab-tawhid'], follow: null }, courses)!;
-    expect(p.known).toEqual([['kitab-tawhid', 'maghrib'], ['tafsir-saadi', 'fajr']]);
-    expect(kindsOf(p, 'kitab-tawhid')).toEqual(['rec']);
-    expect(kindsOf(p, 'tafsir-saadi')).toEqual(['live', 'rec', 'prep']);
+    const p = migratePrefs({ topics: ['c-kabair-rec'], topicCourses: ['kabair'], follow: null }, courses)!;
+    expect(p.known).toEqual([['kabair', 'asr'], ['kitab-tawhid', 'fajr']]);
+    expect(kindsOf(p, 'kabair')).toEqual(['rec']);
+    expect(kindsOf(p, 'kitab-tawhid')).toEqual(['live', 'rec', 'prep']);
     expect(p.wanted).not.toContain('live-other');
     expect(migratePrefs({ topics: ['live-other'], topicCourses: null, follow: null }, courses)!.wanted.sort()).toEqual(topicsFor(courses.map((c) => c.id)).sort());
   });
 
   it('a followed course that was paused at the update gets its three switches back, as the old version would have', () => {
-    const f: Follow = { ids: ['tafsir-saadi', 'm1'], known: { 'tafsir-saadi': 'fajr', m1: 'maghrib' }, fresh: [], hint: false };
-    const p = migratePrefs({ topics: [`c-tafsir-saadi-rec`], topicCourses: ['tafsir-saadi'], follow: f }, [TAFSIR])!;
+    const f: Follow = { ids: ['kitab-tawhid', 'm1'], known: { 'kitab-tawhid': 'fajr', m1: 'maghrib' }, fresh: [], hint: false };
+    const p = migratePrefs({ topics: [`c-kitab-tawhid-rec`], topicCourses: ['kitab-tawhid'], follow: f }, [TAFSIR])!;
     expect(kindsOf(p, 'm1')).toEqual(['live', 'rec', 'prep']);
-    expect(kindsOf(p, 'tafsir-saadi')).toEqual(['rec']);
+    expect(kindsOf(p, 'kitab-tawhid')).toEqual(['rec']);
   });
 
   it('nothing stored is a new listener', () => {
@@ -119,23 +119,23 @@ describe('migratePrefs', () => {
 
 describe('subscriptionPlan', () => {
   it('subscribes only listed courses and drops what is not wanted', () => {
-    const p: Prefs = { wanted: ['c-tafsir-saadi-live', 'c-kitab-tawhid-rec', 'live-other'], known: [['tafsir-saadi', 'fajr'], ['kitab-tawhid', 'maghrib']] };
-    const plan = subscriptionPlan(p, ['tafsir-saadi'], ['c-kitab-tawhid-rec', 'c-tafsir-saadi-prep']);
-    expect(plan.wanted.sort()).toEqual(['c-tafsir-saadi-live', 'live-other']);
-    expect(plan.sub.sort()).toEqual(['c-tafsir-saadi-live', 'live-other']);
-    expect(plan.unsub.sort()).toEqual(['c-kitab-tawhid-rec', 'c-tafsir-saadi-prep', 'c-tafsir-saadi-rec']);
+    const p: Prefs = { wanted: ['c-kitab-tawhid-live', 'c-kabair-rec', 'live-other'], known: [['kitab-tawhid', 'fajr'], ['kabair', 'asr']] };
+    const plan = subscriptionPlan(p, ['kitab-tawhid'], ['c-kabair-rec', 'c-kitab-tawhid-prep']);
+    expect(plan.wanted.sort()).toEqual(['c-kitab-tawhid-live', 'live-other']);
+    expect(plan.sub.sort()).toEqual(['c-kitab-tawhid-live', 'live-other']);
+    expect(plan.unsub.sort()).toEqual(['c-kabair-rec', 'c-kitab-tawhid-prep', 'c-kitab-tawhid-rec']);
   });
 });
 
 describe('attended', () => {
-  const known: Prefs['known'] = [['tafsir-saadi', 'fajr'], ['kitab-tawhid', 'maghrib']];
+  const known: Prefs['known'] = [['kitab-tawhid', 'fajr'], ['kabair', 'asr']];
 
   it('is the lessons with at least one switch on', () => {
-    expect(attended({ wanted: ['c-tafsir-saadi-prep', 'live-other'], known }, FIXTURE_STATE.courses)).toEqual(['tafsir-saadi']);
+    expect(attended({ wanted: ['c-kitab-tawhid-prep', 'live-other'], known }, FIXTURE_STATE.courses)).toEqual(['kitab-tawhid']);
   });
 
   it('is every lesson when none has a switch on', () => {
-    expect(attended({ wanted: ['live-other'], known }, FIXTURE_STATE.courses)).toEqual(['tafsir-saadi', 'kitab-tawhid']);
-    expect(attended(null, FIXTURE_STATE.courses)).toEqual(['tafsir-saadi', 'kitab-tawhid']);
+    expect(attended({ wanted: ['live-other'], known }, FIXTURE_STATE.courses)).toEqual(['kitab-tawhid', 'kabair']);
+    expect(attended(null, FIXTURE_STATE.courses)).toEqual(['kitab-tawhid', 'kabair']);
   });
 });

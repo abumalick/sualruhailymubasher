@@ -30,15 +30,15 @@ export function liveState(state, courseId, minutesIn = 12) {
   };
 }
 
-// The story the listing tells: the morning and the evening lesson, listening live, revising a lesson from its
+// The story the listing tells: the Fajr and the Asr lesson, listening live, revising a lesson from its
 // recording, preparing the next one in the book, and the notifications that bring the listener back.
 // Routes name each course rather than #/, which opens whichever lesson is nearest at capture time.
 export const SHOTS = [
-  { name: '01-fajr', route: '#/course/tafsir-saadi', slot: 'fajr' },
-  { name: '02-maghrib', route: '#/course/kitab-tawhid', slot: 'maghrib' },
-  { name: '03-live', route: '#/course/tafsir-saadi', slot: 'fajr', live: 'tafsir-saadi' },
-  { name: '04-recording', route: '#/course/tafsir-saadi', slot: 'fajr', step: 'recording' },
-  { name: '05-book', route: '#/course/kitab-tawhid', slot: 'maghrib', step: 'book' },
+  { name: '01-fajr', route: '#/course/kitab-tawhid', slot: 'fajr' },
+  { name: '02-asr', route: '#/course/kabair', slot: 'asr' },
+  { name: '03-live', route: '#/course/kitab-tawhid', slot: 'fajr', live: 'kitab-tawhid' },
+  { name: '04-recording', route: '#/course/kitab-tawhid', slot: 'fajr', step: 'recording' },
+  { name: '05-book', route: '#/course/kabair', slot: 'asr', step: 'book' },
   { name: '06-notifications', route: '#/notifications' },
 ];
 

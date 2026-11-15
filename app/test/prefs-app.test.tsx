@@ -28,7 +28,7 @@ import { topicsFor } from '../src/logic/topics';
 const [fajr, maghrib] = FIXTURE_STATE.courses;
 const MON_2110 = new Date('2026-11-02T18:10:00Z');
 const legacyFajrOnly = () => {
-  store.set('follow', JSON.stringify({ ids: [fajr.id], known: { [fajr.id]: 'fajr', [maghrib.id]: 'maghrib' }, fresh: [], hint: false }));
+  store.set('follow', JSON.stringify({ ids: [fajr.id], known: { [fajr.id]: 'fajr', [maghrib.id]: 'asr' }, fresh: [], hint: false }));
   store.set('topics', JSON.stringify(topicsFor([fajr.id])));
   store.set('topic-courses', JSON.stringify([fajr.id]));
 };
@@ -59,11 +59,11 @@ describe('one preference record', () => {
     store.set('onboarded', '1');
     vi.mocked(api.loadCachedState).mockResolvedValue(FIXTURE_STATE);
     render(<App />);
-    await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']));
+    await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']));
     await waitFor(() => expect(store.has('prefs')).toBe(true));
     const prefs = JSON.parse(store.get('prefs')!);
     expect(prefs.wanted.filter((t: string) => t.includes(maghrib.id))).toEqual([]);
-    expect(prefs.known).toEqual([[fajr.id, 'fajr'], [maghrib.id, 'maghrib']]);
+    expect(prefs.known).toEqual([[fajr.id, 'fajr'], [maghrib.id, 'asr']]);
     expect(store.has('follow')).toBe(false);
     expect(store.has('topic-courses')).toBe(false);
   });
@@ -84,7 +84,7 @@ describe('one preference record', () => {
   });
 
   it('opens on the soonest lesson the listener attends', async () => {
-    store.set('prefs', JSON.stringify({ wanted: topicsFor([maghrib.id]), known: [[fajr.id, 'fajr'], [maghrib.id, 'maghrib']] }));
+    store.set('prefs', JSON.stringify({ wanted: topicsFor([maghrib.id]), known: [[fajr.id, 'fajr'], [maghrib.id, 'asr']] }));
     store.set('onboarded', '1');
     vi.mocked(api.loadCachedState).mockResolvedValue(FIXTURE_STATE);
     render(<App />);
@@ -118,7 +118,7 @@ describe('a storage read that fails at boot', () => {
   });
 
   it('the preference record unreadable: the onboarding is shown and the stored record is not replaced by a migration', async () => {
-    const prefs = JSON.stringify({ wanted: topicsFor([maghrib.id]), known: [[fajr.id, 'fajr'], [maghrib.id, 'maghrib']] });
+    const prefs = JSON.stringify({ wanted: topicsFor([maghrib.id]), known: [[fajr.id, 'fajr'], [maghrib.id, 'asr']] });
     store.set('prefs', prefs);
     store.set('topics', JSON.stringify(topicsFor([fajr.id])));
     store.set('onboarded', '1');
@@ -136,6 +136,6 @@ describe('a storage read that fails at boot', () => {
     failing.add('keys');
     vi.mocked(api.loadCachedState).mockResolvedValue(FIXTURE_STATE);
     render(<App />);
-    await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']));
+    await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']));
   });
 });

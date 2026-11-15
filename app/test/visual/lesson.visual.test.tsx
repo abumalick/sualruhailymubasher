@@ -38,8 +38,8 @@ function page(course: CourseDTO) {
       <NavBar
         route={{ name: 'course', id: course.id }}
         tabs={[
-          { courseId: 'tafsir-saadi', slot: 'fajr', label: 'الفجر', live: false },
-          { courseId: 'kitab-tawhid', slot: 'maghrib', label: 'المغرب', live: true },
+          { courseId: 'kitab-tawhid', slot: 'fajr', label: 'الفجر', live: false },
+          { courseId: 'kabair', slot: 'asr', label: 'العصر', live: true },
         ]}
       />
     </div>,

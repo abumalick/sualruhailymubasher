@@ -4,9 +4,9 @@ import { routeForPush, tapNavigation, topicsFor } from '../src/logic/topics';
 
 describe('topics', () => {
   it('subscribes to every default topic', () => {
-    const all = topicsFor(['tafsir-saadi', 'kitab-tawhid']);
+    const all = topicsFor(['kitab-tawhid', 'kabair']);
     expect(all).toHaveLength(7);
-    expect(all).toContain('c-tafsir-saadi-prep');
+    expect(all).toContain('c-kitab-tawhid-prep');
     expect(all).toContain('live-other');
   });
 });

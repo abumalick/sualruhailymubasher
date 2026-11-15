@@ -109,14 +109,14 @@ async function openLive(courseId: string) {
 }
 
 it('opening the book from the live sheet keeps the Mixlr iframe mounted and collapses it into a bar', async () => {
-  const frame = await openLive('kitab-tawhid');
+  const frame = await openLive('kabair');
   const sheetEl = screen.getByRole('dialog', { name: 'البث المباشر' });
   const head = sheetEl.firstElementChild!;
   expect([...sheetEl.children]).toEqual([head, frame]);
   const w = watch(frame, head);
 
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' }));
-  await go('#/book/kitab-tawhid/0/280?marker=1');
+  await go('#/book/kabair/0/280?marker=1');
   expect(screen.getByText('book page 280')).toBeTruthy();
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByRole('region', { name: 'البث المباشر' })).toBeTruthy();
@@ -138,24 +138,24 @@ it('opening the book from the live sheet keeps the Mixlr iframe mounted and coll
 });
 
 it("the book's back arrow falls back to the lesson's tab, which holds the live hero", async () => {
-  await openLive('kitab-tawhid');
-  await go('#/book/kitab-tawhid/0/280?marker=1');
+  await openLive('kabair');
+  await go('#/book/kabair/0/280?marker=1');
+  expect(document.querySelector('.book')!.getAttribute('data-back')).toBe('#/course/kabair');
+  await go('#/book/kitab-tawhid/0/12');
   expect(document.querySelector('.book')!.getAttribute('data-back')).toBe('#/course/kitab-tawhid');
-  await go('#/book/tafsir-saadi/0/12');
-  expect(document.querySelector('.book')!.getAttribute('data-back')).toBe('#/course/tafsir-saadi');
   fireEvent.click(screen.getByRole('button', { name: 'إيقاف البث' }));
-  await go('#/book/kitab-tawhid/0/280');
-  expect(document.querySelector('.book')!.getAttribute('data-back')).toBe('#/course/kitab-tawhid');
+  await go('#/book/kabair/0/280');
+  expect(document.querySelector('.book')!.getAttribute('data-back')).toBe('#/course/kabair');
 });
 
 it("Android's back button shrinks the open live player without reloading Mixlr or leaving the page", async () => {
-  const frame = await openLive('kitab-tawhid');
+  const frame = await openLive('kabair');
   const back = vi.spyOn(history, 'back').mockImplementation(() => {});
   act(() => backButton.press!(true));
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByRole('region', { name: 'البث المباشر' })).toBeTruthy();
   expect(screen.getByTitle('البث المباشر')).toBe(frame);
-  expect(location.hash).toBe('#/course/kitab-tawhid');
+  expect(location.hash).toBe('#/course/kabair');
   expect(back).not.toHaveBeenCalled();
 
   act(() => backButton.press!(true));
@@ -164,7 +164,7 @@ it("Android's back button shrinks the open live player without reloading Mixlr o
 });
 
 it('tapping the hero again after collapsing re-expands the same sheet without reloading Mixlr', async () => {
-  const frame = await openLive('kitab-tawhid');
+  const frame = await openLive('kabair');
   fireEvent.click(screen.getByRole('button', { name: 'تصغير' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'تستمع الآن إلى البث' }));
@@ -173,15 +173,15 @@ it('tapping the hero again after collapsing re-expands the same sheet without re
 });
 
 it('a deep link to the book while the sheet is open collapses it instead of covering the book', async () => {
-  const frame = await openLive('tafsir-saadi');
-  await go('#/book/kitab-tawhid/0/12');
+  const frame = await openLive('kitab-tawhid');
+  await go('#/book/kabair/0/12');
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByText('book page 12')).toBeTruthy();
   expect(screen.getByTitle('البث المباشر')).toBe(frame);
 });
 
 it('stopping from the bar removes the player and clears the media session', async () => {
-  await openLive('kitab-tawhid');
+  await openLive('kabair');
   await go('#/more');
   fireEvent.click(screen.getByRole('button', { name: 'إيقاف البث' }));
   expect(screen.queryByTitle('البث المباشر')).toBeNull();
@@ -189,10 +189,10 @@ it('stopping from the bar removes the player and clears the media session', asyn
 });
 
 it('playing a recording while the bar is up stops the live player first and keeps the recording session', async () => {
-  await openLive('kitab-tawhid');
+  await openLive('kabair');
   vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
   vi.mocked(api.fetchLessons).mockResolvedValue([]);
-  await go('#/course/kitab-tawhid');
+  await go('#/course/kabair');
   fireEvent.click(screen.getAllByRole('button', { name: 'استمع' })[0]);
   await act(async () => {});
   expect(screen.queryByTitle('البث المباشر')).toBeNull();
@@ -201,19 +201,19 @@ it('playing a recording while the bar is up stops the live player first and keep
 });
 
 it('when the server reports the end with no course, the bar keeps its lesson and book link and says it ended', async () => {
-  const frame = await openLive('kitab-tawhid');
+  const frame = await openLive('kabair');
   await go('#/more');
   vi.mocked(api.fetchState).mockResolvedValue({ state: endedState(), fresh: true });
   await act(() => refresh());
   expect(screen.queryByText('مباشر الآن')).toBeNull();
   expect(screen.getByText('انتهى البث')).toBeTruthy();
-  expect(screen.getByRole('button', { name: /التعليق على شرح كتاب التوحيد.*انتهى البث/ })).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
+  expect(screen.getByRole('button', { name: /شرح كتاب الكبائر للذهبي.*انتهى البث/ })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' }).getAttribute('href')).toBe('#/book/kabair/0/280?marker=1');
   expect(screen.getByTitle('البث المباشر')).toBe(frame);
 });
 
 it('tapping the hero again in direct mode keeps the stream instead of reloading it', async () => {
-  vi.mocked(api.loadCachedState).mockResolvedValue({ ...liveState('kitab-tawhid'), live: { ...liveState('kitab-tawhid').live, mode: 'direct', streamUrl: 'https://s/live' } });
+  vi.mocked(api.loadCachedState).mockResolvedValue({ ...liveState('kabair'), live: { ...liveState('kabair').live, mode: 'direct', streamUrl: 'https://s/live' } });
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'استمع إلى البث المباشر' }));
   await act(async () => {});
@@ -243,22 +243,22 @@ describe('the live notification', () => {
     render(<App />);
     await screen.findByText('روابط');
     pendingFetch();
-    await tap('kitab-tawhid', '#/course/kitab-tawhid');
+    await tap('kabair', '#/course/kabair');
     expect(screen.queryByRole('dialog')).toBeNull();
-    await act(async () => answer(liveState('kitab-tawhid')));
+    await act(async () => answer(liveState('kabair')));
     expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
-    expect(location.hash).toBe('#/course/kitab-tawhid');
+    expect(location.hash).toBe('#/course/kabair');
   });
 
   it('a cold start waits for the fresh state before opening', async () => {
     pendingFetch();
     vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
-    requestLive({ courseId: 'kitab-tawhid' });
-    location.hash = '#/course/kitab-tawhid';
+    requestLive({ courseId: 'kabair' });
+    location.hash = '#/course/kabair';
     render(<App />);
-    await screen.findByRole('heading', { level: 1, name: 'درس المغرب' });
+    await screen.findByRole('heading', { level: 1, name: 'درس العصر' });
     expect(screen.queryByRole('dialog')).toBeNull();
-    await act(async () => answer(liveState('kitab-tawhid')));
+    await act(async () => answer(liveState('kabair')));
     expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
   });
 
@@ -270,22 +270,22 @@ describe('the live notification', () => {
     // Let the boot's own fetch settle, so the tap's fetch is the one answered below.
     await act(() => refresh());
     pendingFetch();
-    await tap('kitab-tawhid', '#/course/kitab-tawhid');
+    await tap('kabair', '#/course/kabair');
     await act(async () => answer(quiet()));
-    await screen.findByRole('heading', { level: 1, name: 'درس المغرب' });
+    await screen.findByRole('heading', { level: 1, name: 'درس العصر' });
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryByRole('region', { name: 'البث المباشر' })).toBeNull();
   });
 
   it('a tap for a lesson that is no longer listed opens no player', async () => {
-    const fajrOnly = <T extends { courses: { id: string }[] }>(s: T): T => ({ ...s, courses: s.courses.filter((c) => c.id === 'tafsir-saadi') });
-    location.hash = '#/course/tafsir-saadi';
+    const fajrOnly = <T extends { courses: { id: string }[] }>(s: T): T => ({ ...s, courses: s.courses.filter((c) => c.id === 'kitab-tawhid') });
+    location.hash = '#/course/kitab-tawhid';
     vi.mocked(api.loadCachedState).mockResolvedValue(fajrOnly(quiet()));
     render(<App />);
     await screen.findByRole('heading', { level: 1, name: 'درس الفجر' });
     pendingFetch();
-    await tap('kitab-tawhid');
-    await act(async () => answer(fajrOnly(liveState('kitab-tawhid'))));
+    await tap('kabair');
+    await act(async () => answer(fajrOnly(liveState('kabair'))));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(currentData().intent).toBeNull();
   });
@@ -296,11 +296,11 @@ describe('the live notification', () => {
     render(<App />);
     await screen.findByText('روابط');
     pendingFetch();
-    await tap('kitab-tawhid', '#/course/kitab-tawhid');
-    await go('#/course/tafsir-saadi');
-    await act(async () => answer(liveState('kitab-tawhid')));
+    await tap('kabair', '#/course/kabair');
     await go('#/course/kitab-tawhid');
-    await screen.findByRole('heading', { level: 1, name: 'درس المغرب' });
+    await act(async () => answer(liveState('kabair')));
+    await go('#/course/kabair');
+    await screen.findByRole('heading', { level: 1, name: 'درس العصر' });
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(currentData().intent).toBeNull();
   });
@@ -335,7 +335,7 @@ describe('the live notification', () => {
   });
 
   it('a live-other tap opens the player and keeps the current tab', async () => {
-    location.hash = '#/course/tafsir-saadi';
+    location.hash = '#/course/kitab-tawhid';
     vi.mocked(api.loadCachedState).mockResolvedValue(quiet());
     render(<App />);
     await screen.findByRole('heading', { level: 1, name: 'درس الفجر' });
@@ -343,6 +343,6 @@ describe('the live notification', () => {
     await tap(null);
     await act(async () => answer(liveState(null)));
     expect(await screen.findByRole('dialog', { name: 'البث المباشر' })).toBeTruthy();
-    expect(location.hash).toBe('#/course/tafsir-saadi');
+    expect(location.hash).toBe('#/course/kitab-tawhid');
   });
 });

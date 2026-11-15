@@ -33,18 +33,18 @@ const lesson = (number: number) => ({
 describe('courses', () => {
   it('lists seeded courses with decoded fields', async () => {
     const all = await listCourses(db);
+    expect(all.map((c) => c.id)).toEqual(['kitab-tawhid', 'kabair', 'targhib', 'dalil-talib']);
     const t = all.find((c) => c.id === 'kitab-tawhid');
-    expect(t?.weekdays).toEqual([0, 1, 2, 3, 4]);
-    expect(t?.pdfUrls).toHaveLength(3);
-    expect(t?.seriesId).toBe(481);
-    expect(t?.active).toBe(true);
-    expect(t?.offsetMin).toBe(30);
-    expect(all.find((c) => c.id === 'tafsir-saadi')?.offsetMin).toBe(25);
+    expect(t).toMatchObject({
+      slot: 'fajr', weekdays: [6], place: 'المسجد النبوي (الغربية)', seriesId: 287, active: true, offsetMin: 33, pdfUrls: [], edition: null,
+    });
+    expect(all.find((c) => c.id === 'kabair')).toMatchObject({ slot: 'asr', weekdays: [2], place: 'مسجد قباء', seriesId: 251 });
+    expect(all.find((c) => c.id === 'dalil-talib')).toMatchObject({ slot: 'asr', weekdays: [4, 5, 6], seriesId: 69 });
     expect(all.map((c) => c.sort)).toEqual([...all.map((c) => c.sort)].sort((a, b) => a - b));
   });
 
   it('upserts and filters by activeOnly', async () => {
-    const input = { title: 'T', slot: 'fajr' as const, weekdays: [1], offsetMin: 10, seriesId: 9, pdfUrls: [], active: false };
+    const input = { title: 'T', slot: 'fajr' as const, place: '', weekdays: [1], offsetMin: 10, seriesId: 9, pdfUrls: [], active: false };
     await upsertCourse(db, 'c-up', input);
     expect((await listCourses(db)).find((c) => c.id === 'c-up')?.active).toBe(false);
     expect((await listCourses(db, { activeOnly: true })).some((c) => c.id === 'c-up')).toBe(false);
@@ -99,7 +99,7 @@ describe('lessons', () => {
   });
 
   it('pendingTranscriptions: recording set, no end_page, among the newest 3, oldest first', async () => {
-    const course = { title: 'P', slot: 'fajr' as const, weekdays: [1], offsetMin: 10, seriesId: 1, pdfUrls: ['u1'], active: true };
+    const course = { title: 'P', slot: 'fajr' as const, place: '', weekdays: [1], offsetMin: 10, seriesId: 1, pdfUrls: ['u1'], active: true };
     await upsertCourse(db, 'l-pend', course);
     for (const n of [3, 1, 2, 4]) await insertLessonIfNew(db, 'l-pend', lesson(n));
     await setRecordingUrl(db, 'l-pend', 3, 'r3');
@@ -114,7 +114,7 @@ describe('lessons', () => {
   });
 
   it('pendingTranscriptions carries the own chained start and the next lesson start point', async () => {
-    const course = { title: 'N', slot: 'fajr' as const, weekdays: [1], offsetMin: 10, seriesId: 1, pdfUrls: ['u1'], active: true };
+    const course = { title: 'N', slot: 'fajr' as const, place: '', weekdays: [1], offsetMin: 10, seriesId: 1, pdfUrls: ['u1'], active: true };
     await upsertCourse(db, 'l-next', course);
     for (const n of [1, 2]) {
       await insertLessonIfNew(db, 'l-next', lesson(n));
@@ -129,7 +129,7 @@ describe('lessons', () => {
   });
 
   it('pendingTranscriptions ignores a backfilled backlog', async () => {
-    const course = { title: 'B', slot: 'fajr' as const, weekdays: [1], offsetMin: 10, seriesId: 1, pdfUrls: [], active: true };
+    const course = { title: 'B', slot: 'fajr' as const, place: '', weekdays: [1], offsetMin: 10, seriesId: 1, pdfUrls: [], active: true };
     for (const id of ['l-back', 'l-back2']) {
       await upsertCourse(db, id, course);
       for (let n = 1; n <= 10; n++) {

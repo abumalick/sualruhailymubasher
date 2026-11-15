@@ -43,7 +43,7 @@ function Pick({ course: c, all, on, onToggle }: { course: CourseDTO; all: Course
       <span class="box">{on && <Icon id="i-check" />}</span>
       <span class="t">
         <b>
-          <Icon id={c.slot === 'fajr' ? 'i-sun' : 'i-moon'} class="slot" />
+          <Icon id={c.slot === 'maghrib' ? 'i-moon' : 'i-sun'} class="slot" />
           {label}
         </b>
         {label !== c.title && <span class="b">{c.title}</span>}
