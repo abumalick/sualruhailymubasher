@@ -2,7 +2,7 @@ export interface Env {
   ASSETS: Fetcher;
 }
 
-// www.albadrmubasher.com answers with a permanent redirect to the apex, keeping path and query.
+// www.sualruhailymubasher.com answers with a permanent redirect to the apex, keeping path and query.
 export function canonicalUrl(raw: string): string | null {
   const url = new URL(raw);
   if (!url.hostname.startsWith('www.')) return null;
