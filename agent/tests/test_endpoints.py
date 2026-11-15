@@ -1,10 +1,10 @@
 import json
 from pathlib import Path
 
-from albadr_agent.api import Published
-from albadr_agent.endpoints import corrections, recorded_end_point
-from albadr_agent.locate import LocateResult
-from albadr_agent.quran import ayah, label
+from sualruhaily_agent.api import Published
+from sualruhaily_agent.endpoints import corrections, recorded_end_point
+from sualruhaily_agent.locate import LocateResult
+from sualruhaily_agent.quran import ayah, label
 
 STATE = json.loads((Path(__file__).parent / "fixtures" / "api-state-2026-11-01.json").read_text())
 TAFSIR = "تفسير سورة التوبة: من الآية (٥) ﴿فَإِذَا انْسَلَخَ الْأَشْهُرُ الْحُرُمُ فَاقْتُلُوا الْمُشْرِكِينَ...﴾"

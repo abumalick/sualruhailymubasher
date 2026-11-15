@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from .paths import CACHE_ROOT
 
-log = logging.getLogger("albadr_agent")
+log = logging.getLogger("sualruhaily_agent")
 DEFAULT_AUDIO = CACHE_ROOT / "audio"
 DEFAULT_TRANSCRIPTS = CACHE_ROOT / "transcripts"
 MODEL = "large-v3-turbo"

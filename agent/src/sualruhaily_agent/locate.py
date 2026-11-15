@@ -9,7 +9,7 @@ from .api import Pending
 from .quran import WESTERN_DIGITS, parse_label
 from .transcribe import Segment
 
-log = logging.getLogger("albadr_agent")
+log = logging.getLogger("sualruhaily_agent")
 MIN_CONFIDENCE = 0.6
 MAX_END_POINT = 80
 WINDOW_BEFORE, WINDOW_SIZE = 1, 12

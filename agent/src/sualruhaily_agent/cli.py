@@ -18,7 +18,7 @@ from .lock import DEFAULT_LOCK, run_lock
 from .endpoints import corrections, recorded_end_point
 from .transcribe import CACHE_ROOT, DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
-log = logging.getLogger("albadr_agent")
+log = logging.getLogger("sualruhaily_agent")
 
 
 EXTRA_WINDOW = 12
@@ -27,9 +27,9 @@ VERDICT_SCHEMA = 3
 
 
 def _local_books() -> dict[str, list[str]]:
-    """ALBADR_LOCAL_BOOKS="course-id=/a.pdf,/b.pdf;other=/c.pdf": books the agent may read but the app must not link."""
+    """SUALRUHAILY_LOCAL_BOOKS="course-id=/a.pdf,/b.pdf;other=/c.pdf": books the agent may read but the app must not link."""
     books = {}
-    for entry in filter(None, os.environ.get("ALBADR_LOCAL_BOOKS", "").split(";")):
+    for entry in filter(None, os.environ.get("SUALRUHAILY_LOCAL_BOOKS", "").split(";")):
         course, _, paths = entry.partition("=")
         books[course.strip()] = [p.strip() for p in paths.split(",") if p.strip()]
     return books
@@ -181,7 +181,7 @@ def process_lesson(api: Api, lesson: Pending) -> End | None:
 
 def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    parser = argparse.ArgumentParser(prog="albadr-agent")
+    parser = argparse.ArgumentParser(prog="sualruhaily-agent")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("run", help="process every pending lesson")
     index = sub.add_parser("index-book", help="build the per-page text index of a book PDF")
@@ -235,9 +235,9 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
         return 2
     base, token = os.environ.get("API_BASE"), os.environ.get("ADMIN_TOKEN")
     if not base or not token:
-        log.error("API_BASE and ADMIN_TOKEN must be set (see ~/.config/albadrmubasher/agent.env)")
+        log.error("API_BASE and ADMIN_TOKEN must be set (see ~/.config/sualruhailymubasher/agent.env)")
         return 1
-    lock_path = Path(os.environ.get("ALBADR_AGENT_LOCK", DEFAULT_LOCK))
+    lock_path = Path(os.environ.get("SUALRUHAILY_AGENT_LOCK", DEFAULT_LOCK))
     with run_lock(lock_path) as acquired:
         if not acquired:
             log.info("another run holds the lock, exiting")

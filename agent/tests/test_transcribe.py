@@ -1,7 +1,7 @@
 import json
 from types import SimpleNamespace
 
-from albadr_agent import transcribe as t
+from sualruhaily_agent import transcribe as t
 
 
 def test_transcribes_once_then_reads_cache(tmp_path, monkeypatch):

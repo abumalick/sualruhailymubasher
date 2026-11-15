@@ -1,5 +1,5 @@
 [project]
-name = "albadr-agent"
+name = "sualruhaily-agent"
 version = "0.1.0"
 description = "Transcribes lesson recordings and locates where each lesson stopped in the book"
 authors = [
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-albadr-agent = "albadr_agent.cli:main"
+sualruhaily-agent = "sualruhaily_agent.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.11.20,<0.12.0"]

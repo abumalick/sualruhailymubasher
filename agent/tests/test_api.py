@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from albadr_agent.api import Api, ApiError
+from sualruhaily_agent.api import Api, ApiError
 
 PENDING = [
     {

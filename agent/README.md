@@ -1,24 +1,24 @@
-# albadr-agent
+# sualruhaily-agent
 
-Install the scheduled run (needs `~/.config/albadrmubasher/agent.env` with `API_BASE` and `ADMIN_TOKEN`):
+Install the scheduled run (needs `~/.config/sualruhailymubasher/agent.env` with `API_BASE` and `ADMIN_TOKEN`):
 
 ```sh
-cp systemd/albadr-agent.service systemd/albadr-agent.timer ~/.config/systemd/user/
+cp systemd/sualruhaily-agent.service systemd/sualruhaily-agent.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now albadr-agent.timer
-systemctl --user start albadr-agent.service   # run once now
-journalctl --user -t albadr-agent -n 50   # heavy moves the job into a transient scope, so `-u albadr-agent` misses its logs
+systemctl --user enable --now sualruhaily-agent.timer
+systemctl --user start sualruhaily-agent.service   # run once now
+journalctl --user -t sualruhaily-agent -n 50   # heavy moves the job into a transient scope, so `-u sualruhaily-agent` misses its logs
 ```
 
 A course whose book must not be linked from the app (no public PDF) can still be located: list its local
 PDF files in `agent.env`, one course per `;`, volumes in order separated by `,`:
 
 ```sh
-ALBADR_LOCAL_BOOKS=tafsir-saadi=/home/me/.local/share/albadr-agent/books/tafsir-saadi-ibn-aljawzi.pdf
+SUALRUHAILY_LOCAL_BOOKS=tafsir-saadi=/home/me/.local/share/sualruhaily-agent/books/tafsir-saadi-ibn-aljawzi.pdf
 ```
 
 The first index of a scanned book OCRs every page and can take hours; pages are saved as they are read, so a
-run that times out resumes where it stopped. To index ahead of the timer: `uv run albadr-agent index-book <path>`.
+run that times out resumes where it stopped. To index ahead of the timer: `uv run sualruhaily-agent index-book <path>`.
 
 ## The next lesson's start
 
@@ -35,5 +35,5 @@ lesson is already published, the agent stores its start point unchanged. Otherwi
   and replaces it when they differ, so a predicted start corrects itself once the next lesson is published.
 - **Book courses** keep the opening of the next unread sentence in the book («من قوله: …»), cut on a word with «…».
 
-The Quran text in `src/albadr_agent/data/` is the Tanzil Project's Simple text and metadata
+The Quran text in `src/sualruhaily_agent/data/` is the Tanzil Project's Simple text and metadata
 ([tanzil.net](https://tanzil.net), CC BY 3.0), kept verbatim as its terms require.

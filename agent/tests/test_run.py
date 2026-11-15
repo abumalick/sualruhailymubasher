@@ -4,10 +4,10 @@ import json
 import httpx
 import pytest
 
-from albadr_agent import cli
-from albadr_agent.locate import ClaudeUnavailable, LocateResult, candidate_pages
-from albadr_agent.lock import run_lock
-from albadr_agent.quran import ayah, label
+from sualruhaily_agent import cli
+from sualruhaily_agent.locate import ClaudeUnavailable, LocateResult, candidate_pages
+from sualruhaily_agent.lock import run_lock
+from sualruhaily_agent.quran import ayah, label
 
 PAGES = [f"صفحة {i}" for i in range(1, 6)]
 
@@ -29,7 +29,7 @@ def good(**over):
 def setup(monkeypatch, tmp_path):
     monkeypatch.setenv("API_BASE", "https://api.test")
     monkeypatch.setenv("ADMIN_TOKEN", "tok")
-    monkeypatch.setenv("ALBADR_AGENT_LOCK", str(tmp_path / "run.lock"))
+    monkeypatch.setenv("SUALRUHAILY_AGENT_LOCK", str(tmp_path / "run.lock"))
     monkeypatch.setattr(cli, "DEFAULT_TRANSCRIPTS", tmp_path / "tr")
     monkeypatch.setattr(cli, "DEFAULT_VERDICTS", tmp_path / "verdicts")
     mp3s = []
@@ -354,7 +354,7 @@ def test_a_patched_end_becomes_the_next_lessons_start_in_the_same_run(recorded):
 
 def test_course_without_pdfs_uses_its_local_book(setup, monkeypatch):
     handler, patches, _ = setup
-    monkeypatch.setenv("ALBADR_LOCAL_BOOKS", "tafsir=/books/t1.pdf,/books/t2.pdf;other=/books/o.pdf")
+    monkeypatch.setenv("SUALRUHAILY_LOCAL_BOOKS", "tafsir=/books/t1.pdf,/books/t2.pdf;other=/books/o.pdf")
     opened = []
     monkeypatch.setattr(cli, "book_pages", lambda url: opened.append(url) or PAGES)
     monkeypatch.setattr(cli, "locate", lambda prompt: good())

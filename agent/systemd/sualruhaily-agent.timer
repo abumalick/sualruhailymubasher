@@ -1,5 +1,5 @@
 [Unit]
-Description=Run the Al-Badr transcription agent every 15 minutes
+Description=Run the Sulayman al-Ruhayli transcription agent every 15 minutes
 
 [Timer]
 OnCalendar=*:0/15

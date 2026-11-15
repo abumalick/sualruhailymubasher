@@ -1,4 +1,4 @@
-from albadr_agent.lock import run_lock
+from sualruhaily_agent.lock import run_lock
 
 
 def test_second_holder_gets_false_and_release_frees(tmp_path):
