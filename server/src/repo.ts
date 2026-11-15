@@ -186,6 +186,24 @@ export async function ensureSection(db: D1Database, courseId: string, section: s
   return r!.ord;
 }
 
+export async function listSections(db: D1Database, courseId: string): Promise<string[]> {
+  const { results } = await db
+    .prepare('SELECT section FROM sections WHERE course_id = ? ORDER BY ord, section')
+    .bind(courseId)
+    .all<{ section: string }>();
+  return results.map((r) => r.section);
+}
+
+// `order` must name every registered section exactly once; returns false (and changes nothing) otherwise.
+export async function reorderSections(db: D1Database, courseId: string, order: string[]): Promise<boolean> {
+  const current = await listSections(db, courseId);
+  if (order.length !== current.length || new Set(order).size !== order.length || !current.every((s) => order.includes(s))) return false;
+  await db.batch(
+    order.map((section, i) => db.prepare('UPDATE sections SET ord = ?1 WHERE course_id = ?2 AND section = ?3').bind(i + 1, courseId, section)),
+  );
+  return true;
+}
+
 export const latestLessons = (db: D1Database, courseId: string, limit: number) =>
   lessonsBefore(db, courseId, null, limit);
 

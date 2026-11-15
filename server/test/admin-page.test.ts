@@ -25,3 +25,14 @@ describe('GET /admin', () => {
     for (const p of paths) expect(p).toMatch(/^\/api\//);
   });
 });
+
+describe('GET /admin lesson list', () => {
+  it('shows the lesson label, the date flag and the section order controls', async () => {
+    const html = await (await exports.default.fetch('http://example.com/admin')).text();
+    expect(html).toContain('l.label');
+    expect(html).not.toContain("'الدرس ' + l.number");
+    expect(html).toContain('l.dateFlag');
+    expect(html).toContain('⚠ تاريخ غير مطابق لأيام الدرس');
+    expect(html).toContain('/api/admin/sections/');
+  });
+});

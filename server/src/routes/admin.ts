@@ -9,8 +9,10 @@ import {
   deleteException,
   listCourses,
   listExceptions,
+  listSections,
   nextInSequence,
   patchLesson,
+  reorderSections,
   pendingTranscriptions,
   setSetting,
   upsertCourse,
@@ -173,6 +175,14 @@ adminRoutes.patch('/api/admin/lessons/:courseId/:number', async (c) => {
   if (!patch || !isInt(number, 0)) return bad(c);
   const found = await patchLesson(c.env.DB, c.req.param('courseId'), number, patch);
   return found ? c.body(null, 204) : c.json({ error: 'not found' }, 404);
+});
+
+adminRoutes.get('/api/admin/sections/:courseId', async (c) => c.json(await listSections(c.env.DB, c.req.param('courseId'))));
+
+adminRoutes.put('/api/admin/sections/:courseId', async (c) => {
+  const b = await readJson(c);
+  if (!isObject(b) || !Array.isArray(b.order) || !b.order.every(isString)) return bad(c);
+  return (await reorderSections(c.env.DB, c.req.param('courseId'), b.order)) ? c.body(null, 204) : bad(c);
 });
 
 adminRoutes.get('/api/admin/exceptions', async (c) => c.json(await listExceptions(c.env.DB, medinaDate(new Date()))));
