@@ -42,4 +42,12 @@ describe('sendRecordingPush', () => {
     await sendRecordingPush({ db: env.DB, fcm: { sendToTopic } as unknown as Fcm }, course, { number: 3, section: 'كتاب الشهادات', sectionNumber: 2 });
     expect(sendToTopic.mock.calls[0][1].body).toBe('شرح كتاب التوحيد · كتاب الشهادات – الدرس ٢');
   });
+
+  it('shows no number when the section number is null, never the running number', async () => {
+    const sendToTopic = vi.fn().mockResolvedValue(undefined);
+    const deps = { db: env.DB, fcm: { sendToTopic } as unknown as Fcm };
+    await sendRecordingPush(deps, course, { number: 7, section: '', sectionNumber: null });
+    await sendRecordingPush(deps, course, { number: 8, section: 'كتاب الحدود', sectionNumber: null });
+    expect(sendToTopic.mock.calls.map((c) => c[1].body)).toEqual(['شرح كتاب التوحيد · الدرس', 'شرح كتاب التوحيد · كتاب الحدود']);
+  });
 });

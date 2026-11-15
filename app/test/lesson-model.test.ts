@@ -132,6 +132,11 @@ describe('a held day without a detected broadcast (Friday)', () => {
     for (const now of FRI) expect(buildLesson(friday(1), quiet, none, now).last).toEqual({ kind: 'awaiting', label: null });
   });
 
+  it('unpublished lessons with no next lesson known: awaiting, never nothing', () => {
+    const noNext = { ...friday(1), next: null };
+    for (const now of FRI) expect(buildLesson(noNext, quiet, none, now).last).toEqual({ kind: 'awaiting', label: null });
+  });
+
   it('a lesson underway keeps the previous recording until 150 minutes after its start', () => {
     expect(buildLesson(friday(0), quiet, none, new Date('2026-11-01T03:40:00Z'))).toMatchObject({
       top: { kind: 'today', ended: false },

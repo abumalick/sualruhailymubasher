@@ -26,7 +26,7 @@ export async function sendRecordingPush(
   if (!(await markSent(db, `rec:${course.id}:${lesson.number}`))) return false;
   await fcm.sendToTopic(courseTopic(course.id, 'rec'), {
     title: NOTICE_TITLE.rec,
-    body: `${course.title} · ${lessonLabel(course.lessonWord, lesson.section, lesson.sectionNumber ?? lesson.number)}`,
+    body: `${course.title} · ${lessonLabel(course.lessonWord, lesson.section, lesson.sectionNumber)}`,
     data: { kind: 'rec', courseId: course.id, number: String(lesson.number) },
     tag: NOTICE_TAG,
     ttlSec: REC_TTL_SEC,

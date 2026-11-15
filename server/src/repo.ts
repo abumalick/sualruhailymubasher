@@ -59,7 +59,7 @@ const toLesson = (r: Row): LessonDTO => ({
   startPoint: r.start_point as string,
   section: r.section as string,
   sectionNumber: (r.section_number as number | null) ?? null,
-  label: lessonLabel((r.lesson_word as string | undefined) ?? 'الدرس', r.section as string, (r.section_number as number | null) ?? (r.number as number)),
+  label: lessonLabel((r.lesson_word as string | undefined) ?? 'الدرس', r.section as string, (r.section_number as number | null) ?? null),
   dateFlag: r.date_flag === 1,
   pdfIndex: r.pdf_index as number | null,
   startPage: r.start_page as number | null,

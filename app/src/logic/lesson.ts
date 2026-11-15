@@ -31,8 +31,9 @@ export const nextTickNumber = (c: CourseDTO): number => (c.latest[0]?.number ?? 
 // that, or once the server counted the broadcast, "last" waits for the new one.
 function awaiting(c: CourseDTO, latest: LessonDTO, onAir: boolean, nowMs: number): 'own' | 'later' | null {
   if (latest.hijriDate === hijriToday(new Date(nowMs))) return latest.recordingUrl ? null : 'own';
-  if (onAir || !c.next) return null;
+  if (onAir) return null;
   if (c.unpublished > 0) return 'later';
+  if (!c.next) return null;
   if (nowMs >= nextStart(c) + LESSON_MS) return 'later';
   return null;
 }

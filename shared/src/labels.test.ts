@@ -11,6 +11,11 @@ describe('lessonLabel', () => {
     expect(lessonLabel('الدرس', '', 10)).toBe('الدرس ١٠');
   });
 
+  it('shows no number when there is none', () => {
+    expect(lessonLabel('الدرس', '', null)).toBe('الدرس');
+    expect(lessonLabel('المجلس', 'كتاب الحدود', null)).toBe('كتاب الحدود');
+  });
+
   it('ignores the course word when there is a section', () => {
     expect(lessonLabel('المجلس', 'كتاب الحدود', 11)).toBe('كتاب الحدود – الدرس ١١');
   });

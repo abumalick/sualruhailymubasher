@@ -82,6 +82,13 @@ describe('lessons', () => {
     expect((await lessonsBefore(db, 'l-list', null, 2)).map((l) => l.number)).toEqual([5, 4]);
   });
 
+  it('labels a lesson with no section number without the running number', async () => {
+    await insertLessonIfNew(db, 'l-nosn', { ...lesson(9), sectionNumber: null });
+    await insertLessonIfNew(db, 'l-nosn', { ...lesson(10), section: 'كتاب الحدود', sectionNumber: null });
+    const labels = (await latestLessons(db, 'l-nosn', 2)).map((l) => l.label).sort();
+    expect(labels).toEqual(['الدرس', 'كتاب الحدود']);
+  });
+
   it('setRecordingUrl and patchLesson', async () => {
     await insertLessonIfNew(db, 'l-patch', lesson(1));
     await setRecordingUrl(db, 'l-patch', 1, 'https://x/a.mp3');
