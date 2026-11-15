@@ -239,7 +239,16 @@ adminRoutes.put('/api/admin/media/lessons/:courseId/:file', async (c) => {
   if (!length || !/^\d+$/.test(length)) return c.json({ error: 'length required' }, 411);
   if (Number(length) > MEDIA_MAX_BYTES) return c.json({ error: 'too large' }, 413);
   if (!c.req.raw.body) return bad(c);
-  await c.env.MEDIA.put(key, c.req.raw.body, { httpMetadata: { contentType } });
+  try {
+    const stored = await c.env.MEDIA.put(key, c.req.raw.body, { httpMetadata: { contentType } });
+    if (stored.size !== Number(length)) {
+      await c.env.MEDIA.delete(key);
+      return c.json({ error: 'length mismatch' }, 400);
+    }
+  } catch (e) {
+    console.error('media upload failed', key, e);
+    return c.json({ error: 'upload failed' }, 502);
+  }
   return c.json({ url: `${c.env.MEDIA_BASE}/${key}` });
 });
 

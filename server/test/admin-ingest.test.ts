@@ -184,3 +184,29 @@ describe('ingest heartbeat', () => {
     expect((await call('PUT', '/api/admin/heartbeat/ingest', { ok: true })).status).toBe(400);
   });
 });
+
+describe('PUT media with a misbehaving bucket', () => {
+  const withBucket = (MEDIA: unknown) => (file: string) =>
+    app.request(
+      `/api/admin/media/lessons/dalil-talib/${file}`,
+      { method: 'PUT', headers: { Authorization: `Bearer ${env.ADMIN_TOKEN}`, 'Content-Type': 'audio/mpeg', 'Content-Length': '3' }, body: new Uint8Array([1, 2, 3]) },
+      { ...env, MEDIA },
+    );
+
+  it('deletes the object and answers 400 when the stored size differs from the declared length', async () => {
+    const del = vi.fn();
+    const res = await withBucket({ put: async () => ({ size: 2 }), delete: del })('1120.mp3');
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'length mismatch' });
+    expect(del).toHaveBeenCalledWith('lessons/dalil-talib/1120.mp3');
+  });
+
+  it('answers 502 and logs when R2 throws', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const res = await withBucket({ put: async () => { throw new Error('r2 down'); } })('1121.mp3');
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: 'upload failed' });
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
+  });
+});
