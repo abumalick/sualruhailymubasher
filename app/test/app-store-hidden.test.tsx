@@ -11,9 +11,10 @@ import { InstallBanner, resetInstallBanner } from '../src/ui/InstallBanner';
 import { StoreBadges } from '../src/ui/StoreBadges';
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
+const ANDROID = 'Mozilla/5.0 (Linux; Android 14; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36';
 const DESKTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
-describe('while the iOS app has no App Store id', () => {
+describe('while neither store has a listing yet', () => {
   beforeEach(() => {
     localStorage.clear();
     resetInstallBanner();
@@ -23,32 +24,36 @@ describe('while the iOS app has no App Store id', () => {
     vi.restoreAllMocks();
   });
 
-  it('lists only Google Play', () => {
-    expect(STORES.map((s) => s.id)).toEqual(['play']);
-    expect(listedStores(['play', 'appstore'])).toEqual(['play']);
+  it('lists no store', () => {
+    expect(STORES).toEqual([]);
+    expect(listedStores(['play', 'appstore'])).toEqual([]);
     expect(updateUrl('ios')).toBeNull();
+    expect(updateUrl('android')).toBeNull();
   });
 
-  it('About links to Google Play only', () => {
+  it('a sideloaded build still passes its own android update link', () => {
+    expect(updateUrl('android', 'https://example.com/latest')).toBe('https://example.com/latest');
+  });
+
+  it('About shows no store link', () => {
     render(<About native={false} />);
-    expect(screen.getByRole('link', { name: 'Google Play' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Google Play' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'App Store' })).toBeNull();
   });
 
-  it('the store badges leave out the App Store', () => {
+  it('the store badges render nothing', () => {
     const { container } = render(<StoreBadges ids={['appstore', 'play']} />);
-    expect([...container.querySelectorAll<HTMLImageElement>('img')].map((i) => i.alt)).toEqual(['احصل عليه من Google Play']);
+    expect(container.querySelectorAll('img, a')).toHaveLength(0);
   });
 
-  it('the install banner is hidden for an iPhone visitor', () => {
-    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+  it.each([
+    ['an iPhone', IPHONE],
+    ['an Android phone', ANDROID],
+    ['a desktop', DESKTOP],
+  ])('the install banner is not rendered for %s visitor', (_name, ua) => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ua);
     const { container } = render(<InstallBanner />);
     expect(container.querySelector('.install')).toBeNull();
-  });
-
-  it('the install banner offers Google Play alone on a desktop', () => {
-    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(DESKTOP);
-    const { container } = render(<InstallBanner />);
-    expect([...container.querySelectorAll<HTMLImageElement>('.install img')].map((i) => i.alt)).toEqual(['احصل عليه من Google Play']);
+    expect(container.innerHTML).toBe('');
   });
 });

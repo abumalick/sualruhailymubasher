@@ -9,7 +9,7 @@ vi.mock('../../src/platform', () => ({ nativeUI: () => false, isNative: () => fa
 
 vi.mock('../../src/site', async (importOriginal) => {
   const site = await importOriginal<typeof import('../../src/site')>();
-  return { ...site, STORES: [...site.STORES, { id: 'appstore', name: 'App Store', url: 'https://apps.apple.com/app/id1234567890' }] };
+  return { ...site, STORES: [...(await import('../listed-stores')).LISTED_STORES] };
 });
 
 import { FIXTURE_STATE } from '../../src/dev/fixture-state';

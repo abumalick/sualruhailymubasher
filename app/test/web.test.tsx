@@ -22,7 +22,7 @@ vi.mock('../src/push', () => ({
 
 vi.mock('../src/site', async (importOriginal) => {
   const site = await importOriginal<typeof import('../src/site')>();
-  return { ...site, STORES: [...site.STORES, { id: 'appstore', name: 'App Store', url: 'https://apps.apple.com/app/id1234567890' }] };
+  return { ...site, STORES: [...(await import('./listed-stores')).LISTED_STORES] };
 });
 import * as api from '../src/api';
 import { App } from '../src/App';

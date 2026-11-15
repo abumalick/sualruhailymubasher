@@ -11,8 +11,11 @@ export const SHEIKH_SITE = 'https://sualruhaily.com';
 // Set once the iOS app is on the App Store; until then no iOS badge or link is shown.
 const APP_STORE_ID: string | null = null;
 
+// Set once the Android app has a Google Play listing; until then no Play badge or link is shown.
+const PLAY_LISTED = false;
+
 // The App Store link names no country, so Apple sends each visitor to their own storefront.
 export const STORES: { id: StoreId; name: string; url: string }[] = [
-  { id: 'play', name: 'Google Play', url: 'https://play.google.com/store/apps/details?id=com.sualruhailymubasher.app' },
+  ...(PLAY_LISTED ? [{ id: 'play' as const, name: 'Google Play', url: 'https://play.google.com/store/apps/details?id=com.sualruhailymubasher.app' }] : []),
   ...(APP_STORE_ID ? [{ id: 'appstore' as const, name: 'App Store', url: `https://apps.apple.com/app/id${APP_STORE_ID}` }] : []),
 ];

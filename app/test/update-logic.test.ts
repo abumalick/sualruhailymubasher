@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/site', async (importOriginal) => {
   const site = await importOriginal<typeof import('../src/site')>();
-  return { ...site, STORES: [...site.STORES, { id: 'appstore', name: 'App Store', url: 'https://apps.apple.com/app/id1234567890' }] };
+  return { ...site, STORES: [...(await import('./listed-stores')).LISTED_STORES] };
 });
 
 

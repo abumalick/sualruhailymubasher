@@ -1,6 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../src/site', async (importOriginal) => {
+  const site = await importOriginal<typeof import('../src/site')>();
+  return { ...site, STORES: [...(await import('./listed-stores')).LISTED_STORES] };
+});
+
 const prefs = vi.hoisted(() => new Map<string, string>());
 vi.mock('@capacitor/preferences', () => ({
   Preferences: {
