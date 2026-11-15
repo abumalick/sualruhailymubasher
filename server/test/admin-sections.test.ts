@@ -59,6 +59,7 @@ describe('/api/admin/sections/:courseId', () => {
     expect(await start(2)).toBe(40);
     await call('PUT', '/api/admin/sections/sec-c', { order: ['كتاب الزكاة', 'كتاب الصلاة'] });
     expect(await start(1)).toBe(90);
+    expect(await start(2)).toBeNull();
   });
 
   it.each([

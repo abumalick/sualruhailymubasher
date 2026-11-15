@@ -249,7 +249,6 @@ export async function insertLessonIfNew(
 // A start filled from the predecessor is marked start_chained and follows it; a start set by hand or by the agent is never overwritten.
 async function fillStartFromPrevious(db: D1Database, courseId: string, number: number): Promise<void> {
   const prev = await previousInSequence(db, courseId, number);
-  if (!prev) return;
   await db
     .prepare(
       `UPDATE lessons SET
@@ -258,7 +257,7 @@ async function fillStartFromPrevious(db: D1Database, courseId: string, number: n
          start_chained = ?3 IS NOT NULL
        WHERE course_id = ?1 AND number = ?2 AND (start_chained = 1 OR start_page IS NULL)`,
     )
-    .bind(courseId, number, prev.endPage, prev.endPage === null ? null : (prev.endPdfIndex ?? prev.pdfIndex))
+    .bind(courseId, number, prev?.endPage ?? null, prev?.endPage == null ? null : (prev.endPdfIndex ?? prev.pdfIndex))
     .run();
 }
 

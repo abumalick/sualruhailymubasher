@@ -145,6 +145,16 @@ describe('POST /api/admin/lessons', () => {
     expect(await lessonsBefore(env.DB, 'kitab-tawhid', null, 9)).toMatchObject([{ number: 2, sectionNumber: 14 }, { number: 3 }, { number: 1 }]);
   });
 
+  it('clears the chained start of a lesson moved to the first position', async () => {
+    const S = 'كتاب الصدقات';
+    await send(input('kitab-tawhid', 10, { section: S, sourceRef: 'tg:10' }));
+    await patchLesson(env.DB, 'kitab-tawhid', 1, { pdfIndex: 0, endPage: 40, endPdfIndex: 0 });
+    await send(input('kitab-tawhid', 12, { section: S, sourceRef: 'tg:12' }));
+    expect((await latestLessons(env.DB, 'kitab-tawhid', 1))[0]).toMatchObject({ number: 2, startPage: 40 });
+    await send(input('kitab-tawhid', 9, { section: S, sourceRef: 'tg:12' }));
+    expect((await lessonsBefore(env.DB, 'kitab-tawhid', null, 5)).find((l) => l.number === 2)).toMatchObject({ sectionNumber: 9, startPage: null, pdfIndex: null });
+  });
+
   it('answers 409 when the corrected identity belongs to another lesson', async () => {
     await send(input('kitab-tawhid', 11, { sourceRef: 'a' }));
     await send(input('kitab-tawhid', 12, { sourceRef: 'b' }));
