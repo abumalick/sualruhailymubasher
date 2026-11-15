@@ -18,7 +18,7 @@ from .locate import (
 from .ingest import describe, run_ingest
 from .lock import DEFAULT_LOCK, run_lock
 from .paths import cache_root
-from .telegram import Telegram, TelegramBusy, TelegramError
+from .telegram import Telegram, TelegramBusy, TelegramError, client_factory, settings
 from .endpoints import corrections, recorded_end_point
 from .transcribe import CACHE_ROOT, DEFAULT_AUDIO, DEFAULT_TRANSCRIPTS, Segment, download_audio, transcribe, url_key
 
@@ -190,9 +190,10 @@ def ingest(args: argparse.Namespace, base: str, token: str, transport: httpx.Bas
             log.info("another ingest holds the lock, exiting")
             return 0
         api = Api(base, token, httpx.Client(transport=transport, timeout=30))
+        telegram = Telegram(lambda: client_factory()())
         try:
             summary = run_ingest(
-                api, Telegram(tmp_dir=root / "ingest" / "tmp"), site, root / "ingest" / "state.json",
+                api, telegram, site, root / "ingest" / "state.json",
                 from_id=args.from_id, notify=not args.no_notify, dry_run=args.dry_run, retry_failed=args.retry_failed,
             )
         except TelegramBusy as e:
@@ -209,6 +210,7 @@ def ingest(args: argparse.Namespace, base: str, token: str, transport: httpx.Bas
                 log.exception("could not report the crash in the heartbeat")
             return 1
         finally:
+            telegram.close()
             api.close()
     if args.dry_run:
         for action in summary.actions:
@@ -217,8 +219,27 @@ def ingest(args: argparse.Namespace, base: str, token: str, transport: httpx.Bas
     return 0
 
 
+def telegram_login() -> int:
+    try:
+        _, _, session = settings()
+        make = client_factory()
+    except TelegramError as e:
+        log.error("%s", e)
+        return 1
+    session.parent.mkdir(parents=True, exist_ok=True)
+    client = make()
+    client.start(phone=os.environ.get("TELEGRAM_PHONE") or (lambda: input("Phone number (international format): ")))
+    me = client.get_me()
+    client.disconnect()
+    if session.exists():
+        session.chmod(0o600)
+    log.info("logged in as user %s; session at %s", me.id, session)
+    return 0
+
+
 def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.getLogger("telethon").setLevel(logging.WARNING)
     parser = argparse.ArgumentParser(prog="sualruhaily-agent")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("run", help="process every pending lesson")
@@ -227,6 +248,7 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
     ing.add_argument("--no-notify", action="store_true", help="never push the lessons this run posts")
     ing.add_argument("--dry-run", action="store_true", help="print the planned actions and write nothing")
     ing.add_argument("--retry-failed", action="store_true", help="retry the posts that failed permanently before")
+    sub.add_parser("telegram-login", help="log the ingest's own Telegram session in (asks for the login code)")
     index = sub.add_parser("index-book", help="build the per-page text index of a book PDF")
     index.add_argument("url")
     index.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
@@ -243,6 +265,8 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
     loc.add_argument("--previous-end", help="pdf_index:page of the previous lesson's end")
     loc.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
     args = parser.parse_args(argv)
+    if args.command == "telegram-login":
+        return telegram_login()
     if args.command == "index-book":
         pages = book_pages(args.url, args.cache_dir)
         log.info("indexed %d page(s) into %s", len(pages), args.cache_dir)
