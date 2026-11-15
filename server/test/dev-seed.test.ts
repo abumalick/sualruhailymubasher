@@ -31,6 +31,7 @@ describe('server/seed/dev.sql (worktree dev data)', () => {
     }
     expect(body.courses[1].latest.map((l: any) => l.number)).toEqual([59, 57, 53]);
     expect(body.courses[1].latest[0]).toMatchObject({ label: 'المجلس ٥٩' });
+    expect(body.courses[2].latest.map((l: any) => l.label)).toEqual(['كتاب الصدقات – الدرس ١٣', 'كتاب الصدقات – الدرس ١٢', 'كتاب الصدقات – الدرس ١١']);
     expect(body.courses[3].latest.slice(0, 3).map((l: any) => l.label)).toEqual([
       'كتاب الشهادات – الدرس ١', 'كتاب القضاء – الدرس ٧', 'كتاب القضاء – الدرس ٦',
     ]);
