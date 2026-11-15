@@ -1,4 +1,4 @@
-import type { CourseDTO, LessonDTO, LiveDTO } from '@albadr/shared';
+import type { CourseDTO, LessonDTO, LiveDTO } from '@sualruhaily/shared';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { fetchLessons } from '../api';
@@ -80,7 +80,7 @@ export function LessonHead({ course, now }: { course: CourseDTO; now: Date }) {
     <>
       <div class="lh">
         <span class="sym">
-          <Icon id={course.slot === 'fajr' ? 'i-sun' : 'i-moon'} />
+          <Icon id={course.slot === 'maghrib' ? 'i-moon' : 'i-sun'} />
         </span>
         <div class="t">
           <h1>درس {slot}</h1>
@@ -95,6 +95,7 @@ export function LessonHead({ course, now }: { course: CourseDTO; now: Date }) {
         </div>
       </div>
       <p class="ct">{course.title}</p>
+      {course.place && <p class="ct place">{course.place}</p>}
     </>
   );
 }

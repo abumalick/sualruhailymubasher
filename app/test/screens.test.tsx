@@ -38,7 +38,7 @@ describe('App boot', () => {
     const read = await screen.findByRole('button', { name: 'قرأتُه' });
     expect(await screen.findByText('تعذّر التحديث')).toBeTruthy();
     fireEvent.click(read);
-    await waitFor(() => expect(store.get('read:tafsir-saadi:444')).toBe('1'));
+    await waitFor(() => expect(store.get('read:kitab-tawhid:444')).toBe('1'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'قرأتُه' }).getAttribute('aria-pressed')).toBe('true'));
   });
 });

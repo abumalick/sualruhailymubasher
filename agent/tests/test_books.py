@@ -10,7 +10,7 @@ import pytest
 from fpdf import FPDF
 from PIL import Image, ImageDraw, ImageFont, features
 
-from albadr_agent import books
+from sualruhaily_agent import books
 
 URL = "https://example.test/book.pdf"
 

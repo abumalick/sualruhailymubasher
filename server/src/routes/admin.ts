@@ -1,8 +1,7 @@
-import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonPatch } from '@albadr/shared';
+import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonPatch } from '@sualruhaily/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { getFcm, type Env } from '../index';
-import { runRecordingIngest } from '../jobs/recordings';
 import {
   addException,
   deleteException,
@@ -46,7 +45,8 @@ function parseCourse(b: unknown): CourseInput | null {
   const ok =
     isString(b.title) &&
     b.title.trim() !== '' &&
-    (b.slot === 'fajr' || b.slot === 'maghrib') &&
+    (b.slot === 'fajr' || b.slot === 'asr' || b.slot === 'maghrib') &&
+    isString(b.place) &&
     Array.isArray(b.weekdays) &&
     b.weekdays.every((d) => isInt(d, 0) && d <= 6) &&
     isInt(b.offsetMin, 0) &&
@@ -167,23 +167,9 @@ adminRoutes.post('/api/admin/test-push', async (c) => {
   try {
     await getFcm(c.env.FCM_SERVICE_ACCOUNT ?? '').sendToTopic(b.topic, {
       title: 'تجربة',
-      body: 'تنبيه تجريبي من دروس البدر',
+      body: 'تنبيه تجريبي من دروس سليمان الرحيلي',
       tag: NOTICE_TAG,
       ttlSec: 3600,
-    });
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : String(e) }, 500);
-  }
-  return c.body(null, 204);
-});
-
-adminRoutes.post('/api/admin/run/ingest', async (c) => {
-  try {
-    await runRecordingIngest({
-      db: c.env.DB,
-      fetch,
-      fcm: getFcm(c.env.FCM_SERVICE_ACCOUNT ?? ''),
-      now: new Date(),
     });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : String(e) }, 500);

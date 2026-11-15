@@ -1,4 +1,4 @@
-import type { CourseDTO, LessonDTO, LiveDTO, StateDTO } from '@albadr/shared';
+import type { CourseDTO, LessonDTO, LiveDTO, StateDTO } from '@sualruhaily/shared';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 
 const [tafsir, tawhid] = FIXTURE_STATE.courses;
@@ -37,7 +37,7 @@ export const TAWHID: CourseDTO = {
 };
 
 // The broadcast's start, Medina dates 2026-11-02 (Maghrib) and 2026-11-03 (Fajr).
-export const STARTED = { 'kitab-tawhid': '2026-11-02T15:10:00Z', 'tafsir-saadi': '2026-11-03T02:30:00Z' } as Record<string, string>;
+export const STARTED = { 'kabair': '2026-11-02T15:10:00Z', 'kitab-tawhid': '2026-11-03T02:30:00Z' } as Record<string, string>;
 
 export const liveDTO = (courseId: string | null): LiveDTO => ({
   ...FIXTURE_STATE.live,

@@ -24,7 +24,7 @@
     "vitest": "^4.1.12"
   },
   "dependencies": {
-    "@albadr/shared": "workspace:*",
+    "@sualruhaily/shared": "workspace:*",
     "@capacitor-firebase/messaging": "^8.5.2",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.6.0",

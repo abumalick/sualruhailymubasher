@@ -1,4 +1,4 @@
-import type { CourseDTO, LiveDTO } from '@albadr/shared';
+import type { CourseDTO, LiveDTO } from '@sualruhaily/shared';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { player } from '../audio/player';
 import { liveContext, type LiveContext } from '../logic/live';

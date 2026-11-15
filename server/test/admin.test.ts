@@ -16,13 +16,14 @@ const lesson = (number: number) => ({
   number,
   hijriDate: `${number}-01-1448`,
   startPoint: `نقطة ${number}`,
-  recordingUrl: `https://al-badr.net/download/${number}.mp3`,
+  recordingUrl: `https://media.sualruhailymubasher.com/download/${number}.mp3`,
   detailPath: `/detail/${number}`,
 });
 
 const course = {
   title: 'دورة',
   slot: 'fajr',
+  place: 'مسجد',
   weekdays: [0, 1],
   offsetMin: 25,
   seriesId: 1,
@@ -33,7 +34,7 @@ const course = {
 beforeEach(async () => {
   await env.DB.prepare('DELETE FROM lessons').run();
   await env.DB.prepare('DELETE FROM exceptions').run();
-  await env.DB.prepare("DELETE FROM courses WHERE id NOT IN ('tafsir-saadi','kitab-tawhid')").run();
+  await env.DB.prepare("DELETE FROM courses WHERE id NOT IN ('kitab-tawhid','kabair','targhib','dalil-talib')").run();
   await setSetting(env.DB, 'live_mode', 'embed');
   await setLive(env.DB, { isLive: false, broadcastUid: null, streamUrl: null, courseId: null, startedAt: null });
 });
@@ -103,13 +104,21 @@ describe('courses', () => {
     expect(await offsets()).toEqual([]);
   });
 
+  it('stores the place and accepts the asr slot', async () => {
+    await call('PUT', '/api/admin/courses/pl', { ...course, slot: 'asr', place: ' مسجد قباء ' });
+    const row = ((await (await call('GET', '/api/admin/courses')).json()) as any[]).find((c) => c.id === 'pl');
+    expect(row).toMatchObject({ slot: 'asr', place: 'مسجد قباء' });
+  });
+
   it('accepts a new book id', async () => {
     expect((await call('PUT', '/api/admin/courses/tafsir-saadi-2', course)).status).toBe(204);
   });
 
   it.each([
     { ...course, title: '' },
-    { ...course, slot: 'asr' },
+    { ...course, slot: 'isha' },
+    { ...course, place: undefined },
+    { ...course, place: 5 },
     { ...course, weekdays: [7] },
     { ...course, weekdays: [1.5] },
     { ...course, offsetMin: 121 },
@@ -134,10 +143,10 @@ describe('courses', () => {
 
 describe('lessons', () => {
   it('PATCH sets end fields and the lesson leaves pending', async () => {
-    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(5));
+    await insertLessonIfNew(env.DB, 'dalil-talib', lesson(5));
     const pending = () => call('GET', '/api/admin/pending-transcriptions').then((r) => r.json() as Promise<any[]>);
     expect((await pending()).map((p) => p.number)).toEqual([5]);
-    const res = await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { endPoint: 'نهاية', endPage: 12 });
+    const res = await call('PATCH', '/api/admin/lessons/dalil-talib/5', { endPoint: 'نهاية', endPage: 12 });
     expect(res.status).toBe(204);
     expect(await pending()).toEqual([]);
     const row = await env.DB.prepare('SELECT end_point, end_page FROM lessons WHERE number = 5').first();
@@ -145,39 +154,39 @@ describe('lessons', () => {
   });
 
   it('PATCH null clears a field', async () => {
-    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(5));
-    await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { endPoint: 'نهاية', endPage: 12, endPdfIndex: 1 });
-    expect((await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { endPoint: null, endPage: null, endPdfIndex: null })).status).toBe(204);
+    await insertLessonIfNew(env.DB, 'dalil-talib', lesson(5));
+    await call('PATCH', '/api/admin/lessons/dalil-talib/5', { endPoint: 'نهاية', endPage: 12, endPdfIndex: 1 });
+    expect((await call('PATCH', '/api/admin/lessons/dalil-talib/5', { endPoint: null, endPage: null, endPdfIndex: null })).status).toBe(204);
     const row = await env.DB.prepare('SELECT end_point, end_page, end_pdf_index FROM lessons WHERE number = 5').first();
     expect(row).toEqual({ end_point: null, end_page: null, end_pdf_index: null });
   });
 
   it('PATCH endPage fills the next lesson start when unknown', async () => {
-    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(5));
-    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(6));
-    await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { pdfIndex: 1, endPage: 12 });
+    await insertLessonIfNew(env.DB, 'dalil-talib', lesson(5));
+    await insertLessonIfNew(env.DB, 'dalil-talib', lesson(6));
+    await call('PATCH', '/api/admin/lessons/dalil-talib/5', { pdfIndex: 1, endPage: 12 });
     const start = () => env.DB.prepare('SELECT start_page, pdf_index FROM lessons WHERE number = 6').first();
     expect(await start()).toEqual({ start_page: 12, pdf_index: 1 });
-    await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { endPage: 14, endPdfIndex: 2 });
+    await call('PATCH', '/api/admin/lessons/dalil-talib/5', { endPage: 14, endPdfIndex: 2 });
     expect(await start()).toEqual({ start_page: 12, pdf_index: 1 });
   });
 
   it('PATCH endPdfIndex is used for the next lesson volume', async () => {
-    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(5));
-    await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(6));
-    await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', { pdfIndex: 0, endPage: 2, endPdfIndex: 1 });
+    await insertLessonIfNew(env.DB, 'dalil-talib', lesson(5));
+    await insertLessonIfNew(env.DB, 'dalil-talib', lesson(6));
+    await call('PATCH', '/api/admin/lessons/dalil-talib/5', { pdfIndex: 0, endPage: 2, endPdfIndex: 1 });
     expect(await env.DB.prepare('SELECT start_page, pdf_index FROM lessons WHERE number = 6').first()).toEqual({ start_page: 2, pdf_index: 1 });
   });
 
   it('404 for a missing lesson', async () => {
-    expect((await call('PATCH', '/api/admin/lessons/tafsir-saadi/99', { endPage: 3 })).status).toBe(404);
+    expect((await call('PATCH', '/api/admin/lessons/dalil-talib/99', { endPage: 3 })).status).toBe(404);
   });
 
   it.each([{ endPage: 'x' }, { endPage: 0 }, { pdfIndex: -1 }, { startPoint: 3 }, { other: 1 }, { endPage: 1.5 }, { startPoint: null }, { endPdfIndex: -1 }])(
     'rejects invalid patch %#',
     async (body) => {
-      await insertLessonIfNew(env.DB, 'tafsir-saadi', lesson(5));
-      expect((await call('PATCH', '/api/admin/lessons/tafsir-saadi/5', body)).status).toBe(400);
+      await insertLessonIfNew(env.DB, 'dalil-talib', lesson(5));
+      expect((await call('PATCH', '/api/admin/lessons/dalil-talib/5', body)).status).toBe(400);
     },
   );
 });
@@ -187,7 +196,7 @@ describe('exceptions', () => {
     const res = await call('POST', '/api/admin/exceptions', { courseId: null, kind: 'cancel', dateFrom: '2999-01-01', note: 'x' });
     expect(res.status).toBe(200);
     const { id } = (await res.json()) as { id: number };
-    await call('POST', '/api/admin/exceptions', { courseId: 'tafsir-saadi', kind: 'pause', dateFrom: '2000-01-01' });
+    await call('POST', '/api/admin/exceptions', { courseId: 'dalil-talib', kind: 'pause', dateFrom: '2000-01-01' });
     const list = (await (await call('GET', '/api/admin/exceptions')).json()) as any[];
     expect(list.map((e) => e.id)).toEqual([id]);
     expect((await call('DELETE', `/api/admin/exceptions/${id}`)).status).toBe(204);
@@ -245,9 +254,9 @@ describe('settings and misc', () => {
   });
 
   it('test-push only accepts topics the jobs send to', async () => {
-    expect((await call('POST', '/api/admin/test-push', { topic: 'c-tafsir-saadi-foo' })).status).toBe(400);
+    expect((await call('POST', '/api/admin/test-push', { topic: 'c-dalil-talib-foo' })).status).toBe(400);
     expect((await call('POST', '/api/admin/test-push', { topic: 'c-nope-live' })).status).toBe(400);
-    for (const topic of ['c-tafsir-saadi-live', 'c-kitab-tawhid-prep', 'live-other']) {
+    for (const topic of ['c-dalil-talib-live', 'c-kitab-tawhid-prep', 'live-other']) {
       expect((await call('POST', '/api/admin/test-push', { topic })).status).not.toBe(400);
     }
   });

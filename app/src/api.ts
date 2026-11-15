@@ -1,7 +1,7 @@
 import { Preferences } from '@capacitor/preferences';
-import { parseUpdatePolicy, type LessonDTO, type StateDTO, type UpdatePolicy } from '@albadr/shared';
+import { parseUpdatePolicy, type LessonDTO, type StateDTO, type UpdatePolicy } from '@sualruhaily/shared';
 
-export const API_BASE = import.meta.env.VITE_API_BASE ?? 'https://api.albadrmubasher.com';
+export const API_BASE = import.meta.env.VITE_API_BASE ?? 'https://api.sualruhailymubasher.com';
 const STATE_KEY = 'state';
 
 export async function loadCachedState(): Promise<StateDTO | null> {

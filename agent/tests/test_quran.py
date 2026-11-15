@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from albadr_agent.quran import ayah, label, matches, next_lesson_start, normalize, opening, parse_label, surah_number
+from sualruhaily_agent.quran import ayah, label, matches, next_lesson_start, normalize, opening, parse_label, surah_number
 
 ANNOUNCED = json.loads((Path(__file__).parent / "fixtures" / "tafsir_announcements.json").read_text())["lessons"]
 
@@ -140,5 +140,5 @@ def test_the_minimum_answer_the_prompt_asks_for_passes_for_every_ayah(surah):
 
 
 def test_the_prompt_asks_for_the_minimum_the_check_needs():
-    from albadr_agent.locate import NEXT_AYAH_STEP
+    from sualruhaily_agent.locate import NEXT_AYAH_STEP
     assert "ثماني كلمات" in NEXT_AYAH_STEP and "الآية كاملة" in NEXT_AYAH_STEP

@@ -10,7 +10,7 @@ export function NavBar({ route, tabs }: { route: Route; tabs: LessonTab[] }) {
       {tabs.map((t) => (
         <a href={`#/course/${t.courseId}`} data-slot={t.slot} class={onCourse === t.courseId ? 'on' : ''} key={t.courseId}>
           {t.live && <i class="ld" />}
-          <svg><use href={t.slot === 'fajr' ? '#i-sun' : '#i-moon'} /></svg>
+          <svg><use href={t.slot === 'maghrib' ? '#i-moon' : '#i-sun'} /></svg>
           {t.label}
         </a>
       ))}

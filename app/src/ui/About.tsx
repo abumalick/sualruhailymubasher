@@ -28,10 +28,10 @@ export function About({ native }: { native: boolean }) {
       </div>
       <div class="card about">
         <p>
-          يجمع هذا التطبيق البث المباشر لدروس الشيخ عبد الرزاق البدر في المسجد النبوي وتسجيلاتها، ويعرض موضع كل درس في الكتاب للتحضير
+          يجمع هذا التطبيق البث المباشر لدروس الشيخ سليمان الرحيلي في المسجد النبوي وتسجيلاتها، ويعرض موضع كل درس في الكتاب للتحضير
           والمراجعة.
         </p>
-        <p>هذا تطبيق غير رسمي من إعداد طلاب العلم، ولا يتبع الشيخ ولا موقعه. الدروس من موقع الشيخ al-badr.net وبثه المباشر.</p>
+        <p>هذا تطبيق غير رسمي من إعداد طلاب العلم، ولا يتبع الشيخ ولا موقعه. الدروس من موقع الشيخ sualruhaily.com وبثه المباشر.</p>
       </div>
 
       {!native && (
@@ -52,13 +52,13 @@ export function About({ native }: { native: boolean }) {
 
       <p class="sec">المصادر</p>
       <div class="card">
-        <Row title="موقع الشيخ" sub="al-badr.net" href={SHEIKH_SITE} />
-        <Row title="البث المباشر على Mixlr" sub="albadrnet.mixlr.com" href={MIXLR_URL} />
+        <Row title="موقع الشيخ" sub="sualruhaily.com" href={SHEIKH_SITE} />
+        <Row title="البث المباشر على Mixlr" sub="sualruhaily.mixlr.com" href={MIXLR_URL} />
       </div>
 
       <p class="sec">الخصوصية والتواصل</p>
       <div class="card">
-        <Row title="سياسة الخصوصية" sub="albadrmubasher.com/privacy" href={native ? PRIVACY_URL : '/privacy'} />
+        <Row title="سياسة الخصوصية" sub="sualruhailymubasher.com/privacy" href={native ? PRIVACY_URL : '/privacy'} />
         <Row title="تواصل معنا" sub={CONTACT_EMAIL} href={`mailto:${CONTACT_EMAIL}`} />
       </div>
     </>

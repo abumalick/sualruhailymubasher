@@ -1,5 +1,5 @@
-import type { ExceptionDTO } from '@albadr/shared';
-import { fajrMinutes, formatMinutes, sunsetMinutes } from './prayer';
+import type { ExceptionDTO } from '@sualruhaily/shared';
+import { asrMinutes, fajrMinutes, formatMinutes, sunsetMinutes } from './prayer';
 import type { CourseRow } from './repo';
 import { addDays, medinaDate, medinaInstant, weekday } from './time';
 
@@ -11,7 +11,7 @@ const applies = (e: ExceptionDTO, courseId: string) => e.courseId === null || e.
 const covers = (e: ExceptionDTO, date: string) => e.dateFrom <= date && date <= (e.dateTo ?? e.dateFrom);
 
 export function lessonTime(course: CourseRow, date: string): string {
-  const prayer = course.slot === 'fajr' ? fajrMinutes(date) : sunsetMinutes(date);
+  const prayer = { fajr: fajrMinutes, asr: asrMinutes, maghrib: sunsetMinutes }[course.slot](date);
   return formatMinutes(prayer + course.offsetMin);
 }
 

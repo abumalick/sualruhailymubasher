@@ -1,7 +1,7 @@
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
-import type { UpdatePlatform } from '@albadr/shared';
+import type { UpdatePlatform } from '@sualruhaily/shared';
 
 const DISMISSED = 'update-dismissed';
 

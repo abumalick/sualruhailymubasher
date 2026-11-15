@@ -11,13 +11,13 @@ export function isBookUrl(raw: string | undefined): raw is string {
   if (!raw) return false;
   try {
     const url = new URL(raw);
-    return url.protocol === 'https:' && url.hostname === 'al-badr.net' && url.pathname.toLowerCase().endsWith('.pdf') && !url.username && !url.port;
+    return url.protocol === 'https:' && url.hostname === 'media.sualruhailymubasher.com' && url.pathname.toLowerCase().endsWith('.pdf') && !url.username && !url.port;
   } catch {
     return false;
   }
 }
 
-// Browsers cannot fetch al-badr.net PDFs directly (no CORS headers), so the web app reads them through here.
+// Browsers cannot fetch PDFs from the media host directly (no CORS headers), so the web app reads them through here.
 // Callers pass a URL taken from the course data, never one from the request.
 export async function servePdf(url: string, deps: PdfDeps): Promise<Response> {
   if (!isBookUrl(url)) return new Response('not found', { status: 404 });

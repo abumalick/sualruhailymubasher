@@ -17,7 +17,7 @@ export interface PlayerState {
   error: string | null;
 }
 
-const ARTIST = 'الشيخ عبد الرزاق البدر';
+const ARTIST = 'الشيخ سليمان الرحيلي';
 const listeners = new Set<(s: PlayerState) => void>();
 let audio: HTMLAudioElement | null = null;
 let state: PlayerState = { src: null, playing: false, position: 0, duration: 0, error: null };

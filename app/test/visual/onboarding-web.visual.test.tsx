@@ -7,6 +7,11 @@ import '../../src/styles/app.css';
 
 vi.mock('../../src/platform', () => ({ nativeUI: () => false, isNative: () => false }));
 
+vi.mock('../../src/site', async (importOriginal) => {
+  const site = await importOriginal<typeof import('../../src/site')>();
+  return { ...site, STORES: [...(await import('../listed-stores')).LISTED_STORES] };
+});
+
 import { FIXTURE_STATE } from '../../src/dev/fixture-state';
 import { Onboarding } from '../../src/ui/Onboarding';
 import { Defs } from '../../src/ui/Star';

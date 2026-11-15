@@ -1,4 +1,4 @@
-import type { StateDTO } from '@albadr/shared';
+import type { StateDTO } from '@sualruhaily/shared';
 import { beforeEach, expect, it, vi } from 'vitest';
 
 const p = vi.hoisted(() => ({ play: vi.fn(async () => {}), pause: vi.fn(), resume: vi.fn(async () => {}), state: { src: null, playing: false } as { src: { url: string; kind: string } | null; playing: boolean } }));

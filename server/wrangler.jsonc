@@ -1,15 +1,15 @@
 {
-  "name": "albadr-lessons",
+  "name": "sualruhaily-lessons",
   "account_id": "9ab550becc556ce60d4250bfdc48224c",
-  "routes": [{ "pattern": "api.albadrmubasher.com", "custom_domain": true }],
+  "routes": [{ "pattern": "api.sualruhailymubasher.com", "custom_domain": true }],
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "triggers": { "crons": ["* * * * *"] },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "albadr-lessons",
-      "database_id": "11ae0749-3428-4993-ba2e-16d6aea40336",
+      "database_name": "sualruhaily-lessons",
+      "database_id": "fe8afa6f-65ec-4f5b-a4c7-81121825fcb7",
       "migrations_dir": "migrations"
     }
   ]

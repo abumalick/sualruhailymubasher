@@ -3,11 +3,11 @@ import subprocess
 
 import pytest
 
-from albadr_agent.api import Pending
-from albadr_agent.locate import (
+from sualruhaily_agent.api import Pending
+from sualruhaily_agent.locate import (
     ClaudeUnavailable, LocateResult, accept, build_prompt, candidate_pages, clip, find_page, locate,
 )
-from albadr_agent.transcribe import Segment
+from sualruhaily_agent.transcribe import Segment
 
 PENDING = Pending(
     course_id="kitab-tawhid", number=2, recording_url="https://x/2.mp3",
@@ -200,7 +200,7 @@ def test_candidates_without_previous_end_stay_in_the_named_surah():
 
 
 def test_tafsir_label_is_not_matched_as_book_text():
-    from albadr_agent.locate import match_score
+    from sualruhaily_agent.locate import match_score
     point = "تفسير سورة الأنفال: من الآية (60) ﴿وَأَعِدُّوا لَهُمْ مَا اسْتَطَعْتُمْ﴾"
     assert match_score(point, "وأعدوا لهم ما استطعتم") == 1.0
 

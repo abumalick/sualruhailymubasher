@@ -31,7 +31,7 @@ describe('iOS project', () => {
   });
 
   it('shows the short name on the home screen', () => {
-    expect(plistValue(infoPlist, 'CFBundleDisplayName')).toBe('<string>البدر مباشر</string>');
+    expect(plistValue(infoPlist, 'CFBundleDisplayName')).toBe('<string>سليمان الرحيلي مباشر</string>');
   });
 
   it('declares HTTPS-only encryption so TestFlight builds need no compliance answer', () => {

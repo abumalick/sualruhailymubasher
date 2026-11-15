@@ -1,3 +1,5 @@
+import { STORES } from '../site';
+
 export type StoreId = 'play' | 'appstore';
 
 export interface Visitor {
@@ -18,3 +20,6 @@ export function installStores({ nativeUI, ua, maxTouchPoints, dismissed }: Visit
   if (isIOS(ua, maxTouchPoints)) return ['appstore'];
   return ['play', 'appstore'];
 }
+
+// Stores that have a listing; an iOS visitor gets none until the App Store id is set in site.ts.
+export const listedStores = (ids: StoreId[]): StoreId[] => ids.filter((id) => STORES.some((s) => s.id === id));

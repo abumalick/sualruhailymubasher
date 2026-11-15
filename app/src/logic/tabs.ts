@@ -1,4 +1,4 @@
-import type { Slot, StateDTO } from '@albadr/shared';
+import type { Slot, StateDTO } from '@sualruhaily/shared';
 import { courseLabel, slotName } from '../ui/format';
 import { LESSON_MS, nextStart } from './lesson';
 
@@ -9,7 +9,8 @@ export interface LessonTab {
   live: boolean;
 }
 
-const slotOrder = (s: Slot) => (s === 'fajr' ? 0 : 1);
+const SLOT_ORDER: Record<Slot, number> = { fajr: 0, asr: 1, maghrib: 2 };
+const slotOrder = (s: Slot) => SLOT_ORDER[s];
 
 export function lessonTabs(view: StateDTO | null): LessonTab[] {
   if (!view) return [];

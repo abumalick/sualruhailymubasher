@@ -7,6 +7,10 @@ import '../../src/styles/app.css';
 
 vi.mock('../../src/platform', () => ({ isNative: () => false, nativeUI: () => false }));
 
+vi.mock('../../src/site', async (importOriginal) => {
+  const site = await importOriginal<typeof import('../../src/site')>();
+  return { ...site, STORES: [...(await import('../listed-stores')).LISTED_STORES] };
+});
 import { InstallBanner, resetInstallBanner } from '../../src/ui/InstallBanner';
 import { NavBar } from '../../src/ui/NavBar';
 import { Defs } from '../../src/ui/Star';

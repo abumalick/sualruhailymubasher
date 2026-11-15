@@ -6,13 +6,14 @@ import type {
   LessonPatch,
   PendingTranscription,
   Slot,
-} from '@albadr/shared';
+} from '@sualruhaily/shared';
 import { hijriToMedinaDate } from './time';
 
 export interface CourseRow {
   id: string;
   title: string;
   slot: Slot;
+  place: string;
   weekdays: number[];
   offsetMin: number;
   seriesId: number;
@@ -37,6 +38,7 @@ const toCourse = (r: Row): CourseRow => ({
   id: r.id as string,
   title: r.title as string,
   slot: r.slot as Slot,
+  place: r.place as string,
   weekdays: JSON.parse(r.weekdays as string),
   offsetMin: r.offset_min as number,
   seriesId: r.series_id as number,
@@ -79,10 +81,10 @@ export async function listCourses(db: D1Database, opts: { activeOnly?: boolean }
 export async function upsertCourse(db: D1Database, id: string, input: CourseInput): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO courses (id, title, slot, weekdays, offset_min, series_id, pdf_urls, active, edition, page_offsets, sort)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, coalesce(?10, '[]'), (SELECT coalesce(max(sort), -1) + 1 FROM courses))
+      `INSERT INTO courses (id, title, slot, weekdays, offset_min, series_id, pdf_urls, active, edition, page_offsets, place, sort)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, coalesce(?10, '[]'), ?11, (SELECT coalesce(max(sort), -1) + 1 FROM courses))
        ON CONFLICT(id) DO UPDATE SET title = ?2, slot = ?3, weekdays = ?4, offset_min = ?5,
-         series_id = ?6, pdf_urls = ?7, active = ?8, edition = ?9, page_offsets = coalesce(?10, page_offsets)`,
+         series_id = ?6, pdf_urls = ?7, active = ?8, edition = ?9, page_offsets = coalesce(?10, page_offsets), place = ?11`,
     )
     .bind(
       id,
@@ -95,6 +97,7 @@ export async function upsertCourse(db: D1Database, id: string, input: CourseInpu
       input.active ? 1 : 0,
       input.edition?.trim() || null,
       input.pageOffsets === undefined ? null : JSON.stringify(input.pageOffsets),
+      input.place.trim(),
     )
     .run();
 }
@@ -258,7 +261,7 @@ export async function recordBroadcast(
     .run();
 }
 
-// Number of the lesson held on Medina date `on`: al-badr.net publishes with a lag, so lesson days
+// Number of the lesson held on Medina date `on`: lessons arrive after a delay, so lesson days
 // broadcast after the latest scraped lesson was held (and before `on`) are counted too.
 // Days, not uids, so a reconnect that yields a second uid counts once. When the held date cannot be
 // derived from the hijri date, the lesson's created_at is the anchor instead.

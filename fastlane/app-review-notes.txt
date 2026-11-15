@@ -1,6 +1,6 @@
 No account or login is needed. The app is in Arabic.
 
-What the app does: it follows the public lessons that Sheikh Abdur-Razzaq Al-Badr gives at the Prophet's Mosque in Madinah. On first launch, a short tour of four screens: pick the lessons you attend (for example «درس الفجر»), then one screen each for the live broadcast, the recordings and the preparation of the next lesson, each with its notification switches. Tap the button at the bottom of each screen («متابعة», then «ابدأ»). The tour can be replayed from المزيد → «كيف يعمل التطبيق».
+What the app does: it follows the public lessons that Sheikh Sulayman al-Ruhayli gives at the Prophet's Mosque in Madinah. On first launch, a short tour of four screens: pick the lessons you attend (for example «درس الفجر»), then one screen each for the live broadcast, the recordings and the preparation of the next lesson, each with its notification switches. Tap the button at the bottom of each screen («متابعة», then «ابدأ»). The tour can be replayed from المزيد → «كيف يعمل التطبيق».
 
 How to test:
 1. Recordings: open a lesson and play any recorded lesson. Audio keeps playing with the screen locked and can be controlled from the Lock Screen and Control Center.
@@ -8,6 +8,6 @@ How to test:
 3. Notifications: the app asks for permission when you continue from the first tour screen with a notification switched on. It sends a notification when a broadcast starts, when a new recording is available, and before the next lesson.
 4. Book position: each lesson shows the page reached in the book, with the book's PDF where one is available.
 
-Content: the recordings and PDFs are published openly on the Sheikh's website al-badr.net, and the live audio is his public Mixlr broadcast (albadrnet.mixlr.com). The app streams them from those sources. It does not re-host them, and it shows no ads and charges nothing. The app says clearly, in its listing and in the app, that it is unofficial and not affiliated with the Sheikh or his website.
+Content: the recordings and PDFs are published openly on the Sheikh's website sualruhaily.com, and the live audio is his public Mixlr broadcast (sualruhaily.mixlr.com). The app streams them from those sources. It does not re-host them, and it shows no ads and charges nothing. The app says clearly, in its listing and in the app, that it is unofficial and not affiliated with the Sheikh or his website.
 
 Privacy: no account, no analytics, no ads. The only identifier is the Firebase Cloud Messaging installation ID, used to deliver the notifications the user chose.

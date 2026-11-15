@@ -22,12 +22,14 @@ describe('server/seed/dev.sql (worktree dev data)', () => {
     const res = await exports.default.fetch('http://example.com/api/state');
     const body = (await res.json()) as any;
 
-    expect(body.courses.map((c: any) => c.id)).toEqual(['tafsir-saadi', 'kitab-tawhid']);
+    expect(body.courses.map((c: any) => c.id)).toEqual(['kitab-tawhid', 'kabair', 'targhib', 'dalil-talib']);
     for (const course of body.courses) {
       expect(course.title).toMatch(/[^)] \(محلي\)$/);
-      expect(course.latest).toHaveLength(5);
+      expect(course.latest).toHaveLength(3);
+      expect(course.place).not.toBe('');
       expect(course.next).not.toBeNull();
     }
-    expect(body.courses[0].edition).toBe('طبعة دار ابن الجوزي');
+    expect(body.courses[1].latest.map((l: any) => l.number)).toEqual([59, 57, 53]);
+    expect(body.courses[3].latest[0]).toMatchObject({ number: 7, detailPath: 'tg:1111' });
   });
 });

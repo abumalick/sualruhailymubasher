@@ -20,6 +20,10 @@ vi.mock('../src/push', () => ({
   setTopic: vi.fn(),
 }));
 
+vi.mock('../src/site', async (importOriginal) => {
+  const site = await importOriginal<typeof import('../src/site')>();
+  return { ...site, STORES: [...(await import('./listed-stores')).LISTED_STORES] };
+});
 import * as api from '../src/api';
 import { App } from '../src/App';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
@@ -52,11 +56,11 @@ describe('About', () => {
     render(<About native={true} />);
     expect(screen.getByText(/هذا تطبيق غير رسمي من إعداد طلاب العلم، ولا يتبع الشيخ ولا موقعه/)).toBeTruthy();
     const href = (name: RegExp) => screen.getByRole('link', { name }).getAttribute('href');
-    expect(href(/موقع الشيخ/)).toBe('https://al-badr.net');
-    expect(href(/Mixlr/)).toBe('https://albadrnet.mixlr.com');
-    expect(href(/سياسة الخصوصية/)).toBe('https://albadrmubasher.com/privacy');
-    expect(href(/تواصل معنا/)).toBe('mailto:contact@albadrmubasher.com');
-    expect(screen.getByText('البدر مباشر')).toBeTruthy();
+    expect(href(/موقع الشيخ/)).toBe('https://sualruhaily.com');
+    expect(href(/Mixlr/)).toBe('https://sualruhaily.mixlr.com');
+    expect(href(/سياسة الخصوصية/)).toBe('https://sualruhailymubasher.com/privacy');
+    expect(href(/تواصل معنا/)).toBe('mailto:contact@sualruhailymubasher.com');
+    expect(screen.getByText('سليمان الرحيلي مباشر')).toBeTruthy();
   });
 
   it('never calls itself official', () => {
@@ -73,8 +77,8 @@ describe('About', () => {
   it('on the web it points to the mobile apps for notifications, with a link to each store', () => {
     render(<About native={false} />);
     expect(screen.getByText(/لا تتوفر التنبيهات في نسخة المتصفح/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Google Play' }).getAttribute('href')).toBe('https://play.google.com/store/apps/details?id=com.albadrmubasher.app');
-    expect(screen.getByRole('link', { name: 'App Store' }).getAttribute('href')).toBe('https://apps.apple.com/app/id6832876968');
+    expect(screen.getByRole('link', { name: 'Google Play' }).getAttribute('href')).toBe('https://play.google.com/store/apps/details?id=com.sualruhailymubasher.app');
+    expect(screen.getByRole('link', { name: 'App Store' }).getAttribute('href')).toBe('https://apps.apple.com/app/id1234567890');
     expect(screen.queryByText(/قريبًا/)).toBeNull();
     expect(screen.getByRole('link', { name: /سياسة الخصوصية/ }).getAttribute('href')).toBe('/privacy');
   });
@@ -83,7 +87,7 @@ describe('About', () => {
 describe('App on the web', () => {
   it('shows one tab per lesson and المزيد, which leaves out notifications', async () => {
     await app('#/more');
-    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
+    expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']);
     expect(screen.queryByRole('link', { name: /التنبيهات/ })).toBeNull();
   });
 
@@ -119,14 +123,14 @@ describe('install banner on the web', () => {
     await app('#/more');
     expect(banner()!.parentElement!.classList.contains('scroll')).toBe(true);
     expect(banner()!.parentElement!.firstElementChild).toBe(banner());
-    expect(storeLinks()).toEqual([['احصل عليه من Google Play', 'https://play.google.com/store/apps/details?id=com.albadrmubasher.app']]);
+    expect(storeLinks()).toEqual([['احصل عليه من Google Play', 'https://play.google.com/store/apps/details?id=com.sualruhailymubasher.app']]);
     expect(banner()!.textContent!.replace(/غير رسمي/g, '')).not.toMatch(/رسمي/);
   });
 
   it('invites an iPhone visitor to the App Store only', async () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
     await app('#/more');
-    expect(storeLinks()).toEqual([['تنزيل من App Store', 'https://apps.apple.com/app/id6832876968']]);
+    expect(storeLinks()).toEqual([['تنزيل من App Store', 'https://apps.apple.com/app/id1234567890']]);
   });
 
   it('a dismissal is remembered across visits', async () => {
@@ -179,7 +183,7 @@ describe('App in the mobile app', () => {
 
   it('reaches notifications from المزيد', async () => {
     await app('#/more');
-    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
+    expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']);
     expect(screen.getByRole('link', { name: /التنبيهات/ }).getAttribute('href')).toBe('#/notifications');
     cleanup();
     await app('#/notifications');

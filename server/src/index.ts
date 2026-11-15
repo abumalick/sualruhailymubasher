@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { ADMIN_HTML } from './admin-page';
 import { createFcm, type Fcm } from './fcm';
 import { runLivePoll, type LiveDeps } from './jobs/live';
-import { runRecordingIngest } from './jobs/recordings';
 import { runReminders } from './jobs/reminders';
 import { adminRoutes } from './routes/admin';
 import { publicRoutes } from './routes/public';
@@ -23,10 +22,9 @@ app.route('/', adminRoutes);
 export interface Jobs {
   live: (deps: LiveDeps) => Promise<void>;
   reminders: (deps: LiveDeps) => Promise<void>;
-  recordings: (deps: LiveDeps) => Promise<void>;
 }
 
-const defaultJobs: Jobs = { live: runLivePoll, reminders: runReminders, recordings: runRecordingIngest };
+const defaultJobs: Jobs = { live: runLivePoll, reminders: runReminders };
 
 export async function dispatchScheduled(jobs: Jobs, deps: LiveDeps, at: Date): Promise<void> {
   const run = { ...deps, now: at };
@@ -34,7 +32,6 @@ export async function dispatchScheduled(jobs: Jobs, deps: LiveDeps, at: Date): P
     ['live', jobs.live],
     ['reminders', jobs.reminders],
   ];
-  if (at.getUTCMinutes() % 10 === 0) due.push(['recordings', jobs.recordings]);
   await Promise.all(
     due.map(async ([name, job]) => {
       try {

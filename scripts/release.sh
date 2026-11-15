@@ -16,7 +16,7 @@ main_root="$(cd "$main_root/.." && pwd)"
 state="$main_root/.worktrees/.release"
 build="$state/build"
 logs="$main_root/.worktrees/.logs"
-SECRETS="${ALBADR_SECRETS:-$HOME/.config/albadrmubasher}"
+SECRETS="${SUALRUHAILY_SECRETS:-$HOME/.config/sualruhailymubasher}"
 
 if [ -z "${RELEASE_NOTIFY_CMD+set}" ] && [ -f "$SECRETS/release.env" ]; then
   # shellcheck source=/dev/null
@@ -32,7 +32,7 @@ queue() {
   mkdir -p "$logs"
   log="$logs/release-$id.log"
   # A transient unit outlives the workspace that ran finish; it gets the shell's tools but no terminal
-  "${RELEASE_SYSTEMD_RUN:-systemd-run}" --user --collect --quiet --unit "albadr-release-$id" \
+  "${RELEASE_SYSTEMD_RUN:-systemd-run}" --user --collect --quiet --unit "sualruhaily-release-$id" \
     -p MemoryMax=8G -p MemorySwapMax=2G \
     -p "StandardOutput=append:$log" -p "StandardError=append:$log" \
     --working-directory="$main_root" \
@@ -40,7 +40,7 @@ queue() {
     ${ANDROID_HOME:+--setenv=ANDROID_HOME="$ANDROID_HOME"} ${JAVA_HOME:+--setenv=JAVA_HOME="$JAVA_HOME"} \
     ${SSH_AUTH_SOCK:+--setenv=SSH_AUTH_SOCK="$SSH_AUTH_SOCK"} \
     -- bash "$here/release.sh" job "$@"
-  say "queued: $* (unit albadr-release-$id, log $log)"
+  say "queued: $* (unit sualruhaily-release-$id, log $log)"
 }
 
 cmd_after_merge() {
@@ -52,7 +52,7 @@ cmd_after_merge() {
 }
 
 prepare_build() {
-  cp "$SECRETS/google-services.com.albadrmubasher.app.json" app/android/app/google-services.json
+  cp "$SECRETS/google-services.com.sualruhailymubasher.app.json" app/android/app/google-services.json
   pnpm install --frozen-lockfile
 }
 
@@ -69,8 +69,8 @@ smoke() { # <url> <fixed text the body must contain>
 step_server() {
   grep -q '"account_id": "9ab550becc556ce60d4250bfdc48224c"' server/wrangler.jsonc \
     || { say "server/wrangler.jsonc does not name the personal account"; return 1; }
-  (cd server && CI=1 pnpm exec wrangler d1 migrations apply albadr-lessons --remote && pnpm exec wrangler deploy)
-  smoke https://api.albadrmubasher.com/api/health '"ok":true'
+  (cd server && CI=1 pnpm exec wrangler d1 migrations apply sualruhaily-lessons --remote && pnpm exec wrangler deploy)
+  smoke https://api.sualruhailymubasher.com/api/health '"ok":true'
 }
 
 step_web() {
@@ -78,7 +78,7 @@ step_web() {
   pnpm --filter app build
   (cd web && pnpm exec wrangler deploy)
   asset="$(grep -o '/assets/[^"]*' app/dist/index.html | head -n 1)"
-  smoke https://albadrmubasher.com/ "$asset"
+  smoke https://sualruhailymubasher.com/ "$asset"
 }
 
 version() { node scripts/release.mjs version; }
@@ -108,8 +108,8 @@ step_play_internal() {
 }
 
 MAC="${RELEASE_MAC:-mac}"
-MAC_DIR="workspace/dawa/albadrmubasher-release"
-MAC_LOCK=".albadr-release.lock"
+MAC_DIR="workspace/dawa/sualruhailymubasher-release"
+MAC_LOCK=".sualruhaily-release.lock"
 
 # Runs a command in the pipeline's own copy on the Mac, never the hand-used one, one build at a time
 on_mac() {
@@ -254,7 +254,7 @@ cmd_job() {
       rm -f "$state/skipped.${parallel[$i]}"
     done
   done
-  summary="$(printf 'Albadr release at %s (%s)\n%s' "$sha" "$(git log -1 --format=%s)" "$(printf '%s\n' "${results[@]}")")"
+  summary="$(printf 'Sualruhaily release at %s (%s)\n%s' "$sha" "$(git log -1 --format=%s)" "$(printf '%s\n' "${results[@]}")")"
   say "$summary"
   printf '%s\n' "$summary" | notify
   return "$failed"

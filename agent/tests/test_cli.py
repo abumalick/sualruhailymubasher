@@ -1,13 +1,13 @@
 import httpx
 import pytest
 
-from albadr_agent import cli
+from sualruhaily_agent import cli
 
 
 def env(monkeypatch, tmp_path):
     monkeypatch.setenv("API_BASE", "https://api.test")
     monkeypatch.setenv("ADMIN_TOKEN", "tok")
-    monkeypatch.setenv("ALBADR_AGENT_LOCK", str(tmp_path / "run.lock"))
+    monkeypatch.setenv("SUALRUHAILY_AGENT_LOCK", str(tmp_path / "run.lock"))
 
 
 def test_unauthorized_exits_nonzero_and_releases_lock(monkeypatch, tmp_path, caplog):
@@ -15,7 +15,7 @@ def test_unauthorized_exits_nonzero_and_releases_lock(monkeypatch, tmp_path, cap
     transport = httpx.MockTransport(lambda r: httpx.Response(401))
     assert cli.main(["run"], transport=transport) == 1
     assert "401" in caplog.text
-    from albadr_agent.lock import run_lock
+    from sualruhaily_agent.lock import run_lock
 
     with run_lock(tmp_path / "run.lock") as ok:
         assert ok
@@ -30,7 +30,7 @@ def test_missing_config_exits_nonzero(monkeypatch, tmp_path, caplog):
 
 def test_held_lock_exits_zero_immediately(monkeypatch, tmp_path):
     env(monkeypatch, tmp_path)
-    from albadr_agent.lock import run_lock
+    from sualruhaily_agent.lock import run_lock
 
     def boom(r):
         raise AssertionError("must not call server")
@@ -48,6 +48,6 @@ def test_no_pending_exits_zero(monkeypatch, tmp_path):
 def test_index_book_command(tmp_path, monkeypatch, caplog):
     caplog.set_level("INFO")
     monkeypatch.delenv("API_BASE", raising=False)
-    monkeypatch.setattr("albadr_agent.cli.book_pages", lambda url, cache_dir: ["a", "b"])
+    monkeypatch.setattr("sualruhaily_agent.cli.book_pages", lambda url, cache_dir: ["a", "b"])
     assert cli.main(["index-book", "https://x.test/b.pdf", "--cache-dir", str(tmp_path)]) == 0
     assert "indexed 2 page(s)" in caplog.text

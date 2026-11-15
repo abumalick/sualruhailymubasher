@@ -20,3 +20,9 @@ describe('prepNoticeBody', () => {
     expect(prepNoticeBody('كتاب التوحيد', null, 1)).toBe('كتاب التوحيد');
   });
 });
+
+describe('lessonNoticeBody without a number', () => {
+  it('is the course title alone', () => {
+    expect(lessonNoticeBody('شرح كتاب الكبائر للذهبي')).toBe('شرح كتاب الكبائر للذهبي');
+  });
+});

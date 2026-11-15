@@ -11,13 +11,14 @@ export declare function releaseTag(versionName: string): string;
 export declare function gradleVersion(gradle: string): { versionCode?: string; versionName?: string };
 export declare function parseBadging(badging: string): Badging;
 export declare function parseSigners(apksigner: string): string[];
-export declare function apkProblems(input: { badging: Badging; signers: string[]; expected: { versionCode?: string; versionName?: string } }): string[];
+export declare function apkProblems(input: { badging: Badging; signers: string[]; expected: { versionCode?: string; versionName?: string }; signer?: string }): string[];
 export declare function releaseNotes(changelogs: { ar: string; en: string }): string;
 export declare function releaseArgs(input: { tag: string; asset: string; notesFile: string }): string[];
 export interface GithubApkIo {
   gradle(): string;
   badging(apk: string): string;
   signers(apk: string): string;
+  signer?: string;
   releaseExists(tag: string): boolean;
   changelog(locale: string): string;
   stage(apk: string, notes: string): { asset: string; notesFile: string };

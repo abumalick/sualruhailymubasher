@@ -5,28 +5,28 @@ const assets = (res = new Response('<!doctype html>', { headers: { 'content-type
 
 describe('canonicalUrl', () => {
   it('sends www to the apex, keeping path and query', () => {
-    expect(canonicalUrl('https://www.albadrmubasher.com/privacy?x=1')).toBe('https://albadrmubasher.com/privacy?x=1');
-    expect(canonicalUrl('http://www.albadrmubasher.com/')).toBe('https://albadrmubasher.com/');
+    expect(canonicalUrl('https://www.sualruhailymubasher.com/privacy?x=1')).toBe('https://sualruhailymubasher.com/privacy?x=1');
+    expect(canonicalUrl('http://www.sualruhailymubasher.com/')).toBe('https://sualruhailymubasher.com/');
   });
 
   it('leaves the apex and the preview host alone', () => {
-    expect(canonicalUrl('https://albadrmubasher.com/')).toBeNull();
-    expect(canonicalUrl('https://albadr-web-preview.abdullah-hilson-9ab.workers.dev/')).toBeNull();
+    expect(canonicalUrl('https://sualruhailymubasher.com/')).toBeNull();
+    expect(canonicalUrl('https://sualruhaily-web-preview.abdullah-hilson-9ab.workers.dev/')).toBeNull();
   });
 });
 
 describe('handle', () => {
   it('redirects www permanently without touching the assets', async () => {
     const a = assets();
-    const res = await handle(new Request('https://www.albadrmubasher.com/privacy'), a);
+    const res = await handle(new Request('https://www.sualruhailymubasher.com/privacy'), a);
     expect(res.status).toBe(301);
-    expect(res.headers.get('location')).toBe('https://albadrmubasher.com/privacy');
+    expect(res.headers.get('location')).toBe('https://sualruhailymubasher.com/privacy');
     expect(a.fetch).not.toHaveBeenCalled();
   });
 
   it('serves the asset with nosniff, a referrer policy, HSTS and no framing', async () => {
     const a = assets();
-    const req = new Request('https://albadrmubasher.com/');
+    const req = new Request('https://sualruhailymubasher.com/');
     const res = await handle(req, a);
     expect(a.fetch).toHaveBeenCalledWith(req);
     expect(res.status).toBe(200);
@@ -39,7 +39,7 @@ describe('handle', () => {
   });
 
   it('passes the assets status through (a missing page stays a 404)', async () => {
-    const res = await handle(new Request('https://albadrmubasher.com/nope'), assets(new Response('nf', { status: 404 })));
+    const res = await handle(new Request('https://sualruhailymubasher.com/nope'), assets(new Response('nf', { status: 404 })));
     expect(res.status).toBe(404);
   });
 });

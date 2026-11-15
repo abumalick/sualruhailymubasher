@@ -1,0 +1,2 @@
+- `mixlr-sualruhaily-offline.json`: real `channel_view` capture of `sualruhaily` while offline.
+- `mixlr-sualruhaily-live.json`: DERIVED, not a real capture. It is the offline capture with `live: true` and one broadcast entry (invented uid and id, `progressive_stream_url` `https://listen.mixlr.com/<uid>`) shaped like a real live broadcast. Replace it with a real capture the next time the channel is live.

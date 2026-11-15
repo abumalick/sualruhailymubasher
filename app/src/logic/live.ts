@@ -1,4 +1,4 @@
-import type { CourseDTO, LiveDTO } from '@albadr/shared';
+import type { CourseDTO, LiveDTO } from '@sualruhaily/shared';
 import { ar, bookHref, editionPage, pageSuffix, printedPage, startText } from '../ui/format';
 import { hijriToday, medinaDate } from './time';
 
@@ -64,6 +64,9 @@ export function liveLesson(course: CourseDTO, startedAt: string | null): LiveLes
   return { number, start: null };
 }
 
+// The on-air lesson's number, or null when the course has no lesson yet: any number would be a prediction.
+export const liveNumber = (course: CourseDTO, startedAt: string | null): number | null => (course.latest.length > 0 ? liveLesson(course, startedAt).number : null);
+
 export interface LiveContext {
   title: string;
   header: string;
@@ -76,8 +79,9 @@ export interface LiveContext {
 
 export function liveContext(course: CourseDTO | undefined, isLive: boolean, startedAt: string | null): LiveContext {
   const lesson = course ? liveLesson(course, startedAt) : null;
+  const number = course ? liveNumber(course, startedAt) : null;
   const start = lesson?.start ?? null;
-  const label = lesson ? `الدرس ${ar(lesson.number)}` : null;
+  const label = number !== null ? `الدرس ${ar(number)}` : null;
   const edition = course && start ? editionPage(course, start.startPage) : null;
   const liveText = [label ? `مباشر · ${label}` : 'بث مباشر', edition].filter(Boolean).join(' · ');
   return {

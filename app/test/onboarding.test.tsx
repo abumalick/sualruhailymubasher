@@ -34,7 +34,12 @@ vi.mock('@capacitor/app', () => ({
 }));
 vi.mock('../src/api', () => ({ loadCachedState: vi.fn(async () => null), fetchState: vi.fn(), fetchLessons: vi.fn(async () => []) }));
 
-import { NOTICE_TITLE } from '@albadr/shared';
+vi.mock('../src/site', async (importOriginal) => {
+  const site = await importOriginal<typeof import('../src/site')>();
+  return { ...site, STORES: [...(await import('./listed-stores')).LISTED_STORES] };
+});
+
+import { NOTICE_TITLE } from '@sualruhaily/shared';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { topicsFor } from '../src/logic/topics';
 import { seedPrefs } from './seed';
@@ -89,14 +94,14 @@ describe('the app screen', () => {
     expect(screen.getByText(fajr.title)).toBeTruthy();
     expect(screen.getByText(maghrib.title)).toBeTruthy();
     expect(screen.getByRole('checkbox', { name: /درس الفجر/ }).getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByRole('checkbox', { name: /درس المغرب/ }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('checkbox', { name: /درس العصر/ }).getAttribute('aria-checked')).toBe('true');
     expect(document.querySelector('.nav')).toBeNull();
   });
 
   it('cannot continue with no lesson ticked', async () => {
     await start();
     fireEvent.click(screen.getByRole('checkbox', { name: /درس الفجر/ }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /درس المغرب/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /درس العصر/ }));
     expect((screen.getByRole('button', { name: 'اختر درسًا واحدًا على الأقل' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -139,7 +144,7 @@ describe('the live step', () => {
     await toLive();
     expect(screen.getAllByRole('switch')).toHaveLength(1);
     expect(switchOf(LIVE).getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByText('درس الفجر ودرس المغرب')).toBeTruthy();
+    expect(screen.getByText('درس الفجر ودرس العصر')).toBeTruthy();
     expect(screen.queryByRole('switch', { name: 'بث مباشر آخر' })).toBeNull();
   });
 
@@ -216,17 +221,17 @@ describe('the whole flow', () => {
     await heading('حضّر للدرس القادم');
     expect(screen.getByText(/الدرس ٤٤٤ ·/)).toBeTruthy();
     expect(screen.getByText(/الفجر: مساء اليوم السابق/)).toBeTruthy();
-    expect(screen.getByText(/المغرب: عصر يوم الدرس/)).toBeTruthy();
+    expect(screen.getByText(/العصر: قبل الدرس بثلاث ساعات/)).toBeTruthy();
     expect(switchOf(PREP).getAttribute('aria-checked')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'ابدأ' }));
-    await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']));
+    await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']));
     expect(store.get('onboarded')).toBe('1');
     expect(saved().wanted.sort()).toEqual(topicsFor([fajr.id, maghrib.id]).filter((t) => !t.endsWith('-rec')).sort());
   });
 
   it('other broadcasts follow the live switch, even with only Fajr ticked', async () => {
     await start();
-    fireEvent.click(screen.getByRole('checkbox', { name: /درس المغرب/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /درس العصر/ }));
     next();
     await heading('استمع مباشرةً');
     fireEvent.click(switchOf(LIVE));
@@ -241,18 +246,18 @@ describe('the whole flow', () => {
 
   it('an unticked lesson has no switches and no notifications, yet its tab stays', async () => {
     await start();
-    fireEvent.click(screen.getByRole('checkbox', { name: /درس المغرب/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /درس العصر/ }));
     next();
     await heading('استمع مباشرةً');
     expect(within(document.querySelector<HTMLElement>('.notifs')!).getByText('درس الفجر')).toBeTruthy();
-    expect(screen.queryByText(/درس المغرب/)).toBeNull();
+    expect(screen.queryByText(/درس العصر/)).toBeNull();
     next();
     await heading('راجع الدرس');
     next();
     await heading('حضّر للدرس القادم');
     expect(screen.getByText('مساء اليوم السابق · ٩:٠٠ م')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'ابدأ' }));
-    await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']));
+    await waitFor(() => expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']));
     expect(saved().wanted.sort()).toEqual(topicsFor([fajr.id]).sort());
   });
 
@@ -315,11 +320,11 @@ describe('the whole flow', () => {
   });
 
   it('an existing listener starts from their own choices', async () => {
-    store.set('follow', JSON.stringify({ ids: [fajr.id], known: { [fajr.id]: 'fajr', [maghrib.id]: 'maghrib' }, fresh: [], hint: false }));
+    store.set('follow', JSON.stringify({ ids: [fajr.id], known: { [fajr.id]: 'fajr', [maghrib.id]: 'asr' }, fresh: [], hint: false }));
     store.set('topics', JSON.stringify([`c-${fajr.id}-rec`]));
     await start();
     expect(screen.getByRole('checkbox', { name: /درس الفجر/ }).getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByRole('checkbox', { name: /درس المغرب/ }).getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('checkbox', { name: /درس العصر/ }).getAttribute('aria-checked')).toBe('false');
     next();
     await heading('استمع مباشرةً');
     expect(switchOf(LIVE).getAttribute('aria-checked')).toBe('false');
@@ -381,7 +386,7 @@ describe('swiping between steps', () => {
   it('cannot go forward from the first screen with no lesson ticked, as continue cannot', async () => {
     await start();
     fireEvent.click(screen.getByRole('checkbox', { name: /درس الفجر/ }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /درس المغرب/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /درس العصر/ }));
     swipeForward();
     await new Promise((r) => setTimeout(r, 20));
     expect(screen.getByRole('heading', { name: 'أيَّ الدروس تحضر؟' })).toBeTruthy();
@@ -633,7 +638,7 @@ describe('replay from المزيد', () => {
     render(<App />);
     fireEvent.click(await screen.findByRole('link', { name: /كيف يعمل التطبيق/ }));
     await heading('أيَّ الدروس تحضر؟');
-    expect(screen.getByRole('checkbox', { name: /درس المغرب/ }).getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('checkbox', { name: /درس العصر/ }).getAttribute('aria-checked')).toBe('false');
     next();
     await heading('استمع مباشرةً');
     fireEvent.click(switchOf(LIVE));
@@ -675,13 +680,13 @@ describe('a new book in the fresh course list', () => {
     await start();
     arrive({ state: { ...FIXTURE_STATE, courses: [fajr, b2] }, fresh: true });
     await screen.findByText(b2.title);
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: /درس المغرب/ }).getAttribute('aria-checked')).toBe('true'));
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /درس العصر/ }).getAttribute('aria-checked')).toBe('true'));
     expect(screen.getByRole('checkbox', { name: /درس الفجر/ }).getAttribute('aria-checked')).toBe('false');
   });
 });
 
 describe('a notification tapped before the onboarding is done', () => {
-  const legacy = () => store.set('follow', JSON.stringify({ ids: [fajr.id, maghrib.id], known: { [fajr.id]: 'fajr', [maghrib.id]: 'maghrib' }, fresh: [], hint: false }));
+  const legacy = () => store.set('follow', JSON.stringify({ ids: [fajr.id, maghrib.id], known: { [fajr.id]: 'fajr', [maghrib.id]: 'asr' }, fresh: [], hint: false }));
   async function tap(data: Record<string, string>) {
     const { initPush } = await import('../src/push');
     await initPush();
@@ -695,7 +700,7 @@ describe('a notification tapped before the onboarding is done', () => {
     await tap({ kind: 'rec', courseId: fajr.id, number: '443' });
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'أيَّ الدروس تحضر؟' })).toBeNull());
     expect(location.hash).toBe(`#/course/${fajr.id}`);
-    expect(tabLabels()).toEqual(['الفجر', 'المغرب', 'المزيد']);
+    expect(tabLabels()).toEqual(['الفجر', 'العصر', 'المزيد']);
     expect(store.has('onboarded')).toBe(false);
   });
 });

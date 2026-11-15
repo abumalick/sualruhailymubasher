@@ -44,6 +44,13 @@ function sunAngleHours(date: string, angle: number, guessHours: number, beforeNo
 }
 
 export const fajrMinutes = (date: string) => sunAngleHours(date, FAJR_ANGLE, 5, true) * 60;
+
+// Asr at shadow ratio 1: the sun's altitude is acot(1 + tan|LAT - decl|).
+export function asrMinutes(date: string): number {
+  const { decl } = sun(julian(date) - LNG / (15 * 24) + 13 / 24);
+  const altitude = deg(Math.atan(1 / (1 + Math.tan(rad(Math.abs(LAT - decl))))));
+  return sunAngleHours(date, -altitude, 13, false) * 60;
+}
 export const sunsetMinutes = (date: string) => sunAngleHours(date, SUNSET_ANGLE, 18, false) * 60;
 
 export function formatMinutes(minutes: number): string {
@@ -53,3 +60,4 @@ export function formatMinutes(minutes: number): string {
 
 export const fajrTime = (date: string) => formatMinutes(fajrMinutes(date));
 export const sunsetTime = (date: string) => formatMinutes(sunsetMinutes(date));
+export const asrTime = (date: string) => formatMinutes(asrMinutes(date));

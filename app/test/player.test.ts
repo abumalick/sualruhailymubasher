@@ -55,7 +55,7 @@ describe('player', () => {
     player.onChange((s) => states.push(s.playing));
     await player.play(rec);
     expect(session.setMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'الدرس ٣', artist: 'الشيخ عبد الرزاق البدر', artwork: [expect.objectContaining({ type: 'image/png' })] }),
+      expect.objectContaining({ title: 'الدرس ٣', artist: 'الشيخ سليمان الرحيلي', artwork: [expect.objectContaining({ type: 'image/png' })] }),
     );
     expect(session.setPlaybackState).toHaveBeenCalledWith({ playbackState: 'playing' });
     expect(states.at(-1)).toBe(true);

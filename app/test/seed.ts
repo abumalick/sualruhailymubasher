@@ -1,4 +1,4 @@
-import type { CourseDTO } from '@albadr/shared';
+import type { CourseDTO } from '@sualruhaily/shared';
 import { topicsFor } from '../src/logic/topics';
 
 // A listener past the first launch, with every notification of `ids` on.

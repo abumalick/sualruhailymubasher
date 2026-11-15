@@ -30,9 +30,9 @@ describe('shareMessage', () => {
   it('names the app and what it offers, without repeating the link the share sheet appends', () => {
     expect(m.text).toContain(APP_NAME);
     expect(m.text).toContain('البث المباشر');
-    expect(m.text).toContain('الشيخ عبد الرزاق البدر');
+    expect(m.text).toContain('الشيخ سليمان الرحيلي');
     expect(m.text).not.toContain(SITE);
-    expect(m.text).not.toContain('albadrmubasher.com');
+    expect(m.text).not.toContain('sualruhailymubasher.com');
   });
 
   it('never calls the app official', () => {
@@ -61,7 +61,7 @@ describe('isCancel', () => {
 describe('shareHint', () => {
   it('says the link was copied, or shows it when nothing worked', () => {
     expect(shareHint('copied')).toContain('نُسخ الرابط');
-    expect(shareHint('failed')).toContain('albadrmubasher.com');
+    expect(shareHint('failed')).toContain('sualruhailymubasher.com');
   });
 
   it('says nothing after a share or a dismissed sheet', () => {

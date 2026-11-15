@@ -4,7 +4,7 @@ export const ADMIN_HTML = String.raw`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>إدارة دروس البدر</title>
+<title>إدارة دروس سليمان الرحيلي</title>
 <style>
 :root{--bg:#f6f1e6;--card:#ebe3cc;--brown:#5b2b00;--gold:#a67c37;--red:#c8321c;--text:#1c0b1a}
 *{box-sizing:border-box}
@@ -35,7 +35,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
 </head>
 <body>
 <main>
-<div class="row"><h1>إدارة دروس البدر</h1><button id="logout" class="ghost" hidden>خروج</button></div>
+<div class="row"><h1>إدارة دروس سليمان الرحيلي</h1><button id="logout" class="ghost" hidden>خروج</button></div>
 
 <section id="login" class="card" hidden>
   <label for="tok">رمز الإدارة</label>
@@ -97,15 +97,11 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     <button id="push-btn">إرسال تنبيه تجريبي</button>
     <div class="msg" id="push-msg"></div>
   </div>
-  <div class="card">
-    <button id="ingest-btn" style="margin-top:0">تحديث الدروس الآن</button>
-    <div class="msg" id="ingest-msg"></div>
-  </div>
 </div>
 </main>
 <script>
 (function () {
-  var KEY = 'albadr-admin-token';
+  var KEY = 'sualruhaily-admin-token';
   var DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
   var KINDS = { cancel: 'إلغاء', pause: 'توقف', extra: 'درس إضافي', move: 'تأجيل' };
   var courses = [];
@@ -172,9 +168,11 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     var title = el('input', { value: c.title });
     var slot = el('select');
     slot.appendChild(el('option', { value: 'fajr', text: 'الفجر' }));
+    slot.appendChild(el('option', { value: 'asr', text: 'العصر' }));
     slot.appendChild(el('option', { value: 'maghrib', text: 'المغرب' }));
     slot.value = c.slot;
     var offset = el('input', { type: 'number', min: 0, max: 120, value: String(c.offsetMin) });
+    var place = el('input', { value: c.place || '', placeholder: 'مسجد قباء' });
     var series = el('input', { type: 'number', min: 0, value: String(c.seriesId) });
     var pdfs = el('textarea', { value: c.pdfUrls.join('\n') });
     var edition = el('input', { value: c.edition || '', placeholder: 'طبعة دار ابن الجوزي' });
@@ -190,6 +188,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
       var body = {
         title: title.value.trim(),
         slot: slot.value,
+        place: place.value.trim(),
         weekdays: boxes.map(function (b, i) { return b.cb.checked ? i : -1; }).filter(function (i) { return i >= 0; }),
         offsetMin: Number(offset.value),
         seriesId: Number(series.value),
@@ -207,13 +206,14 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     };
     return el('div', { className: 'card' }, [
       isNew ? el('h3', { text: 'إضافة دورة' }) : el('h3', { text: c.id }),
-      isNew ? el('p', { className: 'muted', text: 'عند انتهاء كتاب: اجعل دورته غير فعّالة، وأضف الكتاب الجديد هنا بمعرّف دورة جديد ورقم سلسلته في al-badr.net. لا تغيّر رقم السلسلة لدورة موجودة.' }) : null,
+      isNew ? el('p', { className: 'muted', text: 'عند انتهاء كتاب: اجعل دورته غير فعّالة، وأضف الكتاب الجديد هنا بمعرّف دورة جديد ورقم سلسلته. لا تغيّر رقم السلسلة لدورة موجودة.' }) : null,
       isNew ? field('معرّف الدورة (حروف إنجليزية صغيرة وأرقام و-)', idInput) : null,
       field('العنوان', title),
-      el('div', { className: 'grid' }, [field('الفترة', slot), field('دقائق بعد الأذان/الغروب', offset)]),
+      field('المكان', place),
+      el('div', { className: 'grid' }, [field('الفترة', slot), field('دقائق بعد الأذان/العصر/الغروب', offset)]),
       el('label', { text: 'أيام الدرس' }),
       el('div', { className: 'days' }, boxes.map(function (b) { return b.node; })),
-      field('رقم السلسلة في al-badr.net', series),
+      field('رقم السلسلة', series),
       field('روابط PDF (رابط في كل سطر)', pdfs),
       field('الطبعة (تظهر مع أرقام الصفحات حين لا يُربط الكتاب)', edition),
       field('فرق الصفحات لكل جزء: رقم صفحة PDF ناقص الرقم المطبوع عليها، بترتيب الروابط', offsets),
@@ -226,7 +226,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     var box = $('courses');
     box.textContent = '';
     courses.forEach(function (c) { box.appendChild(courseCard(c, false)); });
-    box.appendChild(courseCard({ id: '', title: '', slot: 'fajr', weekdays: [], offsetMin: 25, seriesId: 0, pdfUrls: [], edition: null, pageOffsets: [], active: true }, true));
+    box.appendChild(courseCard({ id: '', title: '', slot: 'fajr', place: '', weekdays: [], offsetMin: 25, seriesId: 0, pdfUrls: [], edition: null, pageOffsets: [], active: true }, true));
     var sel = $('exc-course');
     sel.textContent = '';
     sel.appendChild(el('option', { value: '', text: 'كل الدورات' }));
@@ -388,16 +388,6 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     api('/api/admin/test-push', 'POST', { topic: topic }).then(
       function () { say('push-msg', 'تم إرسال التنبيه التجريبي', true); },
       function (e) { say('push-msg', errText(e), false); });
-  };
-
-  $('ingest-btn').onclick = function () {
-    var btn = $('ingest-btn');
-    btn.disabled = true;
-    say('ingest-msg', 'جارٍ التحديث...', true);
-    api('/api/admin/run/ingest', 'POST').then(function () {
-      say('ingest-msg', 'تم تحديث الدروس', true);
-      return loadLessons();
-    }).catch(function (e) { say('ingest-msg', errText(e), false); }).then(function () { btn.disabled = false; });
   };
 
   if (getToken()) start(); else showLogin('');

@@ -18,14 +18,14 @@ const open = (hash: string) => {
 it('pops back to the page the reader came from', () => {
   const back = vi.spyOn(history, 'back').mockImplementation(() => {});
   router.trackEntry();
-  open('#/book/tafsir-saadi/0/12?marker=1');
-  router.goBack('#/course/tafsir-saadi');
+  open('#/book/kitab-tawhid/0/12?marker=1');
+  router.goBack('#/course/kitab-tawhid');
   expect(back).toHaveBeenCalledOnce();
 });
 
 it('opens the fallback in place when nothing of the app sits behind the page', () => {
   const back = vi.spyOn(history, 'back');
-  history.replaceState(null, '', '#/book/tafsir-saadi/0/12');
+  history.replaceState(null, '', '#/book/kitab-tawhid/0/12');
   router.trackEntry();
   router.goBack('#/');
   expect(back).not.toHaveBeenCalled();
@@ -52,9 +52,9 @@ it('knows its place again after going back, and after a reload', async () => {
 
 it('the page the fallback opens is still the first of the app, so its own back falls back too', () => {
   const back = vi.spyOn(history, 'back');
-  history.replaceState(null, '', '#/book/tafsir-saadi/0/12');
+  history.replaceState(null, '', '#/book/kitab-tawhid/0/12');
   router.trackEntry();
-  router.goBack('#/course/tafsir-saadi');
+  router.goBack('#/course/kitab-tawhid');
   router.trackEntry();
   router.goBack('#/more');
   expect(back).not.toHaveBeenCalled();

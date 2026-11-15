@@ -7,7 +7,7 @@ IOS_FASTLANE_DIR = File.expand_path(FastlaneCore::FastlaneFolder.path)
 IOS_ROOT = File.expand_path("..", IOS_FASTLANE_DIR)
 IOS_APP = "#{IOS_ROOT}/app/ios/App"
 IOS_PBXPROJ = "#{IOS_APP}/App.xcodeproj/project.pbxproj"
-IOS_SECRETS = File.expand_path(ENV.fetch("ALBADR_SECRETS", "~/.config/albadrmubasher"))
+IOS_SECRETS = File.expand_path(ENV.fetch("SUALRUHAILY_SECRETS", "~/.config/sualruhailymubasher"))
 IOS_TEAM_ID = "H8JDJQSJ7M"
 
 def ios_plist_value(path, key)

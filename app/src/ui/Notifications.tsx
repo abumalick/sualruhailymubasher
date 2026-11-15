@@ -1,4 +1,4 @@
-import { courseTopic, LIVE_OTHER_TOPIC, type CourseDTO, type StateDTO } from '@albadr/shared';
+import { courseTopic, LIVE_OTHER_TOPIC, type CourseDTO, type StateDTO } from '@sualruhaily/shared';
 import { useEffect, useState } from 'preact/hooks';
 import type { Prefs } from '../logic/prefs';
 import { askPermission, pushPermission } from '../push';

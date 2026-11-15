@@ -1,4 +1,4 @@
-import type { LessonDTO, NextPassageDTO } from '@albadr/shared';
+import type { LessonDTO, NextPassageDTO } from '@sualruhaily/shared';
 import type { CourseRow } from './repo';
 
 const DEFAULT_PACE = 2;

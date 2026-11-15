@@ -77,21 +77,21 @@ describe('fetchLessons', () => {
   it('requests the page before a number', async () => {
     const f = vi.fn((..._: unknown[]) => ok([])());
     vi.stubGlobal('fetch', f);
-    await fetchLessons('tafsir-saadi', 440);
-    expect(f.mock.calls[0][0]).toMatch(/\/api\/courses\/tafsir-saadi\/lessons\?before=440&limit=20$/);
-    await fetchLessons('tafsir-saadi');
-    expect(f.mock.calls[1][0]).toMatch(/\/api\/courses\/tafsir-saadi\/lessons\?limit=20$/);
+    await fetchLessons('kitab-tawhid', 440);
+    expect(f.mock.calls[0][0]).toMatch(/\/api\/courses\/kitab-tawhid\/lessons\?before=440&limit=20$/);
+    await fetchLessons('kitab-tawhid');
+    expect(f.mock.calls[1][0]).toMatch(/\/api\/courses\/kitab-tawhid\/lessons\?limit=20$/);
     vi.unstubAllGlobals();
   });
 
   it('calls the production API host when no VITE_API_BASE is set', async () => {
     const f = vi.fn((..._: unknown[]) => ok([])());
     vi.stubGlobal('fetch', f);
-    await fetchLessons('kitab-tawhid');
-    expect(f.mock.calls[0][0]).toBe('https://api.albadrmubasher.com/api/courses/kitab-tawhid/lessons?limit=20');
+    await fetchLessons('kabair');
+    expect(f.mock.calls[0][0]).toBe('https://api.sualruhailymubasher.com/api/courses/kabair/lessons?limit=20');
     const g = vi.fn((..._: unknown[]) => ok(FIXTURE_STATE)());
     await fetchState(g as unknown as typeof fetch);
-    expect(g.mock.calls[0][0]).toBe('https://api.albadrmubasher.com/api/state');
+    expect(g.mock.calls[0][0]).toBe('https://api.sualruhailymubasher.com/api/state');
     vi.unstubAllGlobals();
   });
 
@@ -104,7 +104,7 @@ describe('fetchLessons', () => {
 
 describe('FIXTURE_STATE', () => {
   it('has the two courses', () => {
-    expect(FIXTURE_STATE.courses.map((c) => c.id)).toEqual(['tafsir-saadi', 'kitab-tawhid']);
+    expect(FIXTURE_STATE.courses.map((c) => c.id)).toEqual(['kitab-tawhid', 'kabair']);
     expect(FIXTURE_STATE.courses[0].latest[0].number).toBe(443);
     expect(FIXTURE_STATE.courses[1].latest[0].number).toBe(2);
   });

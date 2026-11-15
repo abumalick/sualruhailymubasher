@@ -1,4 +1,4 @@
-import { parseUpdatePolicy, type CourseDTO, type StateDTO } from '@albadr/shared';
+import { parseUpdatePolicy, type CourseDTO, type StateDTO } from '@sualruhaily/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from '../index';
@@ -16,17 +16,15 @@ import {
 import { lessonTime, nextLessonDate } from '../schedule';
 import { medinaDate } from '../time';
 
-const EMBED_URL = 'https://albadrnet.mixlr.com/embed';
+const EMBED_URL = 'https://sualruhaily.mixlr.com/embed';
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 
 const LINKS = [
-  { title: 'موقع الشيخ', url: 'https://al-badr.net' },
-  { title: 'البث المباشر على الموقع', url: 'https://al-badr.net/streaming' },
-  { title: 'قناة التلغرام', url: 'https://t.me/albadrnet' },
-  { title: 'روابط الشيخ', url: 'https://beacons.ai/albadr' },
-  { title: 'مجتمع واتساب ١', url: 'https://chat.whatsapp.com/LNdo3uxE29RDlgVtLmNHZi' },
-  { title: 'مجتمع واتساب ٢', url: 'https://chat.whatsapp.com/DZCeVH4kiLT8Gul4yMicY0' },
+  { title: 'الموقع الرسمي', url: 'https://sualruhaily.com' },
+  { title: 'قناة التلغرام', url: 'https://t.me/Sulalruhaily' },
+  { title: 'يوتيوب', url: 'https://www.youtube.com/@sualruhaily' },
+  { title: 'البث المباشر', url: 'https://sualruhaily.mixlr.com' },
 ];
 
 const positiveInt = (raw: string | undefined) => {
@@ -68,6 +66,7 @@ publicRoutes.get('/api/state', async (c) => {
         id: course.id,
         title: course.title,
         slot: course.slot,
+        place: course.place,
         weekdays: course.weekdays,
         time: next?.time ?? lessonTime(course, medinaDate(now)),
         pdfUrls: course.pdfUrls,

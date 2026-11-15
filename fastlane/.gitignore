@@ -4,7 +4,7 @@ README.md
 Preview.html
 test_output/
 
-# Secrets: keep them in ~/.config/albadrmubasher/, never here
+# Secrets: keep them in ~/.config/sualruhailymubasher/, never here
 .env
 .env.*
 *.env

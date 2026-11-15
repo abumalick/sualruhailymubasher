@@ -1,4 +1,4 @@
-import type { StateDTO } from '@albadr/shared';
+import type { StateDTO } from '@sualruhaily/shared';
 
 export interface LiveIntent {
   courseId: string | null;

@@ -20,7 +20,7 @@ function hero(listening: boolean) {
       <Defs />
       <Lesson
         course={TAWHID}
-        live={liveDTO('kitab-tawhid')}
+        live={liveDTO('kabair')}
         otherLive={null}
         ticks={{ read: new Set(), reviewed: new Set() }}
         now={new Date('2026-11-02T18:00:00Z')}

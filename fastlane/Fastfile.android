@@ -2,8 +2,8 @@
 ANDROID_DIR = "app/android"
 ANDROID_AAB = "app/android/app/build/outputs/bundle/release/app-release.aab"
 ANDROID_APK = "app/android/app/build/outputs/apk/release/app-release.apk"
-ANDROID_SECRETS = File.expand_path("~/.config/albadrmubasher")
-ANDROID_SIGNING_VARS = %w[ALBADR_KEYSTORE ALBADR_KEYSTORE_PASSWORD ALBADR_KEY_ALIAS ALBADR_KEY_PASSWORD].freeze
+ANDROID_SECRETS = File.expand_path("~/.config/sualruhailymubasher")
+ANDROID_SIGNING_VARS = %w[SUALRUHAILY_KEYSTORE SUALRUHAILY_KEYSTORE_PASSWORD SUALRUHAILY_KEY_ALIAS SUALRUHAILY_KEY_PASSWORD].freeze
 
 platform :android do
   before_all do
@@ -22,7 +22,7 @@ platform :android do
 
   # build.gradle signs only when these are set; an unsigned bundle would be refused by Play
   private_lane :load_signing_env do
-    env_file = ENV.fetch("ALBADR_SIGNING_ENV", File.join(ANDROID_SECRETS, "env"))
+    env_file = ENV.fetch("SUALRUHAILY_SIGNING_ENV", File.join(ANDROID_SECRETS, "env"))
     signing_vars_in(env_file).each { |key, value| ENV[key] ||= value }
     missing = ANDROID_SIGNING_VARS.select { |k| ENV[k].to_s.empty? }
     UI.user_error!("Upload-key settings missing (#{missing.join(', ')}): see #{env_file}") unless missing.empty?
@@ -32,7 +32,7 @@ platform :android do
     path = File.expand_path("../#{ANDROID_DIR}/app/google-services.json", __dir__)
     UI.user_error!("#{path} is missing: push would silently stop working") unless File.exist?(path)
     packages = JSON.parse(File.read(path))["client"].map { |c| c.dig("client_info", "android_client_info", "package_name") }
-    UI.user_error!("#{path} has no client for com.albadrmubasher.app") unless packages.include?("com.albadrmubasher.app")
+    UI.user_error!("#{path} has no client for com.sualruhailymubasher.app") unless packages.include?("com.sualruhailymubasher.app")
   end
 
   # The release to promote is the one this checkout builds
@@ -51,18 +51,18 @@ platform :android do
 
   # The sideload key replaces whatever is in ENV, so an upload key sourced in the shell can never sign the APK
   private_lane :load_github_apk_signing_env do
-    env_file = ENV.fetch("ALBADR_GITHUB_APK_SIGNING_ENV", File.join(ANDROID_SECRETS, "obtainium-apk.env"))
+    env_file = ENV.fetch("SUALRUHAILY_GITHUB_APK_SIGNING_ENV", File.join(ANDROID_SECRETS, "obtainium-apk.env"))
     vars = signing_vars_in(env_file)
     missing = ANDROID_SIGNING_VARS.select { |k| vars[k].to_s.empty? }
     UI.user_error!("Sideload-key settings missing (#{missing.join(', ')}): see #{env_file}") unless missing.empty?
     vars.each { |key, value| ENV[key] = value }
   end
 
-  desc "Build the APK signed with the sideload key and publish it as a GitHub release for Obtainium (abumalick/albadrmubasher)"
+  desc "Build the APK signed with the sideload key and publish it as a GitHub release for Obtainium (abumalick/sualruhailymubasher)"
   lane :github_apk do
     load_github_apk_signing_env
     check_google_services
-    sh("cd .. && VITE_ANDROID_UPDATE_URL=https://github.com/abumalick/albadrmubasher/releases/latest pnpm --filter app build && cd app && npx cap sync android")
+    sh("cd .. && VITE_ANDROID_UPDATE_URL=https://github.com/abumalick/sualruhailymubasher/releases/latest pnpm --filter app build && cd app && npx cap sync android")
     gradle(task: "assemble", build_type: "Release", project_dir: ANDROID_DIR)
     sh("cd .. && node scripts/github-apk.mjs publish #{ANDROID_APK}")
   end

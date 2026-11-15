@@ -1,4 +1,4 @@
-import type { StateDTO } from '@albadr/shared';
+import type { StateDTO } from '@sualruhaily/shared';
 import { player } from './player';
 
 export function startLive(state: StateDTO, openSheet: () => void): void {

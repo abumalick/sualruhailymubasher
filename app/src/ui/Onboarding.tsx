@@ -1,11 +1,11 @@
-import type { CourseDTO, StateDTO } from '@albadr/shared';
+import type { CourseDTO, StateDTO } from '@sualruhaily/shared';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { asksPermission, cardFor, finalPrefs, initialDraft, hasSwitch, pick, pickedCourses, setStep, stepHint, stepOn, stepsFor, type Draft, type Step } from '../logic/onboarding';
 import type { Prefs } from '../logic/prefs';
 import { dragShift, swipeAxis, swipeEnd } from '../logic/swipe';
 import { nativeUI } from '../platform';
-import { installStores } from '../logic/install';
+import { installStores, listedStores } from '../logic/install';
 import { askPermission, pushPermission } from '../push';
 import { refresh } from '../store';
 import { ar, clock12, courseLabel, schedule, slotName } from './format';
@@ -43,7 +43,7 @@ function Pick({ course: c, all, on, onToggle }: { course: CourseDTO; all: Course
       <span class="box">{on && <Icon id="i-check" />}</span>
       <span class="t">
         <b>
-          <Icon id={c.slot === 'fajr' ? 'i-sun' : 'i-moon'} class="slot" />
+          <Icon id={c.slot === 'maghrib' ? 'i-moon' : 'i-sun'} class="slot" />
           {label}
         </b>
         {label !== c.title && <span class="b">{c.title}</span>}
@@ -192,7 +192,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
         {slide(
           <>
             <div class="intro">
-              <small>دروس الشيخ عبد الرزاق البدر في المسجد النبوي</small>
+              <small>دروس الشيخ سليمان الرحيلي في المسجد النبوي</small>
               <h3>أيَّ الدروس تحضر؟</h3>
               <p>تابع الدرس مباشرةً، وراجعه بعد نشر تسجيله، وحضّر للدرس القادم.</p>
             </div>
@@ -214,6 +214,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
   if (step === 'invite') {
     const card = cardFor(step, picked, state.live);
     const stores = installStores({ nativeUI: false, ua: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints ?? 0, dismissed: false })!;
+    const listed = listedStores(stores);
     return (
       <div class="choose ob" {...swipe}>
         {top}
@@ -224,9 +225,11 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
               <p>لا تصل التنبيهات على الموقع. ثبّت التطبيق ليصلك تنبيه عند بدء البث، وعند نشر التسجيل، وتذكير قبل الدرس.</p>
             </div>
             {card && <Preview key={step} card={card} state={state} now={now} variant="invite" />}
-            <section class="obstores" aria-label="تطبيق الجوال">
-              <StoreBadges ids={stores} />
-            </section>
+            {listed.length > 0 && (
+              <section class="obstores" aria-label="تطبيق الجوال">
+                <StoreBadges ids={listed} />
+              </section>
+            )}
             <button class="chip pri wide" disabled={busy} onClick={() => void go()}>
               متابعة على الموقع
             </button>

@@ -1,7 +1,7 @@
 // The public web app: app/dist served as static assets, plus /privacy (app/public/privacy.html).
-// Production serves albadrmubasher.com and redirects www to it; `--env preview` is workers.dev only.
+// Production serves sualruhailymubasher.com and redirects www to it; `--env preview` is workers.dev only.
 {
-  "name": "albadr-web",
+  "name": "sualruhaily-web",
   "account_id": "9ab550becc556ce60d4250bfdc48224c",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
@@ -14,12 +14,12 @@
   },
   "workers_dev": false,
   "routes": [
-    { "pattern": "albadrmubasher.com", "custom_domain": true },
-    { "pattern": "www.albadrmubasher.com", "custom_domain": true }
+    { "pattern": "sualruhailymubasher.com", "custom_domain": true },
+    { "pattern": "www.sualruhailymubasher.com", "custom_domain": true }
   ],
   "env": {
     "preview": {
-      "name": "albadr-web-preview",
+      "name": "sualruhaily-web-preview",
       "workers_dev": true,
       "routes": []
     }

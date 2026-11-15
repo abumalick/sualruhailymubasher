@@ -1,4 +1,4 @@
-import { NOTICE_TITLE } from '@albadr/shared';
+import { NOTICE_TITLE } from '@sualruhaily/shared';
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { liveIntentAction } from '../src/logic/liveIntent';

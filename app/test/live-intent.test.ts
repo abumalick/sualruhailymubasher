@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type { StateDTO } from '@albadr/shared';
+import type { StateDTO } from '@sualruhaily/shared';
 import { FIXTURE_STATE } from '../src/dev/fixture-state';
 import { liveIntentAction } from '../src/logic/liveIntent';
 import { liveDTO } from './live-state';
 
 const onAir = (courseId: string | null): StateDTO => ({ ...FIXTURE_STATE, live: liveDTO(courseId) });
-const tawhid = { courseId: 'kitab-tawhid' };
+const tawhid = { courseId: 'kabair' };
 
 describe('liveIntentAction', () => {
   it('waits for the first fresh state', () => {
-    expect(liveIntentAction(tawhid, onAir('kitab-tawhid'), false, false)).toBe('wait');
+    expect(liveIntentAction(tawhid, onAir('kabair'), false, false)).toBe('wait');
     expect(liveIntentAction(tawhid, null, false, false)).toBe('wait');
   });
 
   it('opens on a matching broadcast', () => {
-    expect(liveIntentAction(tawhid, onAir('kitab-tawhid'), true, false)).toBe('open');
+    expect(liveIntentAction(tawhid, onAir('kabair'), true, false)).toBe('open');
   });
 
   it('drops a stale intent', () => {
@@ -22,7 +22,7 @@ describe('liveIntentAction', () => {
   });
 
   it('drops an intent for another course', () => {
-    expect(liveIntentAction(tawhid, onAir('tafsir-saadi'), true, false)).toBe('drop');
+    expect(liveIntentAction(tawhid, onAir('kitab-tawhid'), true, false)).toBe('drop');
   });
 
   it('opens when the fetch failed', () => {
@@ -32,6 +32,6 @@ describe('liveIntentAction', () => {
 
   it('a course-less intent matches only a course-less broadcast', () => {
     expect(liveIntentAction({ courseId: null }, onAir(null), true, false)).toBe('open');
-    expect(liveIntentAction({ courseId: null }, onAir('kitab-tawhid'), true, false)).toBe('drop');
+    expect(liveIntentAction({ courseId: null }, onAir('kabair'), true, false)).toBe('drop');
   });
 });

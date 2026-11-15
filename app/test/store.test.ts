@@ -48,11 +48,11 @@ describe('live intent', () => {
   it('a requested player waits for a state fetched after the tap', async () => {
     let answer: (v: unknown) => void = () => {};
     api.fetchState.mockImplementation(() => new Promise((r) => (answer = r)));
-    requestLive({ courseId: 'kitab-tawhid' });
-    expect(currentData().intent).toEqual({ courseId: 'kitab-tawhid', fresh: false, failed: false });
+    requestLive({ courseId: 'kabair' });
+    expect(currentData().intent).toEqual({ courseId: 'kabair', fresh: false, failed: false });
     answer({ state: live, fresh: true });
     await refresh();
-    expect(currentData().intent).toEqual({ courseId: 'kitab-tawhid', fresh: true, failed: false });
+    expect(currentData().intent).toEqual({ courseId: 'kabair', fresh: true, failed: false });
     clearLive();
     expect(currentData().intent).toBeNull();
   });

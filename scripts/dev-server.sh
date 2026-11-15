@@ -2,7 +2,7 @@
 # Starts this checkout's Worker (API + its own local D1, migrated and seeded) and the
 # app's Vite dev server, which proxies /api to that Worker. In a worktree (WH_SLUG set
 # by `worktree.sh up`) the Worker gets a per-worktree port and Vite is served through
-# portless at https://albadrmubasher-<worktree-dir>.dev.sageplex.com; in the main checkout
+# portless at https://sualruhailymubasher-<worktree-dir>.dev.sageplex.com; in the main checkout
 # both use their default ports. Every D1 command here is --local: wrangler.jsonc
 # names the production database. When either server exits, the other is stopped too.
 set -euo pipefail
@@ -14,8 +14,8 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 . "$root/scripts/lib/ports.sh"
 
 cd "$root/server"
-pnpm exec wrangler d1 migrations apply albadr-lessons --local
-pnpm exec wrangler d1 execute albadr-lessons --local --file seed/dev.sql >/dev/null
+pnpm exec wrangler d1 migrations apply sualruhaily-lessons --local
+pnpm exec wrangler d1 execute sualruhaily-lessons --local --file seed/dev.sql >/dev/null
 
 # Ports are picked right before wrangler binds them, to keep the race with another
 # worktree's start short; the ownership check below catches the rest.
@@ -28,7 +28,7 @@ else
 fi
 export API_ORIGIN="http://127.0.0.1:$api_port"
 echo "api: $API_ORIGIN (inspector $inspector_port)"
-echo "agent against this API: API_BASE=$API_ORIGIN ALBADR_AGENT_CACHE=$root/.tmp/agent-cache, ADMIN_TOKEN from server/.dev.vars"
+echo "agent against this API: API_BASE=$API_ORIGIN SUALRUHAILY_AGENT_CACHE=$root/.tmp/agent-cache, ADMIN_TOKEN from server/.dev.vars"
 pnpm exec wrangler dev --ip 127.0.0.1 --port "$api_port" --inspector-port "$inspector_port" &
 api_pid=$!
 vite_pid=""
@@ -53,7 +53,7 @@ if [ -n "${WH_SLUG:-}" ]; then
   # The explicit name (not `run --name`, which appends only the branch's last segment)
   # keeps feat/ui and fix/ui on different hosts.
   # shellcheck disable=SC2016 # $PORT is set by portless for the inner shell
-  wh_portless "albadrmubasher-$WH_SLUG" sh -c 'pnpm exec vite --port "$PORT" --strictPort --host 127.0.0.1' &
+  wh_portless "sualruhailymubasher-$WH_SLUG" sh -c 'pnpm exec vite --port "$PORT" --strictPort --host 127.0.0.1' &
 else
   pnpm exec vite --strictPort --host 127.0.0.1 &
 fi

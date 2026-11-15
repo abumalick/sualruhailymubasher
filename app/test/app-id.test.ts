@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import config from '../capacitor.config';
 
-const APP_ID = 'com.albadrmubasher.app';
+const APP_ID = 'com.sualruhailymubasher.app';
 const appDir = fileURLToPath(new URL('..', import.meta.url));
 const read = (path: string) => readFileSync(appDir + path, 'utf8');
 const javaDir = (sourceSet: string) => `android/app/src/${sourceSet}/java/${APP_ID.replaceAll('.', '/')}/`;
@@ -49,8 +49,8 @@ describe('application id', () => {
         .map((f) => `android/app/src/${f}`),
     ];
     for (const file of files) {
-      expect(read(file), file).not.toMatch(/net[./]h2[./]albadrlessons|com[./]getcapacitor[./]myapp/);
-      expect(file).not.toMatch(/net\/h2\/albadrlessons|com\/getcapacitor\/myapp/);
+      expect(read(file), file).not.toMatch(/com[./]getcapacitor[./]myapp/);
+      expect(file).not.toMatch(/com\/getcapacitor\/myapp/);
     }
   });
 });
@@ -58,7 +58,7 @@ describe('application id', () => {
 describe('home-screen label', () => {
   it('is the short name in the Capacitor config and both Android labels', () => {
     const strings = read('android/app/src/main/res/values/strings.xml');
-    expect(config.appName).toBe('البدر مباشر');
+    expect(config.appName).toBe('سليمان الرحيلي مباشر');
     expect(strings).toContain(`<string name="app_name">${config.appName}</string>`);
     expect(strings).toContain(`<string name="title_activity_main">${config.appName}</string>`);
   });

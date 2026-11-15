@@ -9,7 +9,7 @@ export interface BookFile {
   url: string;
 }
 
-// al-badr.net sends no CORS headers: the browser reads the same file through the API's proxy.
+// The media host sends no CORS headers: the browser reads the same file through the API's proxy.
 export const proxyUrl = (book: BookFile) => `${API_BASE}/api/courses/${encodeURIComponent(book.courseId)}/pdf/${book.index}`;
 
 async function pathFor(url: string): Promise<string> {

@@ -26,7 +26,7 @@ class FakeAudio extends EventTarget {
 }
 vi.stubGlobal('Audio', FakeAudio);
 
-import type { CourseDTO } from '@albadr/shared';
+import type { CourseDTO } from '@sualruhaily/shared';
 import { player } from '../src/audio/player';
 import { LiveSheet, SLIDE_MS, type LiveSheetProps } from '../src/ui/LiveSheet';
 import { TAFSIR, TAWHID } from './live-state';
@@ -57,7 +57,7 @@ it('embeds the Mixlr page with autoplay', () => {
 it('owns the media session while open and the notification pause closes it', () => {
   const onClose = vi.fn();
   const { rerender } = render(<div>{sheet({ course: TAFSIR, onClose })}</div>);
-  expect(session.setMetadata).toHaveBeenCalledWith(expect.objectContaining({ title: 'شرح تفسير السعدي', artist: 'الشيخ عبد الرزاق البدر' }));
+  expect(session.setMetadata).toHaveBeenCalledWith(expect.objectContaining({ title: 'شرح كتاب التوحيد', artist: 'الشيخ سليمان الرحيلي' }));
   expect(session.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'playing' });
 
   handlers.get('pause')!();
@@ -80,7 +80,7 @@ it('hands the session back to recordings after the sheet closes', async () => {
 
 it('Tafsir: names the lesson and shows where it starts with the printed page and edition, without a book button', () => {
   render(sheet({ course: TAFSIR }));
-  expect(screen.getByText('شرح تفسير السعدي')).toBeTruthy();
+  expect(screen.getByText('شرح كتاب التوحيد')).toBeTruthy();
   expect(screen.getByText('البث المباشر · الدرس ٤٦٠')).toBeTruthy();
   expect(screen.getByText('تفسير سورة التوبة: من الآية (٨) ﴿كَيْفَ وَإِنْ يَظْهَرُوا عَلَيْكُمْ لَا يَرْقُبُوا فِيكُمْ إِلًّا وَلَا ذِمَّةً...﴾')).toBeTruthy();
   expect(screen.getByText('ص ٦٣٦ · طبعة دار ابن الجوزي')).toBeTruthy();
@@ -93,7 +93,7 @@ it('evening course: shows where the lesson starts and opens the book there, coll
   expect(screen.getByText('البث المباشر · الدرس ١٥')).toBeTruthy();
   expect(screen.getByText('من قوله: <فيه مسائل: الأولى: الخوف من الشرك>…')).toBeTruthy();
   const link = screen.getByRole('link', { name: 'تابع في الكتاب · ص ٢٧٨' });
-  expect(link.getAttribute('href')).toBe('#/book/kitab-tawhid/0/280?marker=1');
+  expect(link.getAttribute('href')).toBe('#/book/kabair/0/280?marker=1');
   fireEvent.click(link);
   expect(onCollapse).toHaveBeenCalled();
 });
@@ -102,7 +102,7 @@ it('falls back when the start text, the page or the next lesson is unknown', () 
   const noStart: CourseDTO = { ...TAWHID, next: { ...TAWHID.next!, startPoint: null, startPage: null } };
   const { rerender } = render(sheet({ course: noStart }));
   expect(screen.getByText('يتابع من حيث توقف الدرس ١٤')).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'تابع في الكتاب' }).getAttribute('href')).toBe('#/book/kitab-tawhid/0/1');
+  expect(screen.getByRole('link', { name: 'تابع في الكتاب' }).getAttribute('href')).toBe('#/book/kabair/0/1');
 
   rerender(sheet({ course: { ...TAFSIR, next: null } }));
   expect(screen.getByText('البث المباشر · الدرس ٤٤٤')).toBeTruthy();
@@ -166,7 +166,7 @@ it('the expanded sheet can stop the broadcast too', () => {
 
 it('the bar button is named by the course and lesson, and the status is announced politely', () => {
   const { container } = render(sheet({ course: TAWHID, expanded: false }));
-  const button = screen.getByRole('button', { name: /التعليق على شرح كتاب التوحيد.*مباشر · الدرس ١٥/ });
+  const button = screen.getByRole('button', { name: /شرح كتاب الكبائر للذهبي.*مباشر · الدرس ١٥/ });
   expect(button.getAttribute('aria-label')).toBeNull();
   expect(container.querySelector('.lbar .m')!.getAttribute('aria-live')).toBe('polite');
 });

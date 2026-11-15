@@ -1,5 +1,5 @@
 import type { UpdatePolicy } from './update';
-export type Slot = 'fajr' | 'maghrib';
+export type Slot = 'fajr' | 'asr' | 'maghrib';
 export type ExceptionKind = 'cancel' | 'pause' | 'extra' | 'move';
 
 export interface LessonDTO {
@@ -16,7 +16,7 @@ export interface NextPassageDTO {
 }
 export interface ExceptionDTO { id: number; courseId: string | null; kind: ExceptionKind; dateFrom: string; dateTo: string | null; time: string | null; note: string; }
 export interface CourseDTO {
-  id: string; title: string; slot: Slot; weekdays: number[]; time: string;  // lesson time on the next lesson date (prayer time + offset)
+  id: string; title: string; slot: Slot; place: string; weekdays: number[]; time: string;  // lesson time on the next lesson date (prayer time + offset)
   pdfUrls: string[]; latest: LessonDTO[];               // newest first, max 5
   pageOffsets?: number[];                               // per volume: printed page = PDF page - offset; absent or missing entry = 0
   edition: string | null;                               // edition the page numbers refer to, shown when the book is not linked
@@ -26,7 +26,7 @@ export interface LiveDTO { isLive: boolean; mode: 'embed' | 'direct'; embedUrl: 
 export interface StateDTO { generatedAt: string; live: LiveDTO; courses: CourseDTO[]; links: { title: string; url: string }[]; update?: UpdatePolicy; }
 
 // admin writes
-export interface CourseInput { title: string; slot: Slot; weekdays: number[]; offsetMin: number; seriesId: number; pdfUrls: string[]; active: boolean; edition?: string | null; pageOffsets?: number[]; }  // offsetMin: minutes after Fajr / sunset, 0..120
+export interface CourseInput { title: string; slot: Slot; place: string; weekdays: number[]; offsetMin: number; seriesId: number; pdfUrls: string[]; active: boolean; edition?: string | null; pageOffsets?: number[]; }  // offsetMin: minutes after Fajr / Asr / sunset, 0..120
 export interface LessonPatch {                          // null clears a field
   startPoint?: string; pdfIndex?: number | null; startPage?: number | null;
   endPoint?: string | null; endPage?: number | null; endPdfIndex?: number | null;

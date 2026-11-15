@@ -1,6 +1,6 @@
 # The Play service-account key stays outside the repo, with the app's other secrets.
-json_key_file(ENV.fetch("ALBADR_PLAY_JSON_KEY", File.expand_path("~/.config/albadrmubasher/play-service-account.json")))
-package_name("com.albadrmubasher.app")
+json_key_file(ENV.fetch("SUALRUHAILY_PLAY_JSON_KEY", File.expand_path("~/.config/sualruhailymubasher/play-service-account.json")))
+package_name("com.sualruhailymubasher.app")
 
-app_identifier("com.albadrmubasher.app")
+app_identifier("com.sualruhailymubasher.app")
 team_id(ENV["APPLE_TEAM_ID"])

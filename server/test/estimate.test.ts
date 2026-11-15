@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LessonDTO } from '@albadr/shared';
+import type { LessonDTO } from '@sualruhaily/shared';
 import { nextPassage } from '../src/estimate';
 import type { CourseRow } from '../src/repo';
 

@@ -10,6 +10,7 @@ import {
   publish,
   REPO,
   SIGNER_SHA256,
+  verify,
   apkProblems,
   gradleVersion,
   parseBadging,
@@ -22,16 +23,19 @@ import {
 const root = fileURLToPath(new URL('../..', import.meta.url));
 
 // Captured from the 1.0.6 release APK: `aapt2 dump badging` and `apksigner verify --print-certs`
-const BADGING = `package: name='com.albadrmubasher.app' versionCode='6' versionName='1.0.6' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+const BADGING = `package: name='com.sualruhailymubasher.app' versionCode='6' versionName='1.0.6' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
 minSdkVersion:'24'
 targetSdkVersion:'36'
 native-code: 'arm64-v8a' 'armeabi-v7a' 'x86' 'x86_64'
 `;
-const SIGNED_BY_SIDELOAD_KEY = `Signer #1 certificate DN: CN=Albadr Mubasher, O=H2 Alliance
-Signer #1 certificate SHA-256 digest: 7979d855f5a8ed011c9e9d54467dd431b227a6bf34451dd39c66708a330cac83
+// Stand-in digest: the real sideload key does not exist yet, so SIGNER_SHA256 is a sentinel.
+const TEST_SIGNER = 'b'.repeat(64);
+const SIGNED_BY_SIDELOAD_KEY = `Signer #1 certificate DN: CN=Sualruhaily Mubasher, O=H2 Alliance
+Signer #1 certificate SHA-256 digest: ${TEST_SIGNER}
 Signer #1 certificate SHA-1 digest: 0532034ba24b1d18a34c137cbe277d2b7df18ee1
 Signer #1 certificate MD5 digest: 85978e55501abd2125755bf0829199a1
 `;
+const GRADLE_FOR_SENTINEL = 'versionCode 6\n        versionName "1.0.6"';
 const OTHER_KEY = 'a'.repeat(64);
 
 const gradle = readFileSync(`${root}app/android/app/build.gradle`, 'utf8');
@@ -44,27 +48,44 @@ describe('sideload APK checks', () => {
   });
 
   it('reads package and versions from aapt2', () => {
-    expect(parseBadging(BADGING)).toEqual({ packageName: 'com.albadrmubasher.app', versionCode: '6', versionName: '1.0.6' });
+    expect(parseBadging(BADGING)).toEqual({ packageName: 'com.sualruhailymubasher.app', versionCode: '6', versionName: '1.0.6' });
   });
 
   it('reads the signer certificates from apksigner', () => {
-    expect(parseSigners(SIGNED_BY_SIDELOAD_KEY)).toEqual([SIGNER_SHA256]);
+    expect(parseSigners(SIGNED_BY_SIDELOAD_KEY)).toEqual([TEST_SIGNER]);
   });
 
   it('accepts the APK the checkout builds, signed by the sideload key', () => {
-    expect(apkProblems({ badging: parseBadging(BADGING), signers: [SIGNER_SHA256], expected })).toEqual([]);
+    expect(apkProblems({ badging: parseBadging(BADGING), signers: [TEST_SIGNER], expected, signer: TEST_SIGNER })).toEqual([]);
   });
 
   it('refuses an APK signed by any other key, such as the Play upload key', () => {
-    expect(apkProblems({ badging: parseBadging(BADGING), signers: [OTHER_KEY], expected })).toHaveLength(1);
-    expect(apkProblems({ badging: parseBadging(BADGING), signers: [SIGNER_SHA256, OTHER_KEY], expected })).toHaveLength(1);
-    expect(apkProblems({ badging: parseBadging(BADGING), signers: [], expected })).toHaveLength(1);
+    expect(apkProblems({ badging: parseBadging(BADGING), signers: [OTHER_KEY], expected, signer: TEST_SIGNER })).toHaveLength(1);
+    expect(apkProblems({ badging: parseBadging(BADGING), signers: [TEST_SIGNER, OTHER_KEY], expected, signer: TEST_SIGNER })).toHaveLength(1);
+    expect(apkProblems({ badging: parseBadging(BADGING), signers: [], expected, signer: TEST_SIGNER })).toHaveLength(1);
   });
 
   it('refuses a version or package other than the checkout’s', () => {
-    expect(apkProblems({ badging: parseBadging(BADGING), signers: [SIGNER_SHA256], expected: { versionCode: '7', versionName: '1.0.7' } })).toHaveLength(2);
-    const other = parseBadging(BADGING.replace('com.albadrmubasher.app', 'com.example.app'));
-    expect(apkProblems({ badging: other, signers: [SIGNER_SHA256], expected })).toHaveLength(1);
+    expect(apkProblems({ badging: parseBadging(BADGING), signers: [TEST_SIGNER], expected: { versionCode: '7', versionName: '1.0.7' }, signer: TEST_SIGNER })).toHaveLength(2);
+    const other = parseBadging(BADGING.replace('com.sualruhailymubasher.app', 'com.example.app'));
+    expect(apkProblems({ badging: other, signers: [TEST_SIGNER], expected, signer: TEST_SIGNER })).toHaveLength(1);
+  });
+});
+
+describe('until the sideload key exists', () => {
+  it('has no real digest set', () => {
+    expect(SIGNER_SHA256).not.toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('refuses every APK, whatever key signed it', () => {
+    for (const signers of [[TEST_SIGNER], [OTHER_KEY], []]) {
+      expect(apkProblems({ badging: parseBadging(BADGING), signers, expected })).toHaveLength(1);
+    }
+  });
+
+  it('refuses to publish an APK', () => {
+    const io = { gradle: () => GRADLE_FOR_SENTINEL, badging: () => BADGING, signers: () => SIGNED_BY_SIDELOAD_KEY, log: () => {} } as unknown as GithubApkIo;
+    expect(() => verify('app-release.apk', io)).toThrow(/cannot be published/);
   });
 });
 
@@ -74,7 +95,7 @@ describe('GitHub release', () => {
   });
 
   it('keeps one asset name across releases, so /releases/latest/download/<name> stays valid', () => {
-    expect(ASSET_NAME).toBe('albadr-mubasher.apk');
+    expect(ASSET_NAME).toBe('sualruhaily-mubasher.apk');
   });
 
   it('publishes a full release marked latest on the releases-only repo', () => {
@@ -100,6 +121,7 @@ describe('publishing', () => {
       gradle: () => GRADLE,
       badging: () => BADGING,
       signers: () => SIGNED_BY_SIDELOAD_KEY,
+      signer: TEST_SIGNER,
       releaseExists: () => false,
       changelog: (locale) => `${locale} notes`,
       stage: (_apk, notes) => {
@@ -129,7 +151,7 @@ describe('publishing', () => {
   });
 
   it('stops before staging or calling gh when the signer is wrong', () => {
-    const { io, calls } = fakeIo({ signers: () => SIGNED_BY_SIDELOAD_KEY.replace(SIGNER_SHA256, OTHER_KEY) });
+    const { io, calls } = fakeIo({ signers: () => SIGNED_BY_SIDELOAD_KEY.replace(TEST_SIGNER, OTHER_KEY) });
     expect(() => publish('app-release.apk', io)).toThrow(/cannot be published/);
     expect(calls).toEqual([]);
   });
