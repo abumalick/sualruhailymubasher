@@ -357,11 +357,11 @@ button.lesson { width: 100%; text-align: start; }
 .install .t > * { font: 600 var(--fs-caption)/1.35 var(--ui); color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .install .t span { font-weight: 400; color: var(--soft); }
 .install .badges { display: flex; gap: 10px; padding: 10px; flex: none; }
-.install .badges a { display: block; height: 40px; flex: none; border-radius: 6px; }
-.install .badges img { display: block; }
-.install .badges .play { width: 134.3px; overflow: hidden; }
+.badges a { display: block; height: 40px; flex: none; border-radius: 6px; }
+.badges img { display: block; }
+.badges .play { width: 134.3px; overflow: hidden; }
 /* 646×250 file, 564×168 badge centred in it: scaled so the badge is 40 px high. */
-.install .badges .play img { width: 153.8px; height: 59.5px; margin: -9.76px; }
+.badges .play img { width: 153.8px; height: 59.5px; margin: -9.76px; }
 .install .x { width: 44px; height: 44px; margin-inline-start: -10px; display: grid; place-items: center; flex: none; border: 0; background: none; color: var(--soft); font: 400 22px/1 var(--ui); cursor: pointer; }
 .install .x .g { padding-inline: 2px; }
 @media (max-width: 469px) {
@@ -370,6 +370,8 @@ button.lesson { width: 100%; text-align: start; }
   .install.two .badges { order: 2; flex-basis: 100%; justify-content: center; }
 }
 .install.update > .chip { flex: none; margin-block: 8px; }
+/* The web onboarding's invite to the app: the same badges, centred, wrapping on a narrow phone. */
+.obstores .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding-block: 4px; }
 .update-required { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; }
 .update-required h1 { margin: 0; font: 700 var(--fs-title, 22px)/1.4 var(--naskh); color: var(--fg); }
 .update-required p { margin: 0; max-width: 32ch; font: 400 var(--fs-body)/1.7 var(--naskh); color: var(--soft); }

@@ -5,12 +5,15 @@ import { asksPermission, cardFor, finalPrefs, initialDraft, hasSwitch, pick, pic
 import type { Prefs } from '../logic/prefs';
 import { dragShift, swipeAxis, swipeEnd } from '../logic/swipe';
 import { nativeUI } from '../platform';
+import { installStores } from '../logic/install';
 import { askPermission, pushPermission } from '../push';
 import { refresh } from '../store';
 import { ar, clock12, courseLabel, schedule, slotName } from './format';
 import { Toggle } from './Notifications';
 import { Preview, useReducedMotion } from './Preview';
 import { Icon } from './Star';
+import { hideInstallBannerThisVisit } from './InstallBanner';
+import { StoreBadges } from './StoreBadges';
 
 const TEXT: Record<Exclude<Step, 'app' | 'invite'>, { title: string; body: string; switches: string; fallback: string }> = {
   live: {
@@ -114,7 +117,7 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
   }
 
   const courses = state.courses;
-  const steps = stepsFor(true);
+  const steps = stepsFor(native);
   const step = steps[at];
   const picked = pickedCourses(draft, courses);
   const last = at === steps.length - 1;
@@ -127,7 +130,10 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
       setPermission(await askPermission());
       setBusy(false);
     }
-    if (last) onDone(finalPrefs(draft, courses, prefs));
+    if (last) {
+      if (!native) hideInstallBannerThisVisit();
+      onDone(finalPrefs(draft, courses, prefs));
+    }
     else move(at + 1, 'fwd');
   };
 
@@ -205,7 +211,30 @@ export function Onboarding({ state, prefs, now, replay, onDone, onLeave, backRef
     );
   }
 
-  if (step === 'invite') return null;
+  if (step === 'invite') {
+    const card = cardFor(step, picked, state.live);
+    const stores = installStores({ nativeUI: false, ua: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints ?? 0, dismissed: false })!;
+    return (
+      <div class="choose ob" {...swipe}>
+        {top}
+        {slide(
+          <>
+            <div class="intro">
+              <h3>التنبيهات في تطبيق الجوال</h3>
+              <p>لا تصل التنبيهات على الموقع. ثبّت التطبيق ليصلك تنبيه عند بدء البث، وعند نشر التسجيل، وتذكير قبل الدرس.</p>
+            </div>
+            {card && <Preview key={step} card={card} state={state} now={now} variant="invite" />}
+            <section class="obstores" aria-label="تطبيق الجوال">
+              <StoreBadges ids={stores} />
+            </section>
+            <button class="chip pri wide" disabled={busy} onClick={() => void go()}>
+              متابعة على الموقع
+            </button>
+          </>,
+        )}
+      </div>
+    );
+  }
   const text = TEXT[step];
   const card = cardFor(step, picked, state.live);
   const on = stepOn(step, draft, picked);
