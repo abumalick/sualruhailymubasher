@@ -103,4 +103,48 @@ describe('sequence order', () => {
       { number: 3, nextStartPoint: 'كتاب الشهادات 1', prevNumber: 1 },
     ]);
   });
+
+  describe('late arrival re-chains the next lesson', () => {
+    const startOf = async (courseId: string, number: number) =>
+      (await latestLessons(db, courseId, 20)).find((l) => l.number === number)?.startPage;
+
+    it('drops a stale chained start, then follows the late lesson end page', async () => {
+      await upsertCourse(db, 'seq-stale', course);
+      await add('seq-stale', 1, 'كتاب الحدود', 10);
+      await patchLesson(db, 'seq-stale', 1, { endPage: 40 });
+      await add('seq-stale', 2, 'كتاب الحدود', 12);
+      expect(await startOf('seq-stale', 2)).toBe(40);
+      await add('seq-stale', 3, 'كتاب الحدود', 11);
+      expect(await startOf('seq-stale', 2)).toBeNull();
+      expect(await startOf('seq-stale', 3)).toBe(40);
+      await patchLesson(db, 'seq-stale', 3, { endPage: 55 });
+      expect(await startOf('seq-stale', 2)).toBe(55);
+    });
+
+    it('never overwrites a start page set by an explicit patch', async () => {
+      await upsertCourse(db, 'seq-explicit', course);
+      await add('seq-explicit', 1, 'كتاب الحدود', 10);
+      await patchLesson(db, 'seq-explicit', 1, { endPage: 40 });
+      await add('seq-explicit', 2, 'كتاب الحدود', 12);
+      await patchLesson(db, 'seq-explicit', 2, { startPage: 41 });
+      await add('seq-explicit', 3, 'كتاب الحدود', 11);
+      expect(await startOf('seq-explicit', 2)).toBe(41);
+      await patchLesson(db, 'seq-explicit', 3, { endPage: 55 });
+      expect(await startOf('seq-explicit', 2)).toBe(41);
+    });
+  });
+
+  it('orders a legacy row and a new row by number after the migration backfill', async () => {
+    await upsertCourse(db, 'seq-backfill', course);
+    await db
+      .prepare(
+        `INSERT INTO lessons (course_id, number, hijri_date, start_point, detail_path, created_at)
+         VALUES ('seq-backfill', 4, '', 'p', '/d/4', '')`,
+      )
+      .run();
+    await db.prepare("UPDATE lessons SET section_number = number WHERE section_number IS NULL").run();
+    await add('seq-backfill', 5, '', 5);
+    expect((await latestLessons(db, 'seq-backfill', 10)).map((l) => l.number)).toEqual([5, 4]);
+    expect((await previousInSequence(db, 'seq-backfill', 5))?.number).toBe(4);
+  });
 });

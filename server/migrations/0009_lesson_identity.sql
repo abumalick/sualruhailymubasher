@@ -9,6 +9,8 @@ ALTER TABLE lessons ADD COLUMN section TEXT NOT NULL DEFAULT '';
 ALTER TABLE lessons ADD COLUMN section_number INTEGER;
 ALTER TABLE lessons ADD COLUMN source_ref TEXT;
 ALTER TABLE lessons ADD COLUMN date_flag INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE lessons ADD COLUMN start_chained INTEGER NOT NULL DEFAULT 0;
+UPDATE lessons SET section_number = number WHERE section_number IS NULL;
 
 CREATE UNIQUE INDEX lessons_identity ON lessons(course_id, section, section_number);
 CREATE UNIQUE INDEX lessons_source ON lessons(source_ref) WHERE source_ref IS NOT NULL;

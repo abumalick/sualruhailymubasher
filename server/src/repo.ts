@@ -77,12 +77,13 @@ const toLessonRow = (r: Row): LessonRow => ({
 
 // Sequence order is the sheikh's own: section ord, then section_number. Sections never registered
 // (legacy rows, section '') sort first; a NULL section_number sorts after the numbered ones, by number.
-const SEQ = `seq AS (
-  SELECT l.*, coalesce(s.ord, 0) AS ord, l.section_number IS NULL AS no_sn, coalesce(l.section_number, 0) AS sn
-  FROM lessons l LEFT JOIN sections s ON s.course_id = l.course_id AND s.section = l.section
-  WHERE l.course_id = ?1)`;
+const SEQ_ROWS = `SELECT l.*, coalesce(s.ord, 0) AS ord, l.section_number IS NULL AS no_sn, coalesce(l.section_number, 0) AS sn
+  FROM lessons l LEFT JOIN sections s ON s.course_id = l.course_id AND s.section = l.section`;
+const SEQ = `seq AS (${SEQ_ROWS} WHERE l.course_id = ?1)`;
 const SEQ_COLS = 'ord, no_sn, sn, number';
 const SEQ_KEY = `(${SEQ_COLS})`;
+const SEQ_ASC = 'ord, no_sn, sn, number';
+const SEQ_DESC = 'ord DESC, no_sn DESC, sn DESC, number DESC';
 
 const toException = (r: Row): ExceptionDTO => ({
   id: r.id as number,
@@ -135,7 +136,7 @@ export async function lessonsBefore(
       `WITH ${SEQ}
        SELECT * FROM seq
        WHERE ?2 IS NULL OR ${SEQ_KEY} < (SELECT ${SEQ_COLS} FROM seq WHERE number = ?2)
-       ORDER BY ord DESC, no_sn DESC, sn DESC, number DESC LIMIT ?3`,
+       ORDER BY ${SEQ_DESC} LIMIT ?3`,
     )
     .bind(courseId, before, limit)
     .all<Row>();
@@ -147,7 +148,7 @@ export async function previousInSequence(db: D1Database, courseId: string, numbe
     .prepare(
       `WITH ${SEQ}
        SELECT * FROM seq WHERE ${SEQ_KEY} < (SELECT ${SEQ_COLS} FROM seq WHERE number = ?2)
-       ORDER BY ord DESC, no_sn DESC, sn DESC, number DESC LIMIT 1`,
+       ORDER BY ${SEQ_DESC} LIMIT 1`,
     )
     .bind(courseId, number)
     .first<Row>();
@@ -159,7 +160,7 @@ export async function nextInSequence(db: D1Database, courseId: string, number: n
     .prepare(
       `WITH ${SEQ}
        SELECT * FROM seq WHERE ${SEQ_KEY} > (SELECT ${SEQ_COLS} FROM seq WHERE number = ?2)
-       ORDER BY ord, no_sn, sn, number LIMIT 1`,
+       ORDER BY ${SEQ_ASC} LIMIT 1`,
     )
     .bind(courseId, number)
     .first<Row>();
@@ -206,18 +207,24 @@ export async function insertLessonIfNew(
     .run();
   if (res.meta.changes === 0) return false;
   await fillStartFromPrevious(db, courseId, l.number);
+  const next = await nextInSequence(db, courseId, l.number);
+  if (next) await fillStartFromPrevious(db, courseId, next.number);
   return true;
 }
 
+// A start filled from the predecessor is marked start_chained and follows it; a start set by hand or by the agent is never overwritten.
 async function fillStartFromPrevious(db: D1Database, courseId: string, number: number): Promise<void> {
   const prev = await previousInSequence(db, courseId, number);
-  if (!prev || prev.endPage === null) return;
+  if (!prev) return;
   await db
     .prepare(
-      `UPDATE lessons SET start_page = coalesce(start_page, ?3), pdf_index = coalesce(pdf_index, ?4)
-       WHERE course_id = ?1 AND number = ?2`,
+      `UPDATE lessons SET
+         start_page = ?3,
+         pdf_index = CASE WHEN start_chained = 1 THEN ?4 ELSE coalesce(pdf_index, ?4) END,
+         start_chained = ?3 IS NOT NULL
+       WHERE course_id = ?1 AND number = ?2 AND (start_chained = 1 OR start_page IS NULL)`,
     )
-    .bind(courseId, number, prev.endPage, prev.endPdfIndex ?? prev.pdfIndex)
+    .bind(courseId, number, prev.endPage, prev.endPage === null ? null : (prev.endPdfIndex ?? prev.pdfIndex))
     .run();
 }
 
@@ -246,7 +253,7 @@ export async function patchLesson(db: D1Database, courseId: string, number: numb
       .first();
     return row !== null;
   }
-  const set = entries.map((k) => `${PATCH_COLUMNS[k]} = ?`).join(', ');
+  const set = [...entries.map((k) => `${PATCH_COLUMNS[k]} = ?`), ...(p.startPage !== undefined ? ['start_chained = 0'] : [])].join(', ');
   const res = await db
     .prepare(`UPDATE lessons SET ${set} WHERE course_id = ? AND number = ?`)
     .bind(...entries.map((k) => p[k]), courseId, number)
@@ -368,8 +375,8 @@ export async function pendingTranscriptions(db: D1Database): Promise<PendingTran
          SELECT l.*, coalesce(s.ord, 0) AS ord, l.section_number IS NULL AS no_sn, coalesce(l.section_number, 0) AS sn
          FROM lessons l LEFT JOIN sections s ON s.course_id = l.course_id AND s.section = l.section),
        pos AS (
-         SELECT *, row_number() OVER (PARTITION BY course_id ORDER BY ord, no_sn, sn, number) AS idx,
-                row_number() OVER (PARTITION BY course_id ORDER BY ord DESC, no_sn DESC, sn DESC, number DESC) AS rank
+         SELECT *, row_number() OVER (PARTITION BY course_id ORDER BY ${SEQ_ASC}) AS idx,
+                row_number() OVER (PARTITION BY course_id ORDER BY ${SEQ_DESC}) AS rank
          FROM seq)
        SELECT l.course_id, l.number, l.recording_url, l.start_point, l.start_page, l.pdf_index, c.pdf_urls,
               n.start_point AS next_start_point, p.number AS prev_number
