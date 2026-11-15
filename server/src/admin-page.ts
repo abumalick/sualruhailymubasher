@@ -97,10 +97,6 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     <button id="push-btn">إرسال تنبيه تجريبي</button>
     <div class="msg" id="push-msg"></div>
   </div>
-  <div class="card">
-    <button id="ingest-btn" style="margin-top:0">تحديث الدروس الآن</button>
-    <div class="msg" id="ingest-msg"></div>
-  </div>
 </div>
 </main>
 <script>
@@ -388,16 +384,6 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     api('/api/admin/test-push', 'POST', { topic: topic }).then(
       function () { say('push-msg', 'تم إرسال التنبيه التجريبي', true); },
       function (e) { say('push-msg', errText(e), false); });
-  };
-
-  $('ingest-btn').onclick = function () {
-    var btn = $('ingest-btn');
-    btn.disabled = true;
-    say('ingest-msg', 'جارٍ التحديث...', true);
-    api('/api/admin/run/ingest', 'POST').then(function () {
-      say('ingest-msg', 'تم تحديث الدروس', true);
-      return loadLessons();
-    }).catch(function (e) { say('ingest-msg', errText(e), false); }).then(function () { btn.disabled = false; });
   };
 
   if (getToken()) start(); else showLogin('');

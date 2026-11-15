@@ -2,7 +2,6 @@ import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type Co
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { getFcm, type Env } from '../index';
-import { runRecordingIngest } from '../jobs/recordings';
 import {
   addException,
   deleteException,
@@ -170,20 +169,6 @@ adminRoutes.post('/api/admin/test-push', async (c) => {
       body: 'تنبيه تجريبي من دروس البدر',
       tag: NOTICE_TAG,
       ttlSec: 3600,
-    });
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : String(e) }, 500);
-  }
-  return c.body(null, 204);
-});
-
-adminRoutes.post('/api/admin/run/ingest', async (c) => {
-  try {
-    await runRecordingIngest({
-      db: c.env.DB,
-      fetch,
-      fcm: getFcm(c.env.FCM_SERVICE_ACCOUNT ?? ''),
-      now: new Date(),
     });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : String(e) }, 500);
