@@ -15,7 +15,7 @@ export const TARGETS = {
 };
 
 // The build's API (app/src/api.ts with VITE_API_BASE unset)
-const API = 'https://api.albadrmubasher.com';
+const API = 'https://api.sualruhailymubasher.com';
 
 // The real state as a listener sees it some minutes into the course's next lesson, broadcast live: the shot is
 // deterministic whether or not production is on air at capture time.

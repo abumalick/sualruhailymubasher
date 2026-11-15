@@ -8,10 +8,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-export const REPO = 'abumalick/albadrmubasher';
-export const PACKAGE = 'com.albadrmubasher.app';
-export const ASSET_NAME = 'albadr-mubasher.apk';
-// Certificate of the sideload key (Bitwarden: "Albadr Mubasher Obtainium APK signing key"). Installed copies
+export const REPO = 'abumalick/sualruhailymubasher';
+export const PACKAGE = 'com.sualruhailymubasher.app';
+export const ASSET_NAME = 'sualruhaily-mubasher.apk';
+// Certificate of the sideload key (Bitwarden: "Sualruhaily Mubasher Obtainium APK signing key"). Installed copies
 // only accept updates signed by it, so an APK signed by anything else must never be published.
 export const SIGNER_SHA256 = '7979d855f5a8ed011c9e9d54467dd431b227a6bf34451dd39c66708a330cac83';
 

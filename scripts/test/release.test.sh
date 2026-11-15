@@ -60,7 +60,7 @@ cat >> "$RECORD.notify"
 EOF
 chmod +x "$scratch/notify"
 export MISE_TRUSTED_CONFIG_PATHS="$scratch" RECORD="$record" RELEASE_SYSTEMD_RUN="$scratch/systemd-run" RELEASE_STEPS_FILE="$scratch/steps.sh" \
-  RELEASE_NOTIFY_CMD="$scratch/notify" ALBADR_SECRETS="$scratch/no-secrets"
+  RELEASE_NOTIFY_CMD="$scratch/notify" SUALRUHAILY_SECRETS="$scratch/no-secrets"
 rel() { (cd "$repo" && bash scripts/release.sh "$@"); }
 reset() { rm -f "$record" "$record.units" "$record.notify"; }
 commit_file() { echo "$2" > "$repo/$1"; git -C "$repo" add -A; git -C "$repo" commit -q -m "$1"; git -C "$repo" rev-parse HEAD; }
@@ -160,9 +160,9 @@ check "each channel is tagged at the commit it shipped" bash -c "
 check "the GitHub APK and the internal bundle are built by separate fastlane runs, APK first" \
   [ "$(grep '^fastlane' "$record.calls" | head -n 2 | tr '\n' ' ')" = "fastlane android github_apk fastlane android internal " ]
 check "TestFlight is built on the Mac, in the pipeline's own folder, with Android's versionCode and the testers' notes" \
-  grep -q "^ssh .*albadrmubasher-release.*fastlane ios beta build_number:$(sed -n 's/.*versionCode \([0-9]*\).*/\1/p' "$repo/app/android/app/build.gradle") changelog_file:.tmp/release-notes/ios/whats-new.txt" "$record.calls"
+  grep -q "^ssh .*sualruhailymubasher-release.*fastlane ios beta build_number:$(sed -n 's/.*versionCode \([0-9]*\).*/\1/p' "$repo/app/android/app/build.gradle") changelog_file:.tmp/release-notes/ios/whats-new.txt" "$record.calls"
 check "the copy to the Mac never touches the hand-used folder" \
-  bash -c "grep '^rsync' '$record.calls' | grep -q 'albadrmubasher-release/' && ! grep '^rsync' '$record.calls' | grep -q 'albadrmubasher/ '"
+  bash -c "grep '^rsync' '$record.calls' | grep -q 'sualruhailymubasher-release/' && ! grep '^rsync' '$record.calls' | grep -q 'sualruhailymubasher/ '"
 check "the Mac lock is released after the build" grep -q "^ssh .*rmdir" "$record.calls"
 
 reset
@@ -197,7 +197,7 @@ check "store both releases Android and iOS, each reported" \
 check "Android uploads the listing, then promotes to production" \
   [ "$(grep '^fastlane android' "$record.calls" | tr '\n' ' ')" = "fastlane android upload_metadata fastlane android production " ]
 check "iOS uploads the listing, then submits with the notes, on the Mac" \
-  grep -q "^ssh .*albadrmubasher-release.*fastlane ios metadata && fastlane ios submit notes_dir:.tmp/release-notes/ios" "$record.calls"
+  grep -q "^ssh .*sualruhailymubasher-release.*fastlane ios metadata && fastlane ios submit notes_dir:.tmp/release-notes/ios" "$record.calls"
 check "both stores are tagged" bash -c "git -C '$repo' rev-parse -q --verify release/play/$v >/dev/null && git -C '$repo' rev-parse -q --verify release/appstore/$v >/dev/null"
 check "the next store notes start after this release" bash -c "
   cd '$repo' && node scripts/release.mjs notes play HEAD '$scratch/next' >/dev/null && [ \"\$(cat '$scratch/next/en-US.txt')\" = 'Improvements and fixes.' ]"
