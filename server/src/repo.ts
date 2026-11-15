@@ -238,24 +238,30 @@ export interface UpsertResult {
   created: boolean;
   recordingAdded: boolean;
   dateFlag: boolean;
+  heldDate: string | null;
 }
 
-export async function upsertLesson(db: D1Database, input: LessonInput, now: Date): Promise<UpsertResult> {
+export class SourceRefConflict extends Error {}
+
+export async function upsertLesson(db: D1Database, input: LessonInput): Promise<UpsertResult> {
   const hijriDate = normalizeHijri(input.hijriDate);
   if (hijriDate === null) throw new Error(`unparseable hijri date: ${input.hijriDate}`);
   const course = (await listCourses(db)).find((c) => c.id === input.courseId);
   if (!course) throw new Error(`unknown course: ${input.courseId}`);
-  const held = hijriToMedinaDate(hijriDate, now);
+  const held = hijriToMedinaDate(hijriDate);
   const dateFlag = held === null || !course.weekdays.includes(weekday(held));
 
-  const existing = await db
-    .prepare(
-      `SELECT number, recording_url FROM lessons WHERE course_id = ?1 AND (
-         (section = ?2 AND section_number = ?3) OR source_ref = ?4)
-       ORDER BY (section = ?2 AND section_number = ?3) DESC LIMIT 1`,
-    )
-    .bind(input.courseId, input.section, input.sectionNumber, input.sourceRef)
-    .first<{ number: number; recording_url: string | null }>();
+  const find = (where: string, ...binds: unknown[]) =>
+    db
+      .prepare(`SELECT number, recording_url FROM lessons WHERE course_id = ? AND ${where}`)
+      .bind(input.courseId, ...binds)
+      .first<{ number: number; recording_url: string | null }>();
+  const byIdentity = await find('section = ? AND section_number = ?', input.section, input.sectionNumber);
+  const byRef = await find('source_ref = ?', input.sourceRef);
+  if (byIdentity && byRef && byIdentity.number !== byRef.number) {
+    throw new SourceRefConflict(`source_ref ${input.sourceRef} belongs to lesson ${byRef.number}, not ${byIdentity.number}`);
+  }
+  const existing = byIdentity ?? byRef;
 
   if (existing) {
     const recordingAdded = input.recordingUrl !== null && input.recordingUrl !== existing.recording_url;
@@ -266,7 +272,7 @@ export async function upsertLesson(db: D1Database, input: LessonInput, now: Date
       )
       .bind(input.courseId, existing.number, input.startPoint, hijriDate, input.recordingUrl, input.sourceRef, dateFlag ? 1 : 0)
       .run();
-    return { number: existing.number, created: false, recordingAdded, dateFlag };
+    return { number: existing.number, created: false, recordingAdded, dateFlag, heldDate: held };
   }
 
   const { n } = (await db
@@ -285,7 +291,7 @@ export async function upsertLesson(db: D1Database, input: LessonInput, now: Date
     dateFlag,
   });
   if (!inserted) throw new Error(`lesson ${input.courseId}/${n} was created concurrently`);
-  return { number: n, created: true, recordingAdded: input.recordingUrl !== null, dateFlag };
+  return { number: n, created: true, recordingAdded: input.recordingUrl !== null, dateFlag, heldDate: held };
 }
 
 export async function setRecordingUrl(db: D1Database, courseId: string, number: number, url: string): Promise<void> {
@@ -415,7 +421,7 @@ export async function expectedNextNumber(db: D1Database, courseId: string, on: s
         .bind(courseId, last.number)
         .first<{ created_at: string }>()
     : null;
-  const held = last ? hijriToMedinaDate(last.hijriDate, now) : null;
+  const held = last ? hijriToMedinaDate(last.hijriDate) : null;
   const r = await db
     .prepare(
       `SELECT count(DISTINCT date(started_at, '+3 hours')) AS n FROM broadcasts

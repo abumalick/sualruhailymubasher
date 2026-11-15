@@ -9,8 +9,13 @@ export interface RecordingPushDeps {
   fcm: Fcm;
 }
 
-export const shouldPushRecording = (s: { hadLessonsBefore: boolean; isNewestInSequence: boolean; recordingAdded: boolean }): boolean =>
-  s.hadLessonsBefore && s.isNewestInSequence && s.recordingAdded;
+export const shouldPushRecording = (s: {
+  hadLessonsBefore: boolean;
+  isNewestInSequence: boolean;
+  recordingAdded: boolean;
+  isRecent: boolean;
+}): boolean =>
+  s.hadLessonsBefore && s.isNewestInSequence && s.recordingAdded && s.isRecent;
 
 // Returns false when this lesson's push was already sent.
 export async function sendRecordingPush(

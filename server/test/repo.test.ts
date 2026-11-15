@@ -148,7 +148,8 @@ describe('expectedNextNumber', () => {
   const backdate = (courseId: string) =>
     db.prepare("UPDATE lessons SET created_at = '2026-10-01T00:00:00.000Z' WHERE course_id = ?").bind(courseId).run();
 
-  // hijri dates of lesson() are months away from this instant, so created_at is the anchor
+  // 30-01-1448 does not exist (Muharram 1448 has 29 days), so the held date cannot be derived and created_at is the anchor
+  const undated = (number: number) => ({ ...lesson(number), hijriDate: '30-01-1448' });
   const FALLBACK_NOW = new Date('2026-11-01T00:00:00Z');
 
   it('counts lesson days broadcast after the latest scraped lesson (created_at fallback)', async () => {
@@ -156,7 +157,7 @@ describe('expectedNextNumber', () => {
     await recordBroadcast(db, 'n0', 'n-none', '2026-10-20T02:30:00.000Z');
     expect(await expectedNextNumber(db, 'n-none', '2026-11-01', FALLBACK_NOW)).toBe(2);
 
-    await insertLessonIfNew(db, 'n-c', lesson(7));
+    await insertLessonIfNew(db, 'n-c', undated(7));
     await backdate('n-c');
     expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(8);
     await recordBroadcast(db, 'b1', 'n-c', '2026-09-30T02:30:00.000Z');
@@ -168,7 +169,7 @@ describe('expectedNextNumber', () => {
     expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(9);
     expect(await expectedNextNumber(db, 'n-c', '2026-10-20', FALLBACK_NOW)).toBe(8);
 
-    await insertLessonIfNew(db, 'n-c', lesson(8));
+    await insertLessonIfNew(db, 'n-c', undated(8));
     expect(await expectedNextNumber(db, 'n-c', '2026-11-01', FALLBACK_NOW)).toBe(9);
   });
 });

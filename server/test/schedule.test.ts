@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { asrTime } from '../src/prayer';
 import { courseInWindow, isLessonDay, lessonTime, nextLessonDate } from '../src/schedule';
 import type { CourseRow } from '../src/repo';
-import { addDays, hijriToMedinaDate, medinaDate, medinaInstant, normalizeHijri, weekday } from '../src/time';
+import { addDays, hijriToMedinaDate, isRecentDate, medinaDate, medinaInstant, normalizeHijri, weekday } from '../src/time';
 
 const tafsir: CourseRow = {
   id: 'tafsir-saadi', title: 'شرح تفسير السعدي', slot: 'fajr', place: '', weekdays: [0, 1, 2, 3, 4, 5],
@@ -39,14 +39,26 @@ describe('time', () => {
 });
 
 describe('hijriToMedinaDate', () => {
-  it('converts an Umm al-Qura date near now', () => {
-    expect(hijriToMedinaDate('09-05-1448', new Date('2026-10-30T12:00:00Z'))).toBe('2026-10-20');
-    expect(hijriToMedinaDate('10-05-1448', new Date('2026-10-30T12:00:00Z'))).toBe('2026-10-21');
+  it('converts an Umm al-Qura date at any distance from now', () => {
+    expect(hijriToMedinaDate('09-05-1448')).toBe('2026-10-20');
+    expect(hijriToMedinaDate('10-05-1448')).toBe('2026-10-21');
+    expect(hijriToMedinaDate('20-05-1448')).toBe('2026-10-31');
+    expect(hijriToMedinaDate('01-04-1448')).toBe('2026-09-12');
+    expect(hijriToMedinaDate('15-03-1447')).toBe('2025-09-07');
   });
 
-  it('returns null when out of range or malformed', () => {
-    expect(hijriToMedinaDate('09-05-1440', new Date('2026-10-30T12:00:00Z'))).toBeNull();
-    expect(hijriToMedinaDate('', new Date('2026-10-30T12:00:00Z'))).toBeNull();
+  it('returns null for an impossible or malformed date', () => {
+    expect(hijriToMedinaDate('30-01-1448')).toBeNull();
+    expect(hijriToMedinaDate('')).toBeNull();
+  });
+});
+
+describe('isRecentDate', () => {
+  const now = new Date('2026-11-15T09:00:00Z');
+  it('counts the last 10 days inclusive', () => {
+    expect(isRecentDate('2026-11-05', now)).toBe(true);
+    expect(isRecentDate('2026-11-04', now)).toBe(false);
+    expect(isRecentDate(null, now)).toBe(false);
   });
 });
 

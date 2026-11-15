@@ -14,9 +14,10 @@ import {
   pendingTranscriptions,
   setSetting,
   upsertCourse,
+  SourceRefConflict,
   upsertLesson,
 } from '../repo';
-import { medinaDate, normalizeHijri } from '../time';
+import { isRecentDate, medinaDate, normalizeHijri } from '../time';
 
 const encoder = new TextEncoder();
 
@@ -105,7 +106,7 @@ function parseException(b: unknown): ExceptionInput | null {
 
 const readJson = (c: { req: { json: () => Promise<unknown> } }) => c.req.json().catch(() => null);
 
-export const adminRoutes = new Hono<{ Bindings: Env; Variables: { fcm?: Fcm } }>();
+export const adminRoutes = new Hono<{ Bindings: Env; Variables: { fcm?: Fcm; now?: Date } }>();
 
 adminRoutes.use(
   '/api/admin/*',
@@ -139,11 +140,18 @@ adminRoutes.post('/api/admin/lessons', async (c) => {
   if (!input || !course) return bad(c);
 
   const hadLessonsBefore = (await c.env.DB.prepare('SELECT 1 FROM lessons WHERE course_id = ? LIMIT 1').bind(course.id).first()) !== null;
-  const r = await upsertLesson(c.env.DB, input, new Date());
+  let r;
+  try {
+    r = await upsertLesson(c.env.DB, input);
+  } catch (e) {
+    if (e instanceof SourceRefConflict) return c.json({ error: e.message }, 409);
+    throw e;
+  }
   const isNewestInSequence = (await nextInSequence(c.env.DB, course.id, r.number)) === null;
 
   let pushed = false;
-  if (shouldPushRecording({ hadLessonsBefore, isNewestInSequence, recordingAdded: r.recordingAdded })) {
+  const isRecent = isRecentDate(r.heldDate, c.get('now') ?? new Date());
+  if (shouldPushRecording({ hadLessonsBefore, isNewestInSequence, recordingAdded: r.recordingAdded, isRecent })) {
     try {
       const fcm = c.get('fcm') ?? getFcm(c.env.FCM_SERVICE_ACCOUNT ?? '');
       pushed = await sendRecordingPush({ db: c.env.DB, fcm }, course, {

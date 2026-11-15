@@ -48,11 +48,11 @@ describe('GET /api/state', () => {
 
   it('counts lessons broadcast but not yet on media.sualruhailymubasher.com in next.number', async () => {
     const next = async () => ((await (await get('/api/state')).json()) as any).courses[3].next.number;
-    await insertLessonIfNew(env.DB, 'dalil-talib', lesson(7));
+    await insertLessonIfNew(env.DB, 'dalil-talib', { ...lesson(7), hijriDate: '30-01-1448' });
     await env.DB.prepare("UPDATE lessons SET created_at = '2026-01-01T00:00:00.000Z'").run();
     await recordBroadcast(env.DB, 'b-8', 'dalil-talib', '2026-01-04T02:30:00.000Z');
     expect(await next()).toBe(9);
-    await insertLessonIfNew(env.DB, 'dalil-talib', lesson(8));
+    await insertLessonIfNew(env.DB, 'dalil-talib', { ...lesson(8), hijriDate: '30-01-1448' });
     expect(await next()).toBe(9);
   });
 

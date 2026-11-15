@@ -5,15 +5,13 @@ import { sendRecordingPush, shouldPushRecording } from '../src/jobs/recording-pu
 import type { CourseRow } from '../src/repo';
 
 describe('shouldPushRecording', () => {
-  it.each([
-    [true, true, true, true],
-    [false, true, true, false],
-    [true, false, true, false],
-    [true, true, false, false],
-    [false, false, false, false],
-  ])('hadLessonsBefore=%s isNewestInSequence=%s recordingAdded=%s -> %s', (hadLessonsBefore, isNewestInSequence, recordingAdded, want) => {
-    expect(shouldPushRecording({ hadLessonsBefore, isNewestInSequence, recordingAdded })).toBe(want);
-  });
+  it.each([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31])(
+    'pushes only when all four hold (mask %i)',
+    (mask) => {
+      const [hadLessonsBefore, isNewestInSequence, recordingAdded, isRecent] = [1, 2, 4, 8].map((b) => (mask & b) !== 0);
+      expect(shouldPushRecording({ hadLessonsBefore, isNewestInSequence, recordingAdded, isRecent })).toBe((mask & 15) === 15);
+    },
+  );
 });
 
 const course = { id: 'push-c', title: 'شرح كتاب التوحيد', lessonWord: 'الدرس' } as CourseRow;

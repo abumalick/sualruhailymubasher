@@ -8,9 +8,12 @@ import { latestLessons, upsertCourse } from '../src/repo';
 import { adminRoutes } from '../src/routes/admin';
 
 const sendToTopic = vi.fn();
+const NOW = new Date('2026-11-15T09:00:00Z');
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', async (c, next) => {
-  (c as unknown as { set: (k: string, v: unknown) => void }).set('fcm', { sendToTopic } as unknown as Fcm);
+  const set = (c as unknown as { set: (k: string, v: unknown) => void }).set;
+  set('fcm', { sendToTopic } as unknown as Fcm);
+  set('now', NOW);
   await next();
 });
 app.route('/', adminRoutes);
@@ -75,6 +78,25 @@ describe('POST /api/admin/lessons', () => {
 
     expect(await send(input('kitab-tawhid', 7, { recordingUrl: 'https://m/7.mp3' }))).toMatchObject({ created: true, pushed: false });
     expect(sendToTopic).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not push a whole backfill, only a recent newest recording', async () => {
+    const dates = ['1/3', '8/3', '15/3', '22/3', '29/3', '6/4', '13/4', '20/4', '27/4'];
+    for (const [i, d] of dates.entries()) {
+      await send(input('kitab-tawhid', i + 1, { hijriDate: `${d}/1448`, recordingUrl: `https://m/${i + 1}.mp3` }));
+    }
+    expect(sendToTopic).not.toHaveBeenCalled();
+    const tenth = await send(input('kitab-tawhid', 10, { hijriDate: '1448/5/27', recordingUrl: 'https://m/10.mp3' }));
+    expect(tenth).toMatchObject({ created: true, pushed: true });
+    expect(sendToTopic).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers 409 when the identity matches one lesson and the source_ref another', async () => {
+    await send(input('kitab-tawhid', 1, { sourceRef: 'a' }));
+    await send(input('kitab-tawhid', 2, { sourceRef: 'b' }));
+    const res = await post(input('kitab-tawhid', 1, { sourceRef: 'b' }));
+    expect(res.status).toBe(409);
+    expect((await res.json()) as { error: string }).toHaveProperty('error');
   });
 
   it('pushes when a recording is added later to the newest lesson, not when it is unchanged', async () => {
