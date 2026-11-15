@@ -227,6 +227,7 @@ def telegram_login() -> int:
         log.error("%s", e)
         return 1
     session.parent.mkdir(parents=True, exist_ok=True)
+    os.umask(0o077)
     client = make()
     client.start(phone=os.environ.get("TELEGRAM_PHONE") or (lambda: input("Phone number (international format): ")))
     me = client.get_me()

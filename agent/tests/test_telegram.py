@@ -88,19 +88,24 @@ def test_one_connection_serves_every_call_until_close(tmp_path):
     assert len(made) == 1 and not made[0].connected
 
 
-def test_download_writes_the_named_file_into_dest(tmp_path):
-    client = FakeClient([tg_message(1112, name="01قوله.mp3")])
+def test_download_writes_into_dest_under_the_message_id(tmp_path):
+    client = FakeClient([tg_message(1112, name="01قوله.mp3", ext=".mp3")])
 
     path = Telegram(lambda: client).download(1112, tmp_path / "1112")
 
-    assert path == tmp_path / "1112" / "01قوله.mp3"
+    assert path == tmp_path / "1112" / "1112.mp3"
     assert path.read_bytes() == b"audio"
+    assert Telegram(lambda: FakeClient([tg_message(1033, ext=".m4a")])).download(1033, tmp_path / "d") == tmp_path / "d" / "1033.m4a"
 
 
-def test_download_without_a_file_name_uses_the_message_id(tmp_path):
-    client = FakeClient([tg_message(1033, name=None, ext=".m4a")])
+@pytest.mark.parametrize("name", ["../../evil.mp3", "/abs/evil.mp3", "..", ""])
+def test_the_uploader_file_name_never_becomes_a_path(tmp_path, name):
+    client = FakeClient([tg_message(7, name=name, ext=".mp3")])
 
-    assert Telegram(lambda: client).download(1033, tmp_path / "d") == tmp_path / "d" / "1033.m4a"
+    path = Telegram(lambda: client).download(7, tmp_path / "d")
+
+    assert path == tmp_path / "d" / "7.mp3"
+    assert [p for p in tmp_path.rglob("*") if p.is_file()] == [path]
 
 
 def test_download_of_a_missing_or_text_message_is_an_error(tmp_path):
@@ -112,8 +117,31 @@ def test_download_of_a_missing_or_text_message_is_an_error(tmp_path):
 
 
 def test_unauthorized_session_is_an_error_naming_the_login_command():
+    client = FakeClient(authorized=False)
     with pytest.raises(TelegramError, match="telegram-login"):
-        Telegram(lambda: FakeClient(authorized=False)).export(859)
+        Telegram(lambda: client).export(859)
+    assert client.calls == [] and not client.connected
+
+
+def test_a_failing_disconnect_does_not_escape_close():
+    client = FakeClient([tg_message(1, "x")])
+    telegram = Telegram(lambda: client)
+    telegram.export(1)
+
+    def boom():
+        raise ConnectionError("gone")
+
+    client.disconnect = boom
+    telegram.close()
+    telegram.close()
+
+
+def test_a_session_file_in_use_while_opening_means_busy():
+    def factory():
+        raise sqlite3.OperationalError("database is locked")
+
+    with pytest.raises(TelegramBusy):
+        Telegram(factory).export(859)
 
 
 def test_flood_wait_means_busy():
@@ -136,6 +164,9 @@ def test_settings_come_from_the_environment(tmp_path):
     assert settings(env) == (123, "abc", tmp_path / "s.session")
     assert settings({"TELEGRAM_API_ID": "1", "TELEGRAM_API_HASH": "h"}, home=tmp_path)[2] == (
         tmp_path / ".config" / "sualruhailymubasher" / "telegram.session"
+    )
+    assert settings({"TELEGRAM_API_ID": "1", "TELEGRAM_API_HASH": "h", "TELEGRAM_SESSION": str(tmp_path / "s")})[2] == (
+        tmp_path / "s.session"
     )
     with pytest.raises(TelegramError, match="TELEGRAM_API_ID"):
         settings({})

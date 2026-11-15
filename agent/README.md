@@ -35,7 +35,8 @@ errors, network errors and Telegram failures are retried on the next run.
 
 It needs `API_BASE` and `ADMIN_TOKEN`; `SUALRUHAILY_AGENT_CACHE` moves its lock (`ingest.lock`), state
 (`ingest/state.json`) and downloads. Telegram needs `TELEGRAM_API_ID` and `TELEGRAM_API_HASH`; the session file is
-`TELEGRAM_SESSION` (default `~/.config/sualruhailymubasher/telegram.session`), used by no other tool. Log it in once
+`TELEGRAM_SESSION` (default `~/.config/sualruhailymubasher/telegram.session`), used by no other tool. A run from a worktree must set its own `TELEGRAM_SESSION` (logged in separately) or
+run between timer ticks: two processes using one session at once can get it revoked. Log it in once
 with `sualruhaily-agent telegram-login` (it asks for the phone number and the code Telegram sends). A run that
 finds the session busy, or that Telegram asks to wait (flood wait), is skipped. Each run ends with a heartbeat
 (`3 lessons, 1 cancellation, 2 skipped, 0 failed`), not ok when a post failed or a caption was not understood.

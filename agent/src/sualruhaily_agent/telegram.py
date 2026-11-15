@@ -1,3 +1,4 @@
+import logging
 import os
 import sqlite3
 from collections.abc import Callable, Mapping
@@ -9,6 +10,7 @@ from telethon.errors import FloodWaitError
 from .captions import Message
 
 CHAT = "Sulalruhaily"
+log = logging.getLogger(__name__)
 
 
 class TelegramError(Exception):
@@ -26,7 +28,8 @@ def settings(environ: Mapping[str, str] = os.environ, home: Path | None = None) 
     except (KeyError, ValueError) as e:
         raise TelegramError("TELEGRAM_API_ID and TELEGRAM_API_HASH must be set") from e
     default = (home or Path.home()) / ".config" / "sualruhailymubasher" / "telegram.session"
-    return api_id, api_hash, Path(environ.get("TELEGRAM_SESSION") or default)
+    session = Path(environ.get("TELEGRAM_SESSION") or default)
+    return api_id, api_hash, session if session.suffix == ".session" else session.with_name(session.name + ".session")
 
 
 def client_factory(environ: Mapping[str, str] = os.environ) -> Callable[[], Any]:
@@ -35,7 +38,7 @@ def client_factory(environ: Mapping[str, str] = os.environ) -> Callable[[], Any]
     def make():
         from telethon.sync import TelegramClient
 
-        return TelegramClient(str(session), api_id, api_hash)
+        return TelegramClient(str(session), api_id, api_hash, timeout=30, request_retries=3)
 
     return make
 
@@ -54,11 +57,14 @@ class Telegram:
 
     def _connected(self):
         if self._client is None:
-            client = self._factory()
-            self._call(client.connect)
-            if not self._call(client.is_user_authorized):
-                client.disconnect()
-                raise TelegramError("the Telegram session is not logged in: run `sualruhaily-agent telegram-login`")
+            client = self._call(self._factory)
+            try:
+                self._call(client.connect)
+                if not self._call(client.is_user_authorized):
+                    raise TelegramError("the Telegram session is not logged in: run `sualruhaily-agent telegram-login`")
+            except BaseException:
+                self._disconnect(client)
+                raise
             self._client = client
         return self._client
 
@@ -85,13 +91,20 @@ class Telegram:
         if message is None or not message.media or not message.file:
             raise TelegramError(f"message {msg_id} has no file to download")
         dest.mkdir(parents=True, exist_ok=True)
-        target = dest / (message.file.name or f"{msg_id}{message.file.ext or ''}")
+        target = dest / f"{msg_id}{message.file.ext or ''}"
         written = self._call(client.download_media, message, file=str(target))
         if not written or not Path(written).is_file():
             raise TelegramError(f"download of message {msg_id} wrote no file")
         return Path(written)
 
+    @staticmethod
+    def _disconnect(client) -> None:
+        try:
+            client.disconnect()
+        except Exception:
+            log.warning("could not disconnect from Telegram", exc_info=True)
+
     def close(self) -> None:
         if self._client is not None:
-            self._client.disconnect()
-            self._client = None
+            client, self._client = self._client, None
+            self._disconnect(client)
