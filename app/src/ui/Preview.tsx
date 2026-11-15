@@ -112,7 +112,7 @@ function LivePlayer({ card, state, playing }: { card: Card; state: StateDTO; pla
 const WAVE = [0.3, 0.55, 0.8, 0.45, 1, 0.6, 0.35, 0.7, 0.9, 0.4, 0.65, 0.25, 0.85, 0.5, 0.75, 0.3, 0.95, 0.55, 0.4, 0.8, 0.6, 0.35, 0.7, 0.45, 0.9, 0.3, 0.6, 0.5, 0.75, 0.4];
 
 // The channel's name on Mixlr, as its embed shows it.
-const MIXLR_CHANNEL = 'دروس سليمان الرحيلي';
+const MIXLR_CHANNEL = 'sualruhaily';
 
 // The book open at the next passage, «قرأتُه» in its footer; its page is drawn, never downloaded.
 function BookPage({ card, to, read }: { card: Card; to: Extract<Destination, { kind: 'book' }>; read: boolean }) {

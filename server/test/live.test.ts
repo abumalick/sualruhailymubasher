@@ -1,13 +1,13 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import liveJson from './fixtures/channel-view-live.json';
-import offlineJson from './fixtures/channel-view-offline.json';
+import liveJson from './fixtures/mixlr-sualruhaily-live.json';
+import offlineJson from './fixtures/mixlr-sualruhaily-offline.json';
 import { offlineStep, runLivePoll } from '../src/jobs/live';
 import { parseChannelView } from '../src/sources/mixlr';
 import { getLive, insertLessonIfNew, recordBroadcast, setLive, upsertCourse } from '../src/repo';
 import type { Fcm } from '../src/fcm';
 
-const UID = 'fbaff98792b1bbbcb8e73ad92348916c';
+const UID = '3c1f0a7d5e9b4a2c8d6e1b0f9a7c5d3e';
 const respond = (body: unknown, status = 200) => async () => new Response(JSON.stringify(body), { status });
 
 function setup(fetchImpl: typeof fetch, now = new Date('2026-10-19T15:20:30Z')) {
@@ -36,7 +36,7 @@ beforeEach(async () => {
 });
 
 describe('parseChannelView', () => {
-  it('parses the live capture', () => {
+  it('parses the live fixture of the sualruhaily channel', () => {
     expect(parseChannelView(liveJson)).toEqual({
       live: true,
       uid: UID,
@@ -65,7 +65,7 @@ describe('runLivePoll', () => {
     expect(await getLive(env.DB)).toMatchObject({ isLive: true, broadcastUid: UID, courseId: 'maghrib-test' });
   });
 
-  it('maps a Monday maghrib broadcast to its course with the next lesson number', async () => {
+  it('maps a Monday maghrib broadcast to its course without predicting a lesson number', async () => {
     await insertLessonIfNew(env.DB, 'maghrib-test', {
       number: 7, hijriDate: '01-01-1448', startPoint: 'x', recordingUrl: null, detailPath: '/detail/x',
     });
@@ -73,22 +73,22 @@ describe('runLivePoll', () => {
     await runLivePoll(deps);
     expect(sendToTopic).toHaveBeenCalledWith('c-maghrib-test-live', {
       title: '🔴 بدأ البث المباشر',
-      body: expect.stringMatching(/ · الدرس ٨$/),
-      data: { kind: 'live', courseId: 'maghrib-test', number: '8' },
+      body: 'درس المغرب',
+      data: { kind: 'live', courseId: 'maghrib-test', number: '' },
       tag: 'live',
       ttlSec: 7200,
     });
   });
 
-  it('counts an earlier broadcast not yet published on media.sualruhailymubasher.com', async () => {
-    await insertLessonIfNew(env.DB, 'maghrib-test', {
-      number: 7, hijriDate: '01-01-1448', startPoint: 'x', recordingUrl: null, detailPath: '/detail/x',
-    });
-    await env.DB.exec("UPDATE lessons SET created_at = '2026-10-01T00:00:00.000Z'");
-    await recordBroadcast(env.DB, 'earlier', 'maghrib-test', '2026-10-15T15:20:00.000Z');
-    const { deps, sendToTopic } = setup(respond(liveJson) as typeof fetch);
+  it('pushes the Tuesday Asr broadcast to c-kabair-live with its title and no digits', async () => {
+    const { deps, sendToTopic } = setup(respond(withStart('2026-11-17T12:40:00.000Z')) as typeof fetch, new Date('2026-11-17T12:41:00Z'));
     await runLivePoll(deps);
-    expect(sendToTopic.mock.calls[0][1].data.number).toBe('9');
+    expect(sendToTopic).toHaveBeenCalledTimes(1);
+    const [topic, message] = sendToTopic.mock.calls[0];
+    expect(topic).toBe('c-kabair-live');
+    expect(message.body).toContain('شرح كتاب الكبائر للذهبي');
+    expect(message.body).not.toMatch(/[0-9٠-٩]/);
+    expect(message.data).toEqual({ kind: 'live', courseId: 'kabair', number: '' });
   });
 
   it('records every live broadcast with its course', async () => {
@@ -107,14 +107,8 @@ describe('runLivePoll', () => {
     expect(second.sendToTopic).not.toHaveBeenCalled();
   });
 
-  it('numbers the first lesson 1 when the course has none', async () => {
-    const { deps, sendToTopic } = setup(respond(liveJson) as typeof fetch);
-    await runLivePoll(deps);
-    expect(sendToTopic.mock.calls[0][1].data.number).toBe('1');
-  });
-
   it('sends live-other for a broadcast outside every window', async () => {
-    const { deps, sendToTopic } = setup(respond(withStart('2026-10-23T09:00:00.000Z')) as typeof fetch);
+    const { deps, sendToTopic } = setup(respond(withStart('2026-10-19T07:00:00.000Z')) as typeof fetch); // Monday 10:00 Medina
     await runLivePoll(deps);
     expect(sendToTopic).toHaveBeenCalledWith('live-other', {
       title: '🔴 بث مباشر الآن',

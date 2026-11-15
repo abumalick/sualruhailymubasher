@@ -3,7 +3,6 @@ import type { Fcm } from '../fcm';
 import { courseInWindow } from '../schedule';
 import { parseChannelView } from '../sources/mixlr';
 import {
-  expectedNextNumber,
   getLive,
   getSetting,
   listCourses,
@@ -122,16 +121,14 @@ export async function runLivePoll({ db, fetch: f, fcm, now }: LiveDeps): Promise
 
   await recordBroadcast(db, view.uid, course?.id ?? null, at.toISOString());
 
-  const day = medinaDate(at);
   if (!(await markSent(db, sentKey(course?.id ?? null, view.uid, at)))) return;
 
   try {
     if (course) {
-      const number = await expectedNextNumber(db, course.id, day, now);
       await fcm.sendToTopic(liveTopic(course.id), {
         title: NOTICE_TITLE.live,
-        body: lessonNoticeBody(course.title, number),
-        data: { kind: 'live', courseId: course.id, number: String(number) },
+        body: lessonNoticeBody(course.title),
+        data: { kind: 'live', courseId: course.id, number: '' },
         tag: LIVE_TAG,
         ttlSec: LIVE_TTL_SEC,
       });
