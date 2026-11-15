@@ -12,5 +12,7 @@
       "database_id": "fe8afa6f-65ec-4f5b-a4c7-81121825fcb7",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "sualruhaily-media" }],
+  "vars": { "MEDIA_BASE": "https://media.sualruhailymubasher.com" }
 }

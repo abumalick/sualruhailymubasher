@@ -1,3 +1,5 @@
+import { ingestAlarming } from './heartbeat';
+
 export const ADMIN_HTML = String.raw`<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -49,6 +51,7 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
   <h2>الدورات</h2>
   <div id="courses"></div>
 
+  <div class="msg" id="ingest-status"></div>
   <h2>الاستثناءات</h2>
   <div id="exceptions"></div>
   <form id="exc-form" class="card">
@@ -360,13 +363,25 @@ button.ghost{background:transparent;color:var(--brown);border:1px solid var(--br
     });
   }
 
+  var ingestAlarming = ${String(ingestAlarming)};
+
+  function loadIngestStatus() {
+    return api('/api/admin/heartbeats').then(function (r) {
+      var box = $('ingest-status');
+      var beat = r.ingest;
+      if (!beat) { box.className = 'msg'; box.textContent = 'لم تُقرأ القناة بعد'; return; }
+      box.className = ingestAlarming(beat, Date.now()) ? 'msg err' : 'msg ok';
+      box.textContent = 'آخر قراءة لقناة التلغرام: ' + new Date(beat.at).toLocaleString('ar') + ' — ' + beat.summary;
+    }).catch(function (e) { if (e.message !== 'unauthorized') say('ingest-status', errText(e), false); });
+  }
+
   function start() {
     $('login').hidden = true;
     $('app').hidden = false;
     $('logout').hidden = false;
     $('load-msg').textContent = '';
     reloadCourses().then(function () {
-      return Promise.all([loadExceptions(), loadMode()]);
+      return Promise.all([loadExceptions(), loadMode(), loadIngestStatus()]);
     }).catch(loadFailed);
   }
 

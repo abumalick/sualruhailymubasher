@@ -80,6 +80,15 @@ describe('POST /api/admin/lessons', () => {
     expect(sendToTopic).toHaveBeenCalledTimes(1);
   });
 
+  it('never pushes when notify is false, and rejects a non-boolean notify', async () => {
+    await send(input('kitab-tawhid', 8));
+    await send(input('kitab-tawhid', 9));
+    const tenth = input('kitab-tawhid', 10, { recordingUrl: 'https://m/10.mp3', notify: false });
+    expect(await send(tenth)).toMatchObject({ created: true, pushed: false });
+    expect(sendToTopic).not.toHaveBeenCalled();
+    expect((await post({ ...tenth, notify: 'no' })).status).toBe(400);
+  });
+
   it('does not push a whole backfill, only a recent newest recording', async () => {
     const dates = ['1/3', '8/3', '15/3', '22/3', '29/3', '6/4', '13/4', '20/4', '27/4'];
     for (const [i, d] of dates.entries()) {

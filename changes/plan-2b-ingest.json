@@ -1,0 +1,5 @@
+{
+  "platforms": ["android", "ios", "web"],
+  "ar": "تُضاف تسجيلات الدروس تلقائيًا من قناة الشيخ الرسمية على التلغرام بعد نشرها، ويُعلَم بالدرس الملغى عند اعتذار الشيخ أو إقامة محاضرة في وقته.",
+  "en": "Lesson recordings are now added automatically from the sheikh's official Telegram channel once posted, and a lesson shows as cancelled when the sheikh excuses himself or gives a lecture in its place."
+}

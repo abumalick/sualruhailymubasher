@@ -1,11 +1,15 @@
-import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type LessonInput, type LessonPatch, type LessonUpsertResult } from '@sualruhaily/shared';
+import { courseTopic, updatePolicyProblem, LIVE_OTHER_TOPIC, NOTICE_TAG, type CourseInput, type ExceptionInput, type IngestIndex, type LessonInput, type LessonPatch, type LessonUpsertResult, type SlotCancellationInput, type SlotCancellationResult } from '@sualruhaily/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Fcm } from '../fcm';
 import { getFcm, type Env } from '../index';
+import { MEDIA_MAX_BYTES, MEDIA_TYPES, mediaKeyProblem } from '../media';
 import { sendRecordingPush, shouldPushRecording } from '../jobs/recording-push';
 import {
+  addCancellations,
   addException,
+  getSetting,
+  ingestIndex,
   deleteException,
   listCourses,
   listExceptions,
@@ -19,7 +23,8 @@ import {
   SourceRefConflict,
   upsertLesson,
 } from '../repo';
-import { isRecentDate, medinaDate, normalizeHijri } from '../time';
+import { coursesInSlotOn } from '../schedule';
+import { hijriToMedinaDate, isRecentDate, medinaDate, normalizeHijri } from '../time';
 
 const encoder = new TextEncoder();
 
@@ -89,7 +94,8 @@ function parseLessonInput(b: unknown): LessonInput | null {
     isString(b.startPoint) &&
     (b.recordingUrl === null || isString(b.recordingUrl)) &&
     isString(b.sourceRef) &&
-    b.sourceRef !== '';
+    b.sourceRef !== '' &&
+    (b.notify === undefined || typeof b.notify === 'boolean');
   return ok ? (b as unknown as LessonInput) : null;
 }
 
@@ -104,6 +110,20 @@ function parseException(b: unknown): ExceptionInput | null {
     (b.time === undefined || b.time === null || isTime(b.time)) &&
     (b.note === undefined || isString(b.note));
   return ok ? (b as unknown as ExceptionInput) : null;
+}
+
+function parseSlotCancellation(b: unknown): (SlotCancellationInput & { date: string }) | null {
+  if (!isObject(b)) return null;
+  const slotOk = b.slot === 'fajr' || b.slot === 'asr' || b.slot === 'maghrib';
+  const bothGiven = b.date !== undefined && b.hijriDate !== undefined;
+  if (!slotOk || !isString(b.sourceRef) || b.sourceRef === '' || !isString(b.note) || bothGiven) return null;
+  let date: string | null = null;
+  if (isDate(b.date)) date = b.date as string;
+  else if (isString(b.hijriDate)) {
+    const hijri = normalizeHijri(b.hijriDate);
+    date = hijri && hijriToMedinaDate(hijri);
+  }
+  return date ? { sourceRef: b.sourceRef, slot: b.slot as SlotCancellationInput['slot'], note: b.note, date } : null;
 }
 
 const readJson = (c: { req: { json: () => Promise<unknown> } }) => c.req.json().catch(() => null);
@@ -153,7 +173,7 @@ adminRoutes.post('/api/admin/lessons', async (c) => {
 
   let pushed = false;
   const isRecent = isRecentDate(r.heldDate, c.get('now') ?? new Date());
-  if (shouldPushRecording({ hadLessonsBefore, isNewestInSequence, recordingAdded: r.recordingAdded, isRecent })) {
+  if (input.notify !== false && shouldPushRecording({ hadLessonsBefore, isNewestInSequence, recordingAdded: r.recordingAdded, isRecent })) {
     try {
       const fcm = c.get('fcm') ?? getFcm(c.env.FCM_SERVICE_ACCOUNT ?? '');
       pushed = await sendRecordingPush({ db: c.env.DB, fcm }, course, {
@@ -194,6 +214,54 @@ adminRoutes.post('/api/admin/exceptions', async (c) => {
     return bad(c);
   }
   return c.json({ id: await addException(c.env.DB, input) });
+});
+
+adminRoutes.post('/api/admin/slot-cancellations', async (c) => {
+  const input = parseSlotCancellation(await readJson(c));
+  if (!input) return bad(c);
+  const courseIds = coursesInSlotOn(await listCourses(c.env.DB), input.slot, input.date).map((k) => k.id);
+  const created = await addCancellations(c.env.DB, courseIds, input.date, input.note, input.sourceRef);
+  const result: SlotCancellationResult = { date: input.date, courseIds, created };
+  return c.json(result);
+});
+
+adminRoutes.get('/api/admin/ingest-index', async (c) => {
+  const index: IngestIndex = await ingestIndex(c.env.DB);
+  return c.json(index);
+});
+
+adminRoutes.put('/api/admin/media/lessons/:courseId/:file', async (c) => {
+  const key = `lessons/${c.req.param('courseId')}/${c.req.param('file')}`;
+  if (mediaKeyProblem(key) !== null || !(await listCourses(c.env.DB)).some((course) => course.id === c.req.param('courseId'))) return bad(c);
+  const contentType = c.req.header('Content-Type')?.split(';')[0].trim();
+  if (contentType !== MEDIA_TYPES[key.slice(key.lastIndexOf('.') + 1)]) return c.json({ error: 'unsupported media type' }, 415);
+  const length = c.req.header('Content-Length');
+  if (!length || !/^\d+$/.test(length)) return c.json({ error: 'length required' }, 411);
+  if (Number(length) > MEDIA_MAX_BYTES) return c.json({ error: 'too large' }, 413);
+  if (!c.req.raw.body) return bad(c);
+  try {
+    const stored = await c.env.MEDIA.put(key, c.req.raw.body, { httpMetadata: { contentType } });
+    if (stored.size !== Number(length)) {
+      await c.env.MEDIA.delete(key);
+      return c.json({ error: 'length mismatch' }, 502);
+    }
+  } catch (e) {
+    console.error('media upload failed', key, e);
+    return c.json({ error: 'upload failed' }, 502);
+  }
+  return c.json({ url: `${c.env.MEDIA_BASE}/${key}` });
+});
+
+adminRoutes.put('/api/admin/heartbeat/ingest', async (c) => {
+  const b = await readJson(c);
+  if (!isObject(b) || typeof b.ok !== 'boolean' || !isString(b.summary)) return bad(c);
+  await setSetting(c.env.DB, 'heartbeat_ingest', JSON.stringify({ at: (c.get('now') ?? new Date()).toISOString(), ok: b.ok, summary: b.summary }));
+  return c.body(null, 204);
+});
+
+adminRoutes.get('/api/admin/heartbeats', async (c) => {
+  const raw = await getSetting(c.env.DB, 'heartbeat_ingest');
+  return c.json({ ingest: raw ? JSON.parse(raw) : null });
 });
 
 adminRoutes.delete('/api/admin/exceptions/:id', async (c) => {

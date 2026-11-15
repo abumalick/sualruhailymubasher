@@ -10,6 +10,61 @@ systemctl --user start sualruhaily-agent.service   # run once now
 journalctl --user -t sualruhaily-agent -n 50   # heavy moves the job into a transient scope, so `-u sualruhaily-agent` misses its logs
 ```
 
+## Ingest
+
+`sualruhaily-agent ingest` reads the official channel @Sulalruhaily with the owner's `tdl` session, uploads each
+lesson recording to R2 (`lessons/<course>/<message id>.<mp3|m4a>`) through the admin API and creates the lesson.
+Kaba'ir posts link to the official site: the lesson number, start point and mp3 come from the play page. Absence
+and lecture posts become slot cancellations. Posts are keyed by `tg:<message id>`, so a second pass changes
+nothing; a repost of an ingested lesson is skipped, a corrected caption moves the lesson without a re-upload.
+
+```sh
+uv run sualruhaily-agent ingest [--from-id N] [--no-notify] [--dry-run] [--retry-failed]
+```
+
+- `--from-id N` exports from message N; otherwise from the last 150 ids before the highest one seen (from 859,
+  the first 1448 lesson, on the first run).
+- `--no-notify` never pushes the lessons this run posts (for a backfill).
+- `--dry-run` prints the planned actions and writes nothing: no upload, lesson, cancellation, heartbeat or state.
+- `--retry-failed` retries the posts that failed permanently on an earlier run (see below).
+
+The first run (no `ingest/state.json` yet) is a backfill: it never pushes, whatever the flags say. A post that fails
+the same way on every try (the server refuses it with 400/409/413/415, a file over 95 MB, an unusable play page)
+is recorded in the state and skipped, still counted as failed in the heartbeat, until `--retry-failed`. Server
+errors, network errors and tdl failures are retried on the next run.
+
+It needs `API_BASE` and `ADMIN_TOKEN`; `SUALRUHAILY_AGENT_CACHE` moves its lock (`ingest.lock`), state
+(`ingest/state.json`) and downloads. Every `tdl` call runs under `flock ~/.tdl/cli.lock`, shared with the other
+Telegram tools; when it stays held for 120 s the tick is skipped. Each run ends with a heartbeat
+(`3 lessons, 1 cancellation, 2 skipped, 0 failed`), not ok when a post failed or a caption was not understood.
+"skipped" counts every post that is not a lesson or a cancellation (live-stream notices, khutbas, reposts…).
+
+A post that fails retryably 5 times in a row becomes permanent too (`failed:retries:<last reason>`); a success
+resets its count. A cancellation that matched courses is remembered, so one the owner deletes in /admin does not
+come back. An early 4xx from the media route (the Worker answers before reading the whole body) can reach the
+agent as a transport error instead of the status: it is then retried, within that cap of 5.
+
+`tdl dl` runs with `--restart`: an unfinished download is started over, and tdl's resume state for it is
+discarded (a timer has no terminal to answer tdl's "resume?" question).
+
+The timer runs it every 20 minutes. Install it only after the backfill. The manual run and the timer share the
+default cache (`~/.cache/sualruhaily-agent/`, where `ingest/state.json` lives), so do not set
+`SUALRUHAILY_AGENT_CACHE` for production. Load the environment, look at the plan, run the backfill, review the
+lessons in /admin, then enable the timer:
+
+```sh
+set -a; . ~/.config/sualruhailymubasher/agent.env; set +a
+uv run --frozen --project ~/workspace/dawa/ruhaylimubasher/agent sualruhaily-agent ingest --from-id 859 --dry-run
+uv run --frozen --project ~/workspace/dawa/ruhaylimubasher/agent sualruhaily-agent ingest --from-id 859 --no-notify
+```
+
+```sh
+cp systemd/sualruhaily-ingest.service systemd/sualruhaily-ingest.timer ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now sualruhaily-ingest.timer
+journalctl --user -t sualruhaily-ingest -n 50
+```
+
 A course whose book must not be linked from the app (no public PDF) can still be located: list its local
 PDF files in `agent.env`, one course per `;`, volumes in order separated by `,`:
 

@@ -46,5 +46,16 @@ export interface LessonInput {
   courseId: string; section: string; sectionNumber: number;
   hijriDate: string;                                    // as written in the caption, e.g. "٢٧/ ٥/ ١٤٤٨" or "1448/5/20"
   startPoint: string; recordingUrl: string | null; sourceRef: string;
+  notify?: boolean;                                     // false: never push this recording; absent = true
+}
+export interface SlotCancellationInput {
+  sourceRef: string; slot: Slot; note: string;
+  date?: string;                                        // YYYY-MM-DD, Medina; exactly one of date and hijriDate
+  hijriDate?: string;
+}
+export interface SlotCancellationResult { date: string; courseIds: string[]; created: number; }
+export interface IngestIndex {
+  lessons: { sourceRef: string; courseId: string; section: string; sectionNumber: number; hijriDate: string; recordingUrl: string | null }[]; // hijriDate as stored, DD-MM-YYYY
+  exceptionRefs: string[];
 }
 export interface LessonUpsertResult { number: number; created: boolean; dateFlag: boolean; pushed: boolean; }

@@ -36,3 +36,13 @@ describe('GET /admin lesson list', () => {
     expect(html).toContain('/api/admin/sections/');
   });
 });
+
+describe('GET /admin ingest heartbeat', () => {
+  it('fetches the heartbeat and has the empty and stale wording', async () => {
+    const html = await (await exports.default.fetch('http://example.com/admin')).text();
+    expect(html).toContain('/api/admin/heartbeats');
+    expect(html).toContain('آخر قراءة لقناة التلغرام');
+    expect(html).toContain('لم تُقرأ القناة بعد');
+    expect(html).toContain('id="ingest-status"');
+  });
+});
